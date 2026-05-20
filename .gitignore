@@ -1,0 +1,23 @@
+# Secrets and local overrides - never commit these
+config/application-local.properties
+application-local.properties
+**/application-local.properties
+**/.env
+**/secrets.properties
+
+# TLS keystore - contains private key
+config/keystore.p12
+config/*.p12
+config/*.jks
+config/*.pem
+config/*.key
+
+# Runtime data
+data/
+
+# Build output
+target/
+
+# Frontend build artifacts
+src/main/frontend/node_modules/
+src/main/resources/static/
