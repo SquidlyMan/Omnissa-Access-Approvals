@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getCsrfToken } from '../utils/csrf'
 
 interface Props {
   requestId: string
@@ -21,7 +22,7 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
       const res = await fetch('/api/approvals/response', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
         body: JSON.stringify({ requestId, approved, responseMessage: message }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)

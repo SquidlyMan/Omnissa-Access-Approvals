@@ -30,6 +30,7 @@ omnissa.bootstrap.admin-email=admin@example.com
 #omnissa.admin-oauth.client-id=<oidc-client-id>
 #omnissa.admin-oauth.client-secret=<oidc-client-secret>
 #omnissa.admin-oauth.redirect-uri=https://approvals.flaming.ws/login/oauth2/code/omnissa
+#omnissa.admin-oauth.issuer-uri=https://<tenant>.wss.workspaceone.com/acs
 
 # ── SMTP (optional — for approval email notifications) ───────────────────────
 #spring.mail.host=smtp.yourdomain.com

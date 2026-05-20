@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getCsrfToken } from '../utils/csrf'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -22,7 +23,7 @@ export default function LoginPage() {
     const res = await fetch('/login/local', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-XSRF-TOKEN': getCsrfToken() },
       body: form.toString(),
     })
     if (res.ok || res.redirected) {

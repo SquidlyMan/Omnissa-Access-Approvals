@@ -1,6 +1,10 @@
 package com.omnissa.access.approval.security;
 
 import com.omnissa.access.approval.repository.UserAccountRepository;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -19,8 +23,15 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
 
 @Configuration
 @EnableWebSecurity
@@ -35,10 +46,25 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // CSRF: enabled for browser flows, disabled for the inbound callout API
+            // CSRF: cookie-based so the SPA can read the token via JS and include it
+            // as X-XSRF-TOKEN on mutating requests. The inbound callout endpoint is
+            // excluded because Omnissa Access POSTs there without a browser session.
             .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 .ignoringRequestMatchers("/api/approvals/new")
             )
+            // Force the deferred CSRF token to resolve on every request so the
+            // XSRF-TOKEN cookie is always present by the time the SPA needs it.
+            .addFilterAfter(new OncePerRequestFilter() {
+                @Override
+                protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res,
+                                                FilterChain chain) throws ServletException, IOException {
+                    CsrfToken token = (CsrfToken) req.getAttribute(CsrfToken.class.getName());
+                    if (token != null) token.getToken();
+                    chain.doFilter(req, res);
+                }
+            }, BasicAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // Omnissa Access POSTs callout requests here — must be unauthenticated
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
