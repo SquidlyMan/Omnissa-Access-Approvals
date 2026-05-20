@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSse } from '../hooks/useSse'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
-import type { Stats, Page, CalloutRequest } from '../types'
+import type { Stats, CalloutRequest } from '../types'
 
 interface StatCardProps {
   label: string
@@ -30,16 +30,11 @@ export default function DashboardPage() {
   const [recent, setRecent] = useState<CalloutRequest[]>([])
 
   const loadStats = useCallback(() => {
-    const states = ['pending', 'approved', 'rejected', 'deactivated']
-    Promise.all(
-      states.map(s =>
-        fetch(`/api/approvals/requests?state=${s}&size=1`, { credentials: 'include' })
-          .then(r => r.ok ? r.json() : null)
-          .then((p: Page<CalloutRequest> | null) => [s, p?.totalElements ?? 0] as const)
-      )
-    ).then(results => {
-      setStats(Object.fromEntries(results) as unknown as Stats)
-    })
+    fetch('/api/statistics/approvals', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.approvalStates) setStats(data.approvalStates as Stats)
+      })
   }, [])
 
   const loadRecent = useCallback(() => {

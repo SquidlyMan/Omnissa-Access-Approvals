@@ -26,7 +26,7 @@ public class StatisticsController {
     public ResponseEntity<?> approvalStats() {
         HashMap<String, Integer> approvalStates = new HashMap<>();
         for (State state : State.values()) {
-            approvalStates.put(state.name(), repository.countByState(state.name().toLowerCase()));
+            approvalStates.put(state.name().toLowerCase(), repository.countByState(state.name().toLowerCase()));
         }
 
         List<AppRequests> appReqs = new ArrayList<>();

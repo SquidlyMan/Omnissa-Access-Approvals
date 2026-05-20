@@ -5,6 +5,8 @@ import com.omnissa.access.approval.repository.ApprovalsRepository;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateException;
 import jakarta.mail.internet.MimeMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -19,6 +21,8 @@ import java.util.Map;
 
 @Service
 public class MailNotification {
+
+    private static final Logger logger = LoggerFactory.getLogger(MailNotification.class);
 
     @Autowired
     private JavaMailSender mailSender;
@@ -36,7 +40,7 @@ public class MailNotification {
         try {
             mailSender.send(preparator);
         } catch (MailException e) {
-            e.printStackTrace();
+            logger.error("Failed to send email notification for requestId={}", requestId, e);
         }
     }
 
@@ -54,7 +58,7 @@ public class MailNotification {
             return FreeMarkerTemplateUtils.processTemplateIntoString(
                     freeMarkerConfig.getTemplate(template), model);
         } catch (IOException | TemplateException e) {
-            e.printStackTrace();
+            logger.error("Failed to render mail template {}", template, e);
             return "";
         }
     }

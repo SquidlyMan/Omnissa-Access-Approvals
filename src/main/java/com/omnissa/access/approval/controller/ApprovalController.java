@@ -96,10 +96,12 @@ public class ApprovalController {
             try {
                 approvalsInterface.requestResponse(
                         new CalloutResponse(request.getRequestId(), approved, "bulk action"));
+                mailNotification.sendEmailNotification(request.getRequestId(), approved);
             } catch (Exception e) {
                 logger.error("Bulk action failed for requestId={}", request.getRequestId(), e);
             }
         }
+        sseController.publishQueueUpdate("queue-updated");
         return ResponseEntity.ok(null);
     }
 }

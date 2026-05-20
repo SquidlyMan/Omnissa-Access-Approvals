@@ -65,6 +65,8 @@ public class UserAccount implements UserDetails {
     public Boolean getEnabled() { return enabled; }
     public void setEnabled(Boolean enabled) { this.enabled = enabled; }
 
+    public void setAuthorities(List<Authority> authorities) { this.authorities = authorities; }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return AuthorityUtils.createAuthorityList(authZ(authorities));

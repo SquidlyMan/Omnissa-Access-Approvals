@@ -1,0 +1,39 @@
+# Local-dev overrides for mvn spring-boot:run.
+#
+# How to use:
+#   1. cp config/application-local.properties.example config/application-local.properties
+#   2. Fill in the values below.
+#   3. mvn spring-boot:run -Dspring.config.additional-location=file:./config/ -Dspring.profiles.active=local
+#      Open: http://localhost:8081  (or https://approvals.flaming.ws when deployed via Docker)
+#
+# This file is gitignored — never commit the copy with real credentials.
+
+# ── Omnissa Access — Service client (approvals API) ──────────────────────────
+omnissa.bootstrap.url=<tenant>.wss.workspaceone.com
+omnissa.bootstrap.client-id=<service-client-id>
+omnissa.bootstrap.client-secret=<service-client-secret>
+
+# ── First-run local admin account ────────────────────────────────────────────
+# Auto-created on first startup when the user table is empty.
+# Remove or leave blank to skip (OAuth2 login will still work if configured below).
+omnissa.bootstrap.admin-username=admin
+omnissa.bootstrap.admin-password=<choose-a-strong-password>
+omnissa.bootstrap.admin-email=admin@example.com
+
+# ── Admin OAuth2 login (optional — Omnissa Access as OIDC IdP) ───────────────
+# Required Omnissa Access client config:
+#   Type: User Access Token (Confidential)
+#   Grant: Authorization Code + PKCE
+#   Scopes: openid email profile
+#   Redirect URI: https://approvals.flaming.ws/login/oauth2/code/omnissa
+#
+#omnissa.admin-oauth.client-id=<oidc-client-id>
+#omnissa.admin-oauth.client-secret=<oidc-client-secret>
+#omnissa.admin-oauth.redirect-uri=https://approvals.flaming.ws/login/oauth2/code/omnissa
+
+# ── SMTP (optional — for approval email notifications) ───────────────────────
+#spring.mail.host=smtp.yourdomain.com
+#spring.mail.port=587
+#spring.mail.username=your@email.com
+#spring.mail.password=your-app-password
+#spring.mail.properties.mail.smtp.starttls.enable=true

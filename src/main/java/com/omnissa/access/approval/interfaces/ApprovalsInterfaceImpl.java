@@ -64,7 +64,7 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
                 calloutRequest.setResponseMessage(response.getMessage());
             }
 
-            calloutRequest.setState(response.isApproved() ? "approved" : "denied");
+            calloutRequest.setState(response.isApproved() ? "approved" : "rejected");
             repository.save(calloutRequest);
         } catch (Exception e) {
             logger.error("Failed to submit approval response for requestId={}: {}",
