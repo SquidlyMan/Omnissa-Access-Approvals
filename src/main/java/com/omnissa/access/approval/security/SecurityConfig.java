@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 @Configuration
 @EnableWebSecurity
@@ -26,14 +27,31 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // Omnissa Access POSTs callout requests to this endpoint — must be unauthenticated
+                // Omnissa Access POSTs callout requests here — must be unauthenticated
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
-                // Allow OpenAPI/Swagger UI without auth
+                // OpenAPI / Swagger UI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                // Everything else requires authentication
+                // Health probe for Docker
+                .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()
             )
-            .httpBasic(Customizer.withDefaults());
+            .httpBasic(Customizer.withDefaults())
+            .headers(headers -> headers
+                // HSTS — tell browsers to always use HTTPS for this host (2 years)
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(63072000)
+                    .preload(true)
+                )
+                // Prevent clickjacking
+                .frameOptions(frame -> frame.deny())
+                // Stop browsers from MIME-sniffing
+                .contentTypeOptions(Customizer.withDefaults())
+                // Referrer policy
+                .referrerPolicy(referrer -> referrer
+                    .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
+                )
+            );
         return http.build();
     }
 

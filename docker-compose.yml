@@ -1,0 +1,52 @@
+# Mode 1 (RECOMMENDED) — Caddy handles TLS automatically via Let's Encrypt.
+# Requires a public DNS record pointing to this host.
+#
+# Usage:
+#   APPROVAL_DOMAIN=approval.yourdomain.com docker compose up -d
+#
+# Or copy .env.example → .env and fill in values, then: docker compose up -d
+
+services:
+
+  app:
+    build: .
+    expose:
+      - "8081"
+    environment:
+      SERVER_PORT: 8081
+      OMNISSA_BOOTSTRAP_URL:        ${OMNISSA_BOOTSTRAP_URL}
+      OMNISSA_BOOTSTRAP_CLIENT_ID:  ${OMNISSA_BOOTSTRAP_CLIENT_ID}
+      OMNISSA_BOOTSTRAP_CLIENT_SECRET: ${OMNISSA_BOOTSTRAP_CLIENT_SECRET}
+      SPRING_MAIL_HOST:             ${SPRING_MAIL_HOST:-}
+      SPRING_MAIL_PORT:             ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME:         ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD:         ${SPRING_MAIL_PASSWORD:-}
+    volumes:
+      - app_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      APPROVAL_DOMAIN: ${APPROVAL_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # stores the Let's Encrypt cert
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  caddy_data:
+  caddy_config:

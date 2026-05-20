@@ -1,0 +1,43 @@
+# Mode 2 (STANDALONE) — Spring Boot serves HTTPS directly.
+# Use this when you have your own certificate (corporate CA, purchased cert, etc.)
+# and either don't have a public domain or can't use Let's Encrypt.
+#
+# Before starting:
+#   1. Place your PKCS12 keystore at ./config/keystore.p12
+#      (Run scripts/import-cert.sh if you have PEM files)
+#   2. Copy .env.example → .env and set SSL_KEYSTORE_PASSWORD
+#   3. docker compose -f docker-compose-standalone.yml up -d
+
+services:
+
+  app:
+    build: .
+    ports:
+      - "443:8443"    # HTTPS
+      - "80:8080"     # HTTP (redirects to HTTPS automatically)
+    environment:
+      SERVER_PORT: 8443
+      SERVER_HTTP_PORT: 8080
+      SERVER_SSL_KEY_STORE:          file:./config/keystore.p12
+      SERVER_SSL_KEY_STORE_TYPE:     PKCS12
+      SERVER_SSL_KEY_STORE_PASSWORD: ${SSL_KEYSTORE_PASSWORD}
+      SERVER_SSL_KEY_ALIAS:          omnissa-approval
+      OMNISSA_BOOTSTRAP_URL:         ${OMNISSA_BOOTSTRAP_URL}
+      OMNISSA_BOOTSTRAP_CLIENT_ID:   ${OMNISSA_BOOTSTRAP_CLIENT_ID}
+      OMNISSA_BOOTSTRAP_CLIENT_SECRET: ${OMNISSA_BOOTSTRAP_CLIENT_SECRET}
+      SPRING_MAIL_HOST:              ${SPRING_MAIL_HOST:-}
+      SPRING_MAIL_PORT:              ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME:          ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD:          ${SPRING_MAIL_PASSWORD:-}
+    volumes:
+      - ./config:/app/config:ro   # keystore.p12 lives here
+      - app_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:8443/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  app_data:

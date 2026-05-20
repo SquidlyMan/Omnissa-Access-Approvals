@@ -1,0 +1,27 @@
+# Caddyfile — automatic HTTPS via Let's Encrypt
+# Replace {$APPROVAL_DOMAIN} with your hostname, or set the env var.
+#
+# Caddy automatically:
+#   - Obtains and renews a Let's Encrypt certificate
+#   - Redirects HTTP → HTTPS
+#   - Enables HTTP/2 and TLS 1.2+
+
+{$APPROVAL_DOMAIN:localhost} {
+
+    reverse_proxy app:8081
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "DENY"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+}
