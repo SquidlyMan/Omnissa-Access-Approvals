@@ -2,6 +2,7 @@ package com.omnissa.access.approval.security;
 
 import com.omnissa.access.approval.repository.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,8 +13,14 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -22,37 +29,76 @@ public class SecurityConfig {
     @Autowired
     private UserAccountRepository userAccountRepository;
 
+    @Value("${omnissa.admin-oauth.client-id:}")
+    private String adminClientId;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            // CSRF: enabled for browser flows, disabled for the inbound callout API
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers("/api/approvals/new")
+            )
             .authorizeHttpRequests(auth -> auth
                 // Omnissa Access POSTs callout requests here — must be unauthenticated
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
+                // Static assets served by Vite build
+                .requestMatchers("/assets/**", "/favicon.ico", "/vite.svg").permitAll()
                 // OpenAPI / Swagger UI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // Health probe for Docker
                 .requestMatchers("/actuator/health").permitAll()
+                // Login page and OAuth2 endpoints
+                .requestMatchers("/login", "/login/**", "/oauth2/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .httpBasic(Customizer.withDefaults())
+            // OAuth2 login — only wired when an admin OAuth2 client-id is configured
+            .oauth2Login(oauth2 -> oauth2
+                .loginPage("/login")
+                .defaultSuccessUrl("/", true)
+                .userInfoEndpoint(userInfo -> userInfo
+                    .oidcUserService(oidcUserService())
+                )
+            )
+            // Form login — local username/password fallback
+            .formLogin(form -> form
+                .loginPage("/login")
+                .loginProcessingUrl("/login/local")
+                .defaultSuccessUrl("/", true)
+                .failureUrl("/login?error=true")
+                .permitAll()
+            )
+            .logout(logout -> logout
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                .logoutSuccessUrl("/login?logout=true")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID")
+            )
+            // API calls from SPA get 401, not a redirect
+            .exceptionHandling(ex -> ex
+                .defaultAuthenticationEntryPointFor(
+                    new LoginUrlAuthenticationEntryPoint("/login"),
+                    new AntPathRequestMatcher("/**")
+                )
+            )
             .headers(headers -> headers
-                // HSTS — tell browsers to always use HTTPS for this host (2 years)
                 .httpStrictTransportSecurity(hsts -> hsts
                     .includeSubDomains(true)
                     .maxAgeInSeconds(63072000)
                     .preload(true)
                 )
-                // Prevent clickjacking
                 .frameOptions(frame -> frame.deny())
-                // Stop browsers from MIME-sniffing
                 .contentTypeOptions(Customizer.withDefaults())
-                // Referrer policy
                 .referrerPolicy(referrer -> referrer
                     .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
                 )
             );
         return http.build();
+    }
+
+    @Bean
+    public OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
+        return new OidcUserService();
     }
 
     @Bean

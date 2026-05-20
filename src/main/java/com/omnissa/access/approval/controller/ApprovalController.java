@@ -19,6 +19,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+
 @RestController
 @RequestMapping(value = Mappings.APPROVALS)
 public class ApprovalController {
@@ -33,6 +35,9 @@ public class ApprovalController {
 
     @Autowired
     MailNotification mailNotification;
+
+    @Autowired
+    SseController sseController;
 
     @GetMapping("/pending/remote")
     public ResponseEntity<?> getRemotePendingApprovals() {
@@ -62,6 +67,7 @@ public class ApprovalController {
                 ? "deactivated" : "pending");
 
         approvalsRepository.save(calloutRequest);
+        sseController.publishNewRequest(calloutRequest);
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
@@ -71,6 +77,7 @@ public class ApprovalController {
         try {
             approvalsInterface.requestResponse(calloutResponse);
             mailNotification.sendEmailNotification(calloutResponse.getRequestId(), calloutResponse.isApproved());
+            sseController.publishQueueUpdate("queue-updated");
         } catch (Exception e) {
             logger.error("Error processing approval response", e);
         }
