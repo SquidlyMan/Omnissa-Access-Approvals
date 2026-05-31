@@ -123,6 +123,9 @@ Enables Omnissa Access as an OIDC identity provider for administrator login. If 
 | `OMNISSA_ADMIN_OAUTH_CLIENT_SECRET` | No | OIDC client secret |
 | `OMNISSA_ADMIN_OAUTH_REDIRECT_URI` | No | Redirect URI registered in Omnissa Access. Default: `https://approvals.flaming.ws/login/oauth2/code/omnissa` |
 | `OMNISSA_ADMIN_OAUTH_ISSUER_URI` | No | OIDC issuer URI, e.g. `https://tenant.wss.workspaceone.com/acs` |
+| `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT` | No | Set to `true` to automatically disable the Omnissa Access consent screen on the OIDC client at startup. Requires the ApprovalService client to have admin rights. Default: `false`. See tip below. |
+
+> **Consent screen tip:** If `User Consent Prompt` is enabled on your `ApprovalAdmin` OIDC client in Omnissa Access, admins will see a consent screen on their first OAuth2 login. This is harmless but unnecessary for an internal tool you control. Once you have confirmed that OAuth2 login works, set `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` and restart — the app will call the Omnissa Access admin API to disable it automatically. The startup log will remind you of this option every run until it is set.
 
 ### Email Notifications (Optional)
 

@@ -31,6 +31,10 @@ omnissa.bootstrap.admin-email=admin@example.com
 #omnissa.admin-oauth.client-secret=<oidc-client-secret>
 #omnissa.admin-oauth.redirect-uri=https://approvals.flaming.ws/login/oauth2/code/omnissa
 #omnissa.admin-oauth.issuer-uri=https://<tenant>.wss.workspaceone.com/acs
+# Set to true to automatically disable the Omnissa Access consent screen on the OIDC client
+# above. Requires the ApprovalService client to have admin rights. Tip: leave this false on
+# first run; the app will log a reminder. Enable it once you have confirmed login works.
+#omnissa.admin-oauth.disable-consent=false
 
 # ── SMTP (optional — for approval email notifications) ───────────────────────
 #spring.mail.host=smtp.yourdomain.com
