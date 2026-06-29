@@ -69,3 +69,31 @@ of which exhibits the issue.
 - The "jump around" suggests the scroll position is being reset/recalculated
   (possibly on content re-render or selection-change events).
 - Occurs on the latest iPadOS and latest Claude iPadOS app as of 2026-06-29.
+
+## Related Issues / Prior Art
+A search of the `anthropics/claude-code` GitHub issues found **no exact
+duplicate**. The issues below are thematically related (all involve unwanted
+scroll-to-top behavior) but none combines this report's distinguishing factors:
+**iPadOS app specifically**, triggered by **user text selection** on an **idle /
+static long thread**, scoped to **remote macOS sessions only**.
+
+- [#28991](https://github.com/anthropics/claude-code/issues/28991) — Remote
+  Control (iOS Claude app): `AskUserQuestion` text truncated. _Same mobile-app +
+  remote-macOS-host family, but a different symptom (truncation, not
+  selection-triggered scroll)._
+- [#35177](https://github.com/anthropics/claude-code/issues/35177) — Terminal
+  output pushes scroll position; can't select/copy/read previous output. _CLI
+  terminal (iTerm2), triggered by output generation, not static-thread text
+  selection._
+- [#47643](https://github.com/anthropics/claude-code/issues/47643) — Switching
+  conversations in Code tab scrolls to top. _macOS desktop app, triggered by
+  conversation switching; closed as not planned._
+- [#34765](https://github.com/anthropics/claude-code/issues/34765),
+  [#34400](https://github.com/anthropics/claude-code/issues/34400),
+  [#33814](https://github.com/anthropics/claude-code/issues/33814),
+  [#36582](https://github.com/anthropics/claude-code/issues/36582) — Scroll
+  position resets to top during processing / generation. _All CLI/terminal,
+  triggered by active generation — not user text selection on an idle thread._
+
+The Claude Developers Discord was not searched (content is login-gated and not
+web-indexed); check it manually before filing if possible.
