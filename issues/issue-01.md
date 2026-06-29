@@ -52,9 +52,15 @@ Always — happens every time for sessions matching these parameters (remote mac
 session, long thread, selecting near the most recent response in the iPadOS app).
 
 ## Screenshots / Recordings
-A screen recording of the auto-scroll/jump behavior exists but has **not** been
-attached: it could not be compressed under the 30 MB upload limit of the Claude
-Code session. The recording can be provided separately on request.
+A screen recording demonstrating the auto-scroll/jump-to-top and deselection
+behavior is available.
+
+**Video evidence:** <paste link here — YouTube (unlisted), iCloud, Google Drive,
+Dropbox, etc.>
+
+Note: the recording could not be compressed under the 30 MB upload limit of the
+Claude Code session it was authored in, so it is shared via link rather than
+attached inline here.
 
 ## Workaround
 No in-app workaround found on iPadOS. The only way around it is to use a
