@@ -12,9 +12,9 @@ from recent responses in long sessions, which is a core interaction.
 
 ## Environment
 - **App:** Claude for iPadOS
-- **App version:** Latest version available as of 2026-06-29 <fill in exact build #>
-- **iPadOS version:** Latest version available as of 2026-06-29 <fill in exact #>
-- **Device:** <e.g. iPad Pro 11" (M4)>
+- **App version:** Claude 1.260618.1 (27978583058)
+- **iPadOS version:** iPadOS 26.5
+- **Device:** iPad model MWT13LL/A (A2926)
 - **Orientation / mode:** Full screen only (not Split View, not Stage Manager). Reproduces in both portrait and landscape — orientation does not matter.
 - **Account / plan:** <Free | Pro | Team | etc.>
 - **Session type:** Remote-controlled Claude Code session running in a terminal
@@ -74,7 +74,8 @@ of which exhibits the issue.
   Claude iPhone app.
 - The "jump around" suggests the scroll position is being reset/recalculated
   (possibly on content re-render or selection-change events).
-- Occurs on the latest iPadOS and latest Claude iPadOS app as of 2026-06-29.
+- Occurs on iPadOS 26.5 with Claude app 1.260618.1 (27978583058), both the
+  latest available as of 2026-06-29.
 
 ## Related Issues / Prior Art
 A search of the `anthropics/claude-code` GitHub issues found **no exact
