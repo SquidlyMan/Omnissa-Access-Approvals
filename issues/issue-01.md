@@ -14,7 +14,7 @@ from recent responses in long sessions, which is a core interaction.
 - **App:** Claude for iPadOS
 - **App version:** Claude 1.260618.1 (27978583058)
 - **iPadOS version:** iPadOS 26.5
-- **Device:** iPad model MWT13LL/A (A2926)
+- **Device:** iPad Pro 13-inch (M4) — model MWT13LL/A (A2926)
 - **Orientation / mode:** Full screen only (not Split View, not Stage Manager). Reproduces in both portrait and landscape — orientation does not matter.
 - **Account / plan:** <Free | Pro | Team | etc.>
 - **Session type:** Remote-controlled Claude Code session running in a terminal
