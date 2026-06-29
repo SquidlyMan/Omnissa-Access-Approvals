@@ -9,7 +9,7 @@ Each issue is documented in its own Markdown file using the template in
 
 | # | Title | Severity | Status |
 |---|-------|----------|--------|
-| 1 | _TBD — see [`issue-01.md`](./issue-01.md)_ | _TBD_ | Open |
+| 1 | [Selecting text in a long thread auto-scrolls to top and deselects](./issue-01.md) | Medium | Open |
 | 2 | _TBD — see [`issue-02.md`](./issue-02.md)_ | _TBD_ | Open |
 
 ## How to file a new issue
