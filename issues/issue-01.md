@@ -76,6 +76,9 @@ of which exhibits the issue.
   (possibly on content re-render or selection-change events).
 - Occurs on iPadOS 26.5 with Claude app 1.260618.1 (27978583058), both the
   latest available as of 2026-06-29.
+- Input method does not matter: reproduces both **with** and **without** the
+  iPad Pro Magic Keyboard and trackpad attached (i.e. with touch selection and
+  with trackpad/cursor selection alike).
 
 ## Related Issues / Prior Art
 A search of the `anthropics/claude-code` GitHub issues found **no exact
