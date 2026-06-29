@@ -25,10 +25,14 @@ In the **Claude iPadOS app**, while viewing a **remote-controlled Claude Code se
 | **Session** | Remote-controlled Claude Code session in a terminal on macOS (latest), controlled via the iPadOS app |
 
 ### Steps to reproduce
-1. Open a remote-controlled Claude Code session (terminal on macOS, latest version) in the Claude iPadOS app.
-2. Let the thread grow long (content scrolls well beyond one screen).
-3. Scroll down to the most recent response at the bottom of the thread.
-4. Touch and hold (or use the trackpad) to begin selecting text near that recent response.
+1. On a Mac running the latest macOS, start a Claude Code session in a terminal and enable Remote Control for it.
+2. On the iPad Pro, open the Claude iPadOS app in **full screen** (not Split View, not Stage Manager) and open that remote macOS session. (Orientation and whether the Magic Keyboard/trackpad is attached do not matter.)
+3. Let the session run until the thread is **long** — content scrolls well beyond one screen. (Short threads do not trigger it.)
+4. Scroll down so the **most recent response** is on screen.
+5. Touch-and-hold (or use the trackpad) on text in or near that most recent response to begin a selection.
+6. Observe the view auto-scroll toward the top, jump around, and clear the selection before you can copy.
+
+**Result:** It is effectively impossible to select/copy text from recent responses in a long thread. Reproduces every time under these conditions.
 
 ### Expected behavior
 The text I select stays selected, and the view holds its scroll position so I can adjust the selection handles and copy.
