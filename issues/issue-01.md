@@ -12,13 +12,24 @@ from recent responses in long sessions, which is a core interaction.
 
 ## Environment
 - **App:** Claude for iPadOS
-- **App version:** <e.g. 1.2.3 (456)>
-- **iPadOS version:** <e.g. 17.5>
+- **App version:** Latest version available as of 2026-06-29 <fill in exact build #>
+- **iPadOS version:** Latest version available as of 2026-06-29 <fill in exact #>
 - **Device:** <e.g. iPad Pro 11" (M4)>
 - **Orientation / mode:** <portrait | landscape | Stage Manager | Split View | Slide Over>
 - **Account / plan:** <Free | Pro | Team | etc.>
 - **Session type:** Remote-controlled Claude Code session running in a terminal
   on macOS (latest version), viewed/controlled through the Claude iPadOS app.
+
+## Scope / Affected Configurations
+This issue is specific to **remote-controlled Claude Code sessions whose remote
+host is macOS**. It does **not** reproduce on:
+- Remote Claude Code sessions running on other (non-macOS) systems.
+- Claude Code sessions running locally through the Claude iPadOS app (i.e. not
+  remote-controlled).
+
+This strongly suggests the bug is tied to how the iPadOS app renders/handles the
+macOS remote session view specifically, rather than to text selection in threads
+in general.
 
 ## Steps to Reproduce
 1. Start or open a remote-controlled Claude Code session (terminal on macOS, latest version) in the Claude iPadOS app.
@@ -39,12 +50,17 @@ my text selection is cleared.
 selecting near the most recent response.
 
 ## Screenshots / Recordings
-<Drop image/video files alongside this report and link them here, e.g. `![](./issue-01-1.png)`. A screen recording of the auto-scroll/jump is ideal.>
+A screen recording of the auto-scroll/jump behavior exists but has **not** been
+attached: it could not be compressed under the 30 MB upload limit of the Claude
+Code session. The recording can be provided separately on request.
 
 ## Workaround
 <Any temporary workaround, or "None known".>
 
 ## Additional Notes
 - Reproduced specifically in long threads; short threads may not trigger it.
+- Reproduces **only** on remote macOS sessions — not on remote non-macOS
+  sessions, and not on local (non-remote) sessions in the iPadOS app.
 - The "jump around" suggests the scroll position is being reset/recalculated
   (possibly on content re-render or selection-change events).
+- Occurs on the latest iPadOS and latest Claude iPadOS app as of 2026-06-29.
