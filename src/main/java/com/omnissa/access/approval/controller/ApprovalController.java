@@ -58,8 +58,14 @@ public class ApprovalController {
 
     @PostMapping(value = "/new",
             consumes = {CustomContentTypes.APPROVAL_MESSAGE_REQUEST, CustomContentTypes.MESSAGING_MESSAGE})
-    public ResponseEntity<?> saveCalloutRequest(@RequestBody CalloutRequest calloutRequest) {
-        RestPreconditions.checkNotNull(calloutRequest, "CalloutRequest could not be read");
+    public ResponseEntity<?> saveCalloutRequest(@RequestBody(required = false) CalloutRequest calloutRequest) {
+        // Access sends an empty test POST when the approvals settings are saved —
+        // acknowledge it but don't store a junk all-null request (it blanks the UI).
+        if (calloutRequest == null || calloutRequest.getRequestId() == null
+                || calloutRequest.getRequestId().isBlank()) {
+            logger.info("Ignoring callout probe without requestId");
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
         logger.info("Received callout request: {}", calloutRequest);
 
         calloutRequest.setState(calloutRequest.getOperation() == CalloutOperation.deactivation
