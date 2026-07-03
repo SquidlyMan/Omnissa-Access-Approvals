@@ -199,7 +199,7 @@ Enables Omnissa Access as an OIDC identity provider for administrator login. If 
 | `OMNISSA_ADMIN_OAUTH_CLIENT_ID` | No | OIDC client ID from Omnissa Access |
 | `OMNISSA_ADMIN_OAUTH_CLIENT_SECRET` | No | OIDC client secret |
 | `OMNISSA_ADMIN_OAUTH_REDIRECT_URI` | No | Redirect URI registered in Omnissa Access. Default: `https://approvals.flaming.ws/login/oauth2/code/omnissa` |
-| `OMNISSA_ADMIN_OAUTH_ISSUER_URI` | No | OIDC issuer URI, e.g. `https://tenant.wss.workspaceone.com/acs` |
+| `OMNISSA_ADMIN_OAUTH_ISSUER_URI` | No | OIDC issuer URI: `https://<tenant>/SAAS/auth` — the issuer value advertised in `/.well-known/openid-configuration`, **not** `/acs` |
 | `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT` | No | Set to `true` to automatically disable the Omnissa Access consent screen on the OIDC client at startup. Requires the ApprovalService client to have admin rights. Default: `false`. See tip below. |
 
 > **Consent screen tip:** If `User Consent Prompt` is enabled on your `ApprovalAdmin` OIDC client in Omnissa Access, admins will see a consent screen on their first OAuth2 login. This is harmless but unnecessary for an internal tool you control. Once you have confirmed that OAuth2 login works, set `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` and restart — the app will call the Omnissa Access admin API to disable it automatically. The startup log will remind you of this option every run until it is set.
@@ -215,10 +215,19 @@ Enables Omnissa Access as an OIDC identity provider for administrator login. If 
 
 ### Syslog Export (Optional)
 
+Forwards all application logs (including the `AUDIT` logger) to a syslog server.
+
 | Variable | Required | Description |
 |---|---|---|
-| `SYSLOG_HOST` | No | Syslog server to forward application logs to (UDP). Blank = disabled |
-| `SYSLOG_PORT` | No | Syslog port. Default: `514` |
+| `SYSLOG_HOST` | No | Syslog server to forward application logs to. Blank = disabled |
+| `SYSLOG_PORT` | No | Syslog port — a port **number** only, e.g. `514`. The transport is selected by `SYSLOG_PROTOCOL`, not here. Default: `514` |
+| `SYSLOG_PROTOCOL` | No | Transport: `udp`, `tcp`, or `tls` (case-insensitive). Unknown values log a warning and fall back to `udp`. TCP/TLS use newline-delimited RFC 3164 framing (accepted by rsyslog and Graylog); delivery never blocks the app — on connection failure events are dropped and reconnection is attempted on the next event. Default: `udp` |
+| `SYSLOG_CA_PEM` | No | TLS only. Inline PEM CA certificate bundle used to verify the syslog server (for private or self-signed CAs). Blank = platform default trust store |
+| `SYSLOG_CLIENT_CERT_PEM` | No | TLS only. Inline PEM client certificate (chain) for mutual TLS. Must be set together with the client key |
+| `SYSLOG_CLIENT_KEY_PEM` | No | TLS only. Inline PEM client private key — unencrypted PKCS#8 (`BEGIN PRIVATE KEY`). Convert legacy PKCS#1/SEC1 keys with `openssl pkcs8 -topk8 -nocrypt` |
+| `SYSLOG_CA_FILE` | No | TLS only. File-path variant of `SYSLOG_CA_PEM`; takes precedence when both are set. Container path — put files under `/app/data/certs/` (the persistent volume) |
+| `SYSLOG_CLIENT_CERT_FILE` | No | TLS only. File-path variant of `SYSLOG_CLIENT_CERT_PEM`; takes precedence when both are set |
+| `SYSLOG_CLIENT_KEY_FILE` | No | TLS only. File-path variant of `SYSLOG_CLIENT_KEY_PEM`; takes precedence when both are set |
 
 ### Webhook Notifications (Optional)
 
@@ -283,7 +292,7 @@ Allows administrators to log in using their Omnissa Access credentials.
    - **Scopes:** `openid`, `email`, `profile`
    - **Redirect URI:** `https://<APPROVAL_DOMAIN>/login/oauth2/code/omnissa`
 2. Copy the **Client ID** and **Client Secret** into `OMNISSA_ADMIN_OAUTH_CLIENT_ID` and `OMNISSA_ADMIN_OAUTH_CLIENT_SECRET`.
-3. Set `OMNISSA_ADMIN_OAUTH_ISSUER_URI` to `https://<your-tenant>/acs`.
+3. Set `OMNISSA_ADMIN_OAUTH_ISSUER_URI` to `https://<your-tenant>/SAAS/auth` (the issuer advertised in the tenant's `/.well-known/openid-configuration`, not `/acs`).
 4. Restrict which users can authenticate using this client in the Omnissa Access console — all authenticated users will receive admin access to the approval UI.
 
 ---

@@ -75,13 +75,6 @@ export default function QueuePage() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-semibold text-gray-900">Queue</h1>
-        <a
-          href="/api/approvals/export.csv"
-          download
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          Export CSV
-        </a>
       </div>
 
       {/* Live update banner */}
@@ -113,6 +106,16 @@ export default function QueuePage() {
 
       {/* Audit trail */}
       {activeState === 'audit' && (
+        <>
+        <div className="flex justify-end mb-3">
+          <a
+            href="/api/approvals/export.csv"
+            download
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Export CSV
+          </a>
+        </div>
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {!auditPage || auditPage.content.length === 0 ? (
             <p className="text-sm text-gray-400 px-5 py-8 text-center">No audit events recorded yet.</p>
@@ -168,6 +171,7 @@ export default function QueuePage() {
             </>
           )}
         </div>
+        </>
       )}
 
       {/* Request list */}

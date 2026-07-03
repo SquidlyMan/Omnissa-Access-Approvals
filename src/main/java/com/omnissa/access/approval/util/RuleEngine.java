@@ -4,6 +4,7 @@ import com.omnissa.access.approval.model.AutoRule;
 import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.repository.AutoRuleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -25,9 +26,12 @@ public class RuleEngine {
 
     /**
      * Returns the first enabled MATCH rule that matches the request, or null.
+     *
+     * Precedence contract: enabled MATCH rules are evaluated in ascending
+     * rule ID order (oldest rule first) and the first match wins.
      */
     public AutoRule evaluate(CalloutRequest request) {
-        for (AutoRule rule : autoRuleRepository.findAll()) {
+        for (AutoRule rule : autoRuleRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))) {
             if (!rule.isEnabled() || rule.getExpiryDays() != null) {
                 continue;
             }

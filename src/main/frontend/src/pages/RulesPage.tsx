@@ -28,7 +28,11 @@ export default function RulesPage() {
   const load = useCallback(() => {
     fetch('/api/rules', { credentials: 'include' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`Server error ${r.status}`)))
-      .then((data: Rule[]) => { setRules(data); setError('') })
+      .then((data: Rule[]) => {
+        // Rules are evaluated in ascending id order — display them the same way.
+        setRules([...data].sort((a, b) => a.id - b.id))
+        setError('')
+      })
       .catch(() => setError('Failed to load rules.'))
   }, [])
 
@@ -105,10 +109,14 @@ export default function RulesPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-gray-900 mb-2">Auto-Approval Rules</h1>
-      <p className="text-sm text-gray-500 mb-6 max-w-3xl">
+      <p className="text-sm text-gray-500 mb-2 max-w-3xl">
         Rules automatically approve or reject incoming access requests by application name and
         group membership, or auto-reject requests that stay pending too long. All rule decisions
         are recorded in the Audit trail.
+      </p>
+      <p className="text-xs text-gray-400 mb-6 max-w-3xl">
+        Rules are evaluated in order — the first enabled rule that matches a request wins. Expiry
+        rules run independently on an hourly schedule.
       </p>
 
       {error && (
@@ -125,6 +133,13 @@ export default function RulesPage() {
           <ul className="divide-y divide-gray-100">
             {rules.map(rule => (
               <li key={rule.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
+                <span
+                  className={`shrink-0 inline-block rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap
+                    ${rule.enabled ? 'bg-gray-100 text-gray-600' : 'bg-gray-100 text-gray-400'}`}
+                  title="Rule number — rules are evaluated in ascending order"
+                >
+                  #{rule.id}
+                </span>
                 <div className="flex-1 min-w-0">
                   <p className={`font-medium truncate ${rule.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
                     {describeRule(rule)}
