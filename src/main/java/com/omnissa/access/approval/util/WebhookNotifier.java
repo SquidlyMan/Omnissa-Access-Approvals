@@ -66,7 +66,7 @@ public class WebhookNotifier {
             // Teams incoming webhooks accept the same simple text payload as Slack.
             payload.put("text", "New access request: " + request.getResourceName()
                     + " requested by user " + request.getUserId()
-                    + " — approve or reject in the Omnissa Access Approval Tool.");
+                    + " — approve or reject in the Access Approval Tool.");
         } else {
             payload.put("event", "request.created");
             payload.put("requestId", request.getRequestId());

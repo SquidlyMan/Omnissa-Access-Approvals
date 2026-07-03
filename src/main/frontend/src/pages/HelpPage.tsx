@@ -76,7 +76,7 @@ export default function HelpPage() {
       <div className="space-y-6 max-w-4xl">
         <HelpSection title="Overview">
           <p>
-            The Omnissa Access Approval Tool receives approval callouts from Omnissa Access whenever
+            The Access Approval Tool for Omnissa receives approval callouts from Omnissa Access whenever
             a user requests an application. Requests appear in this tool's queue, where
             administrators review and approve or reject them. Each decision is sent back to
             Omnissa Access, which then grants or withholds the application for the user.
@@ -259,11 +259,11 @@ export default function HelpPage() {
           <p>
             Example <Code>generic</Code> payload:
           </p>
-          <CodeBlock>{'{"event":"request.created","requestId":"8ab7df4b-...","resourceName":"I Am Showcase (PingFed)","userId":"751802","operation":"activation","receivedDate":"2026-07-03T08:11:43Z"}'}</CodeBlock>
+          <CodeBlock>{'{"event":"request.created","requestId":"8ab7df4b-...","resourceName":"Example App (SAML)","userId":"123456","operation":"activation","receivedDate":"2026-07-03T08:11:43Z"}'}</CodeBlock>
           <p>
             Example <Code>slack</Code>/<Code>teams</Code> payload:
           </p>
-          <CodeBlock>{'{"text":"New access request: I Am Showcase (PingFed) requested by user 751802 — approve or reject in the Omnissa Access Approval Tool."}'}</CodeBlock>
+          <CodeBlock>{'{"text":"New access request: Example App (SAML) requested by user 123456 — approve or reject in the Access Approval Tool."}'}</CodeBlock>
           <p>
             Configuration changes are made in the env file (or container key values) and require a
             container recreate to apply. Delivery failures never block request ingestion — they are
@@ -298,11 +298,11 @@ export default function HelpPage() {
               <Code>*</Code> matches every application.
             </li>
             <li>
-              <Code>I Am Showcase*</Code> matches "I Am Showcase (PingFed)" and "I Am Showcase
-              (Access)".
+              <Code>Example App*</Code> matches "Example App (SAML)" and "Example App
+              (OIDC)".
             </li>
             <li>
-              <Code>*PingFed*</Code> matches any app containing PingFed.
+              <Code>*SAML*</Code> matches any app containing SAML.
             </li>
             <li>
               <Code>Salesforce</Code> matches only the app named exactly Salesforce.

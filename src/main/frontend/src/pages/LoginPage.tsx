@@ -71,7 +71,7 @@ export default function LoginPage() {
               <path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4z"/>
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900">Omnissa Access Approval Tool</h1>
+          <h1 className="text-xl font-semibold text-gray-900">Access Approval Tool for Omnissa</h1>
           <p className="text-sm text-gray-500 mt-1">Sign in to manage access requests</p>
         </div>
 

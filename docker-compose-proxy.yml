@@ -7,7 +7,7 @@
 #   1. cp .env.example .env and fill in values (APPROVAL_DOMAIN and
 #      SSL_KEYSTORE_PASSWORD are not used in this mode)
 #   2. docker compose -f docker-compose-proxy.yml up -d --build
-#   3. Point your proxy at http://<host>:8081 for approvals.flaming.ws
+#   3. Point your proxy at http://<host>:8081 for approvals.example.com
 #      (see README "Deploying behind your own reverse proxy" for the nginx config —
 #      the SSE endpoint /api/approvals/stream needs proxy_buffering off)
 
@@ -31,7 +31,7 @@ services:
       OMNISSA_BOOTSTRAP_ADMIN_EMAIL:    ${OMNISSA_BOOTSTRAP_ADMIN_EMAIL:-}
       OMNISSA_ADMIN_OAUTH_CLIENT_ID:    ${OMNISSA_ADMIN_OAUTH_CLIENT_ID:-}
       OMNISSA_ADMIN_OAUTH_CLIENT_SECRET: ${OMNISSA_ADMIN_OAUTH_CLIENT_SECRET:-}
-      OMNISSA_ADMIN_OAUTH_REDIRECT_URI: ${OMNISSA_ADMIN_OAUTH_REDIRECT_URI:-https://approvals.flaming.ws/login/oauth2/code/omnissa}
+      OMNISSA_ADMIN_OAUTH_REDIRECT_URI: ${OMNISSA_ADMIN_OAUTH_REDIRECT_URI:-https://approvals.example.com/login/oauth2/code/omnissa}
       OMNISSA_ADMIN_OAUTH_ISSUER_URI:        ${OMNISSA_ADMIN_OAUTH_ISSUER_URI:-}
       OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT:   ${OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT:-false}
       SPRING_MAIL_HOST:                 ${SPRING_MAIL_HOST:-}

@@ -1,78 +1,82 @@
-# Omnissa Access Approvals
+# Access Approval Tool for Omnissa
 
-A Spring Boot 3.2 + React/TypeScript approval gateway for Omnissa Access (formerly VMware Workspace ONE Access). When a user requests access to an application, Omnissa Access POSTs a callout to this service; administrators approve or deny the request through a web UI. Decisions are sent back to Omnissa Access via the service client API.
+A self-hosted approval gateway for Omnissa Access (Workspace ONE): users request applications from the catalog, administrators approve or deny them in a live web queue, and decisions flow back to Omnissa Access automatically.
 
----
+> **NOTICE:** This is an independent community project — **not an Omnissa product** and not affiliated with, endorsed by, or supported by Omnissa, LLC. It is provided **as-is, without warranty**, and is intended for **testing, lab, and demo use only — not production**. See [NOTICE.md](NOTICE.md).
 
-## Prerequisites
+[![CI](https://github.com/SquidlyMan/Omnissa-Access-Approvals/actions/workflows/ci.yml/badge.svg)](https://github.com/SquidlyMan/Omnissa-Access-Approvals/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/SquidlyMan/Omnissa-Access-Approvals/actions/workflows/codeql.yml/badge.svg)](https://github.com/SquidlyMan/Omnissa-Access-Approvals/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Container](https://img.shields.io/badge/ghcr.io-omnissa--access--approvals-2496ED?logo=docker&logoColor=white)](https://github.com/SquidlyMan/Omnissa-Access-Approvals/pkgs/container/omnissa-access-approvals)
 
-- Docker and Docker Compose (for production deployment)
-- A publicly reachable domain name pointing to your server (for Caddy/HTTPS mode)
-- Java 17 and Maven 3.9+ (for local development only)
-- An Omnissa Access tenant with administrator access
+When a user requests access to an application, Omnissa Access POSTs a callout to this service; administrators approve or deny the request through a web UI, and the decision is sent back via the Omnissa Access service client API.
 
----
+## Features
 
-## Quick Start — Docker + Caddy (Recommended)
+- **Approval queue** with live updates (Server-Sent Events) and a Deactivated list
+- **Native Omnissa Access callout integration** — messaging-envelope parsing, decision posting, connectivity status tile
+- **Admin login**: local account and/or "Sign in with Omnissa Access" (OIDC + PKCE), optional OAuth-only mode, automatic consent-screen disable
+- **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence
+- **Audit trail** with admin identity, plus **CSV export**
+- **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats
+- **Ops** — log bundle download, syslog export (UDP/TCP/TLS with client certs), health endpoint
+- **API hardening** — optional Basic auth and per-IP rate limiting on the callout endpoint
 
-Caddy acts as a reverse proxy and obtains a TLS certificate automatically via Let's Encrypt.
+## Quick Start
 
-**1. Clone the repository**
+Pull the image (once published) and run it with an env file and a data volume:
 
 ```bash
-git clone https://github.com/squidlyman/Omnissa-Access-Approvals.git
+docker pull ghcr.io/squidlyman/omnissa-access-approvals:latest
+
+docker run -d --name omnissa-approvals \
+  --env-file omnissa-approvals.env \
+  -v ./data:/app/data \
+  -p 8081:8081 \
+  --restart unless-stopped \
+  ghcr.io/squidlyman/omnissa-access-approvals:latest
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/SquidlyMan/Omnissa-Access-Approvals.git
 cd Omnissa-Access-Approvals
+docker build -t omnissa-access-approvals .
 ```
 
-**2. Create and edit the environment file**
+Use [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-approvals.env.example) as the env-file template, put a TLS reverse proxy in front (only `POST /api/approvals/new` must be internet-reachable), and configure your tenant — full walkthroughs in the docs:
+
+## Documentation
+
+- [Deployment](docs/deployment.md) — Docker/Compose, reverse-proxy requirements, inbound connectivity, ZimaCube
+- [Configuration reference](docs/configuration.md) — every environment variable
+- [Omnissa Access setup](docs/omnissa-access-setup.md) — OAuth clients, Settings > Approvals, per-app approval
+- [Troubleshooting](docs/troubleshooting.md) — real failure modes and fixes
+- [SECURITY.md](SECURITY.md) — reporting vulnerabilities, endpoint scope, hardening
+- [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup and PR guidelines
+- [CHANGELOG.md](CHANGELOG.md) — release history
+
+---
+
+## Deployment Modes
+
+Three Compose files are provided; pick one. Details in [docs/deployment.md](docs/deployment.md).
+
+### Docker + Caddy (automatic HTTPS)
+
+Caddy acts as a reverse proxy and obtains a TLS certificate automatically via Let's Encrypt. Requires a publicly reachable domain and open ports 80/443.
 
 ```bash
-cp .env.example .env
-```
-
-Fill in the required values. See [Configuration Reference](#configuration-reference) below.
-
-**3. Start the stack**
-
-```bash
+git clone https://github.com/SquidlyMan/Omnissa-Access-Approvals.git
+cd Omnissa-Access-Approvals
+cp .env.example .env    # fill in values — see docs/configuration.md
 docker compose up -d
 ```
 
-The application will be available at `https://<APPROVAL_DOMAIN>`. Caddy handles certificate issuance on first startup — ensure ports 80 and 443 are open and DNS resolves to your server.
+The application will be available at `https://<APPROVAL_DOMAIN>`.
 
----
-
-## Local Development
-
-Uses an embedded H2 database and runs without Docker.
-
-**1. Copy the local properties example**
-
-```bash
-cp config/application-local.properties.example config/application-local.properties
-```
-
-**2. Fill in the required values** in `config/application-local.properties`.
-
-**3. Run the application**
-
-```bash
-mvn spring-boot:run -Dspring.config.additional-location=file:./config/ -Dspring.profiles.active=local
-```
-
-Open `http://localhost:8081`. The React frontend is built automatically by `frontend-maven-plugin` during the Maven build.
-
-To iterate on the frontend without a full Maven build, run the Vite dev server separately after the first Maven build has populated `src/main/resources/static/`:
-
-```bash
-cd src/main/frontend
-npm install
-npm run dev
-```
-
----
-
-## Standalone TLS Mode
+### Standalone TLS Mode
 
 Use this when you have your own certificate and can't use Let's Encrypt:
 
@@ -87,234 +91,67 @@ docker compose -f docker-compose-standalone.yml up -d
 
 Set `SSL_KEYSTORE_PASSWORD` in `.env` before starting.
 
----
+### Behind Your Own Reverse Proxy (nginx / NPM / CasaOS)
 
-## Deploying Behind Your Own Reverse Proxy (nginx / ZimaCube / CasaOS)
-
-Use this mode when another proxy already owns ports 80/443 on the host — for example a ZimaCube running CasaOS with nginx terminating TLS using a wildcard certificate.
-
-**1. On the host, clone and configure:**
+Use this mode when another proxy already owns ports 80/443 on the host:
 
 ```bash
-git clone https://github.com/squidlyman/Omnissa-Access-Approvals.git
-cd Omnissa-Access-Approvals
-cp .env.example .env   # fill in values; APPROVAL_DOMAIN and SSL_KEYSTORE_PASSWORD are unused here
-```
-
-**2. Start the app container (no Caddy):**
-
-```bash
+cp .env.example .env    # APPROVAL_DOMAIN and SSL_KEYSTORE_PASSWORD are unused here
 docker compose -f docker-compose-proxy.yml up -d --build
 ```
 
-The first build takes several minutes (Maven + npm run inside the build). The app listens on plain HTTP port `8081`.
+The app listens on plain HTTP port `8081`; point your proxy at it. The proxy **must** pass `X-Forwarded-Proto`/`X-Forwarded-Host` (the app uses them for `https://` OAuth2 redirect URIs — `server.forward-headers-strategy=framework` is set by default), and the SSE endpoint `/api/approvals/stream` needs `proxy_buffering off`. A complete nginx server block and Nginx Proxy Manager notes are in [docs/deployment.md](docs/deployment.md).
 
-**3. Add an nginx server block** for `approvals.flaming.ws` proxying to the app:
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name approvals.flaming.ws;
-
-    # wildcard cert — adjust paths to your setup
-    ssl_certificate     /etc/nginx/certs/flaming.ws/fullchain.pem;
-    ssl_certificate_key /etc/nginx/certs/flaming.ws/privkey.pem;
-
-    location / {
-        proxy_pass http://127.0.0.1:8081;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host  $host;
-    }
-
-    # Server-Sent Events — live queue updates need buffering off and a long read timeout
-    location /api/approvals/stream {
-        proxy_pass http://127.0.0.1:8081;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host  $host;
-        proxy_http_version 1.1;
-        proxy_set_header Connection "";
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_read_timeout 24h;
-    }
-}
-```
-
-If you use **Nginx Proxy Manager**: create a proxy host for `approvals.flaming.ws` → `http://<host-ip>:8081`, select your wildcard certificate, and add the `/api/approvals/stream` settings above as a *Custom Location* if live queue updates stall.
+If nginx runs directly on the host, change the port mapping in `docker-compose-proxy.yml` to `"127.0.0.1:8081:8081"` so the unencrypted port is not reachable from the LAN; keep `"8081:8081"` if your proxy runs in a container.
 
 ### ZimaCube one-script deploy
 
 For a ZimaCube specifically, `deploy/zimacube/` contains a complete, idempotent deployment: source and H2 data on `/media/ZIMARAID/omnissa-approvals/`, env file with `chmod 600`, a CasaOS-adoption-safe compose (pre-built image, all state bind-mounted), and a systemd unit that keeps port 8081 LAN-only via a `DOCKER-USER` iptables rule. On the NAS:
 
 ```bash
-git clone https://github.com/squidlyman/Omnissa-Access-Approvals.git /media/ZIMARAID/omnissa-approvals/src
+git clone https://github.com/SquidlyMan/Omnissa-Access-Approvals.git /media/ZIMARAID/omnissa-approvals/src
 sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 # first run creates the env file and stops — edit it, then re-run
 ```
 
-Then add the NPM proxy host `approvals.flaming.ws` → `http://10.88.88.30:8081`. If NPM returns 502 and its access log shows requests arriving from a `172.x` Docker-bridge address, the LAN-only rule is dropping proxy traffic — insert an accept for the bridge network above the drop: `iptables -I DOCKER-USER -p tcp --dport 8081 -s 172.16.0.0/12 -j ACCEPT` (and add a matching `ExecStart` line to the systemd unit).
-
-**Notes for this mode:**
-
-- `X-Forwarded-Proto` is required — the app uses it to generate `https://` OAuth2 redirect URIs (`server.forward-headers-strategy=framework` is set by default).
-- The OAuth2 redirect URI stays `https://approvals.flaming.ws/login/oauth2/code/omnissa` — it is tied to the public hostname, not the backend host or port.
-- Port 8081 serves plain HTTP. If nginx runs directly on the host, change the port mapping in `docker-compose-proxy.yml` to `"127.0.0.1:8081:8081"` so the unencrypted port is not reachable from the LAN. Keep `"8081:8081"` if your proxy runs in a container and reaches the app over the network.
+Then add the NPM proxy host `approvals.example.com` → `http://<nas-ip>:8081`. If NPM returns 502 and its access log shows requests arriving from a `172.x` Docker-bridge address, the LAN-only rule is dropping proxy traffic — insert an accept for the bridge network above the drop: `iptables -I DOCKER-USER -p tcp --dport 8081 -s 172.16.0.0/12 -j ACCEPT` (and add a matching `ExecStart` line to the systemd unit).
 
 ---
 
-## Configuration Reference
+## Local Development
 
-All variables are set in `.env` for Docker deployments, or in `config/application-local.properties` for local development.
+Uses an embedded H2 database and runs without Docker. Requires Java 17 (Node/npm are handled by `frontend-maven-plugin`).
 
-### Omnissa Access Service Client
+```bash
+cp config/application-local.properties.example config/application-local.properties
+# fill in the required values, then:
+./mvnw spring-boot:run -Dspring.config.additional-location=file:./config/ -Dspring.profiles.active=local
+```
 
-Allows the approval service to call back into Omnissa Access with approval decisions.
+Open `http://localhost:8081`. To iterate on the frontend without a full Maven build, run the Vite dev server separately after the first Maven build has populated `src/main/resources/static/`:
 
-| Variable | Required | Description |
-|---|---|---|
-| `OMNISSA_BOOTSTRAP_URL` | Yes | Tenant hostname, e.g. `tenant.wss.workspaceone.com` |
-| `OMNISSA_BOOTSTRAP_CLIENT_ID` | Yes | Service client ID from Omnissa Access |
-| `OMNISSA_BOOTSTRAP_CLIENT_SECRET` | Yes | Service client secret |
+```bash
+cd src/main/frontend
+npm install
+npm run dev
+```
 
-### First-Run Admin Account
-
-Creates a local administrator account on first startup if the user table is empty. Ignored on subsequent starts.
-
-| Variable | Required | Description |
-|---|---|---|
-| `OMNISSA_BOOTSTRAP_ADMIN_USERNAME` | Yes | Username for the initial local admin |
-| `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` | Yes | Password for the initial local admin |
-| `OMNISSA_BOOTSTRAP_ADMIN_EMAIL` | No | Email address for the initial local admin |
-
-### Admin OAuth2 Login (Optional)
-
-Enables Omnissa Access as an OIDC identity provider for administrator login. If omitted, only local username/password login is available. Any user who successfully authenticates through Omnissa Access will be granted admin access — restrict access in the Omnissa Access client config accordingly.
-
-| Variable | Required | Description |
-|---|---|---|
-| `OMNISSA_ADMIN_OAUTH_CLIENT_ID` | No | OIDC client ID from Omnissa Access |
-| `OMNISSA_ADMIN_OAUTH_CLIENT_SECRET` | No | OIDC client secret |
-| `OMNISSA_ADMIN_OAUTH_REDIRECT_URI` | No | Redirect URI registered in Omnissa Access. Default: `https://approvals.flaming.ws/login/oauth2/code/omnissa` |
-| `OMNISSA_ADMIN_OAUTH_ISSUER_URI` | No | OIDC issuer URI: `https://<tenant>/SAAS/auth` — the issuer value advertised in `/.well-known/openid-configuration`, **not** `/acs` |
-| `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT` | No | Set to `true` to automatically disable the Omnissa Access consent screen on the OIDC client at startup. Requires the ApprovalService client to have admin rights. Default: `false`. See tip below. |
-
-> **Consent screen tip:** If `User Consent Prompt` is enabled on your `ApprovalAdmin` OIDC client in Omnissa Access, admins will see a consent screen on their first OAuth2 login. This is harmless but unnecessary for an internal tool you control. Once you have confirmed that OAuth2 login works, set `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` and restart — the app will call the Omnissa Access admin API to disable it automatically. The startup log will remind you of this option every run until it is set.
-
-### Security Lockdown (Optional)
-
-| Variable | Required | Description |
-|---|---|---|
-| `OMNISSA_API_USERNAME` | No | When set, the callout endpoint `POST /api/approvals/new` requires HTTP Basic auth with these credentials (configure the same username/password in the Omnissa Access approvals settings). Blank = open endpoint. OPTIONS probes remain unauthenticated. |
-| `OMNISSA_API_PASSWORD` | No | Password paired with `OMNISSA_API_USERNAME` |
-| `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED` | No | Set to `true` to disable local username/password login entirely (OAuth2-only admin login). Requires a working `OMNISSA_ADMIN_OAUTH_*` setup. Default: `false` |
-| `OMNISSA_API_RATE_LIMIT` | No | Maximum requests per minute per client IP on the callout endpoint `POST /api/approvals/new`. Excess requests get HTTP 429. `0` disables rate limiting. Default: `60` |
-
-### Syslog Export (Optional)
-
-Forwards all application logs (including the `AUDIT` logger) to a syslog server.
-
-| Variable | Required | Description |
-|---|---|---|
-| `SYSLOG_HOST` | No | Syslog server to forward application logs to. Blank = disabled |
-| `SYSLOG_PORT` | No | Syslog port — a port **number** only, e.g. `514`. The transport is selected by `SYSLOG_PROTOCOL`, not here. Default: `514` |
-| `SYSLOG_PROTOCOL` | No | Transport: `udp`, `tcp`, or `tls` (case-insensitive). Unknown values log a warning and fall back to `udp`. TCP/TLS use newline-delimited RFC 3164 framing (accepted by rsyslog and Graylog); delivery never blocks the app — on connection failure events are dropped and reconnection is attempted on the next event. Default: `udp` |
-| `SYSLOG_CA_PEM` | No | TLS only. Inline PEM CA certificate bundle used to verify the syslog server (for private or self-signed CAs). Blank = platform default trust store |
-| `SYSLOG_CLIENT_CERT_PEM` | No | TLS only. Inline PEM client certificate (chain) for mutual TLS. Must be set together with the client key |
-| `SYSLOG_CLIENT_KEY_PEM` | No | TLS only. Inline PEM client private key — unencrypted PKCS#8 (`BEGIN PRIVATE KEY`). Convert legacy PKCS#1/SEC1 keys with `openssl pkcs8 -topk8 -nocrypt` |
-| `SYSLOG_CA_FILE` | No | TLS only. File-path variant of `SYSLOG_CA_PEM`; takes precedence when both are set. Container path — put files under `/app/data/certs/` (the persistent volume) |
-| `SYSLOG_CLIENT_CERT_FILE` | No | TLS only. File-path variant of `SYSLOG_CLIENT_CERT_PEM`; takes precedence when both are set |
-| `SYSLOG_CLIENT_KEY_FILE` | No | TLS only. File-path variant of `SYSLOG_CLIENT_KEY_PEM`; takes precedence when both are set |
-
-### Webhook Notifications (Optional)
-
-POSTs a notification to a webhook whenever a new activation request arrives. Fire-and-forget — webhook failures never affect callout processing.
-
-| Variable | Required | Description |
-|---|---|---|
-| `WEBHOOK_URL` | No | Webhook URL to POST to on each new activation request. Blank = disabled |
-| `WEBHOOK_FORMAT` | No | Payload format: `generic` (JSON event), `slack`, or `teams`. Default: `generic` |
-
-### Email Notifications (Optional)
-
-Outbound SMTP for approval decision notifications to requestors.
-
-| Variable | Required | Description |
-|---|---|---|
-| `SPRING_MAIL_HOST` | No | SMTP server hostname |
-| `SPRING_MAIL_PORT` | No | SMTP port. Default: `587` |
-| `SPRING_MAIL_USERNAME` | No | SMTP authentication username |
-| `SPRING_MAIL_PASSWORD` | No | SMTP authentication password |
-
-### Deployment
-
-| Variable | Mode | Description |
-|---|---|---|
-| `APPROVAL_DOMAIN` | Caddy | Public domain name, e.g. `approvals.flaming.ws` |
-| `SSL_KEYSTORE_PASSWORD` | Standalone | Password for the PKCS12 keystore |
+See [CONTRIBUTING.md](CONTRIBUTING.md) for PR guidelines.
 
 ---
+
+## Configuration
+
+All variables are set in `.env` for Docker deployments, or in `config/application-local.properties` for local development. The complete reference — service client, bootstrap admin, admin OAuth2 login, API security, mail, webhooks, syslog — lives in **[docs/configuration.md](docs/configuration.md)**, and [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-approvals.env.example) is a fully commented template.
 
 ## Omnissa Access Setup
 
-Two separate OAuth clients are required in your Omnissa Access tenant.
-
-### Client 1 — Service Client (Approval Callout API)
-
-This client authenticates the approval service when posting decisions back to Omnissa Access.
-
-1. In the Omnissa Access console, create a new client:
-   - **Client type:** Service
-   - **Grant type:** Client Credentials
-2. Copy the **Client ID** and **Client Secret** into `OMNISSA_BOOTSTRAP_CLIENT_ID` and `OMNISSA_BOOTSTRAP_CLIENT_SECRET`.
-3. Set `OMNISSA_BOOTSTRAP_URL` to your tenant hostname.
-
-**Configure the callout policy:**
-
-In the Omnissa Access access policy where you want approval enforcement, configure the callout to POST to:
-
-```
-https://<APPROVAL_DOMAIN>/api/approvals/new
-```
-
-Omnissa Access will POST access requests here when a policy step requires approval. The approval service returns decisions asynchronously.
-
-### Client 2 — OIDC Admin Login Client (Optional)
-
-Allows administrators to log in using their Omnissa Access credentials.
-
-1. Create a new client:
-   - **Client type:** User Access Token (Confidential)
-   - **Grant types:** Authorization Code + PKCE
-   - **Scopes:** `openid`, `email`, `profile`
-   - **Redirect URI:** `https://<APPROVAL_DOMAIN>/login/oauth2/code/omnissa`
-2. Copy the **Client ID** and **Client Secret** into `OMNISSA_ADMIN_OAUTH_CLIENT_ID` and `OMNISSA_ADMIN_OAUTH_CLIENT_SECRET`.
-3. Set `OMNISSA_ADMIN_OAUTH_ISSUER_URI` to `https://<your-tenant>/SAAS/auth` (the issuer advertised in the tenant's `/.well-known/openid-configuration`, not `/acs`).
-4. Restrict which users can authenticate using this client in the Omnissa Access console — all authenticated users will receive admin access to the approval UI.
-
----
+Two OAuth clients are required in your tenant (a Client Credentials service client for the approvals API, and optionally an OIDC client for admin login), plus **Settings > Approvals** pointed at `https://<your-host>/api/approvals/new` and **License Approval Required** on each gated app. The full walkthrough is in **[docs/omnissa-access-setup.md](docs/omnissa-access-setup.md)**.
 
 ## First Login
 
-### Local admin (default)
-
-On first startup, if `OMNISSA_BOOTSTRAP_ADMIN_USERNAME` and `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` are set and the user table is empty, a local admin account is created automatically. Navigate to `https://<APPROVAL_DOMAIN>` and sign in with those credentials.
-
-### Omnissa Access OAuth2
-
-If the `OMNISSA_ADMIN_OAUTH_*` variables are configured, a **Sign in with Omnissa Access** button appears on the login page. Any user who authenticates successfully through that client is granted full admin access.
-
----
-
-## Additional Features
-
-- **Audit trail** — every request received, approval, rejection, and auto-rule decision is recorded (who/what/when) and available at `GET /api/audit`; audit lines are also written to the log (and syslog export) under the `AUDIT` logger.
-- **Auto-approval rules** — manage rules via `GET/POST/PUT/DELETE /api/rules`: match rules auto-approve/reject new requests by app name pattern (`*` wildcards) and/or requestor group; expiry rules auto-reject requests pending longer than N days (checked hourly).
-- **CSV export** — download all requests as CSV from `GET /api/approvals/export.csv`.
-- **Connectivity status** — `GET /api/config/status` reports whether the configured Omnissa Access tenant is reachable (token fetch, cached 60 s).
+- **Local admin (default)** — on first startup, if `OMNISSA_BOOTSTRAP_ADMIN_USERNAME` and `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` are set and the user table is empty, a local admin account is created automatically. Sign in with those credentials.
+- **Omnissa Access OAuth2** — if the `OMNISSA_ADMIN_OAUTH_*` variables are configured, a **Sign in with Omnissa Access** button appears on the login page. Any user who authenticates successfully through that client is granted full admin access — restrict the client accordingly.
 
 ---
 
@@ -327,4 +164,8 @@ If the `OMNISSA_ADMIN_OAUTH_*` variables are configured, a **Sign in with Omniss
 | Frontend | React, TypeScript, Vite, Tailwind CSS |
 | Live updates | Server-Sent Events (SSE) |
 | Email | Spring Mail + FreeMarker templates |
-| Reverse proxy | Caddy (recommended) or embedded Tomcat TLS |
+| Reverse proxy | Caddy (bundled option) or your own (nginx/NPM), or embedded Tomcat TLS |
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 Dean Flaming. Trademark and non-production disclaimers in [NOTICE.md](NOTICE.md).
