@@ -8,8 +8,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -48,6 +50,28 @@ public class SecurityConfig {
 
     @Value("${omnissa.admin-oauth.client-id:}")
     private String adminClientId;
+
+    @Value("${omnissa.api.username:}")
+    private String apiUsername;
+
+    @Value("${omnissa.api.password:}")
+    private String apiPassword;
+
+    @Value("${omnissa.auth.local-login-disabled:false}")
+    private boolean localLoginDisabled;
+
+    /**
+     * Optional Basic auth on the inbound callout endpoint. Runs before the
+     * Spring Security chain; a no-op when omnissa.api.username is blank.
+     */
+    @Bean
+    public FilterRegistrationBean<ApiBasicAuthFilter> apiBasicAuthFilter() {
+        FilterRegistrationBean<ApiBasicAuthFilter> registration =
+                new FilterRegistrationBean<>(new ApiBasicAuthFilter(apiUsername, apiPassword));
+        registration.addUrlPatterns("/api/approvals/new");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
@@ -88,6 +112,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // Health probe for Docker
                 .requestMatchers("/actuator/health").permitAll()
+                // Public auth-mode discovery for the login page
+                .requestMatchers("/api/config/auth").permitAll()
                 // Login page and OAuth2 endpoints
                 .requestMatchers("/login", "/login/**", "/oauth2/**").permitAll()
                 .anyRequest().authenticated()
@@ -109,15 +135,19 @@ public class SecurityConfig {
                     resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
                     oauth2.authorizationEndpoint(authz -> authz.authorizationRequestResolver(resolver));
                 }
-            })
-            // Form login — local username/password fallback
-            .formLogin(form -> form
+            });
+        // Form login — local username/password fallback. Skipped entirely in
+        // OAuth-only mode so POST /login/local no longer authenticates.
+        if (!localLoginDisabled) {
+            http.formLogin(form -> form
                 .loginPage("/login")
                 .loginProcessingUrl("/login/local")
                 .defaultSuccessUrl("/", true)
                 .failureUrl("/login?error=true")
                 .permitAll()
-            )
+            );
+        }
+        http
             .logout(logout -> logout
                 .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
                 .logoutSuccessUrl("/login?logout=true")

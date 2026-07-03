@@ -204,6 +204,21 @@ Enables Omnissa Access as an OIDC identity provider for administrator login. If 
 
 > **Consent screen tip:** If `User Consent Prompt` is enabled on your `ApprovalAdmin` OIDC client in Omnissa Access, admins will see a consent screen on their first OAuth2 login. This is harmless but unnecessary for an internal tool you control. Once you have confirmed that OAuth2 login works, set `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` and restart — the app will call the Omnissa Access admin API to disable it automatically. The startup log will remind you of this option every run until it is set.
 
+### Security Lockdown (Optional)
+
+| Variable | Required | Description |
+|---|---|---|
+| `OMNISSA_API_USERNAME` | No | When set, the callout endpoint `POST /api/approvals/new` requires HTTP Basic auth with these credentials (configure the same username/password in the Omnissa Access approvals settings). Blank = open endpoint. OPTIONS probes remain unauthenticated. |
+| `OMNISSA_API_PASSWORD` | No | Password paired with `OMNISSA_API_USERNAME` |
+| `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED` | No | Set to `true` to disable local username/password login entirely (OAuth2-only admin login). Requires a working `OMNISSA_ADMIN_OAUTH_*` setup. Default: `false` |
+
+### Syslog Export (Optional)
+
+| Variable | Required | Description |
+|---|---|---|
+| `SYSLOG_HOST` | No | Syslog server to forward application logs to (UDP). Blank = disabled |
+| `SYSLOG_PORT` | No | Syslog port. Default: `514` |
+
 ### Email Notifications (Optional)
 
 Outbound SMTP for approval decision notifications to requestors.

@@ -5,10 +5,13 @@ import com.omnissa.access.approval.model.OmnissaServer;
 import com.omnissa.access.approval.repository.OmnissaServerRepository;
 import com.omnissa.access.approval.util.RestPreconditions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping(value = Mappings.CONFIG)
@@ -16,6 +19,24 @@ public class ConfigController {
 
     @Autowired
     private OmnissaServerRepository repository;
+
+    @Value("${omnissa.auth.local-login-disabled:false}")
+    private boolean localLoginDisabled;
+
+    @Value("${omnissa.admin-oauth.client-id:}")
+    private String adminOauthClientId;
+
+    /**
+     * Public (unauthenticated) auth-mode discovery so the login page knows
+     * which sign-in options to render.
+     */
+    @GetMapping("/auth")
+    public ResponseEntity<?> getAuthConfig() {
+        return ResponseEntity.ok(Map.of(
+                "localLoginDisabled", localLoginDisabled,
+                "oauthEnabled", !adminOauthClientId.isBlank()
+        ));
+    }
 
     @GetMapping("/server")
     public ResponseEntity<?> getServerEntry() {
