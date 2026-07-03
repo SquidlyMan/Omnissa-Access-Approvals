@@ -46,9 +46,12 @@ public class OmnissaRestClient {
     public <T> ResponseEntity<T> exchange(String url, HttpMethod method,
                                           HttpEntity<?> requestEntity, Class<T> responseType,
                                           Object... uriVars) {
-        HttpHeaders headers = requestEntity != null
-                ? new HttpHeaders(requestEntity.getHeaders())
-                : new HttpHeaders();
+        // HttpEntity.getHeaders() is read-only and new HttpHeaders(map) is backed by
+        // (not copied from) the given map — mutating it throws. Copy via putAll.
+        HttpHeaders headers = new HttpHeaders();
+        if (requestEntity != null) {
+            headers.putAll(requestEntity.getHeaders());
+        }
         headers.set("Authorization", "Bearer " + getAccessToken());
 
         HttpEntity<?> newEntity = requestEntity != null
