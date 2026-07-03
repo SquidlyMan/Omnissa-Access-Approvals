@@ -135,6 +135,7 @@ public class ApprovalController {
                     calloutRequest.getRequestId(), approve, message));
             auditService.record(approve ? "auto-approved" : "auto-rejected",
                     calloutRequest.getRequestId(), calloutRequest.getResourceName(), message);
+            webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
             sseController.publishQueueUpdate("queue-updated");
         } catch (Exception e) {
             logger.error("Auto-rule evaluation failed for requestId={}",
@@ -148,10 +149,15 @@ public class ApprovalController {
         try {
             CalloutRequest request = approvalsRepository.findByRequestId(calloutResponse.getRequestId());
             approvalsInterface.requestResponse(calloutResponse);
+            String admin = auditService.currentAdmin();
+            String note = calloutResponse.getMessage();
+            String message = (calloutResponse.isApproved() ? "Approved by " : "Rejected by ") + admin
+                    + (note != null && !note.isBlank() ? " — " + note : "");
             auditService.record(calloutResponse.isApproved() ? "approved" : "rejected",
                     calloutResponse.getRequestId(),
                     request != null ? request.getResourceName() : null,
-                    calloutResponse.getMessage());
+                    message);
+            webhookNotifier.notifyDecision(request, calloutResponse.isApproved(), admin, null);
             mailNotification.sendEmailNotification(calloutResponse.getRequestId(), calloutResponse.isApproved());
             sseController.publishQueueUpdate("queue-updated");
         } catch (Exception e) {
@@ -168,12 +174,15 @@ public class ApprovalController {
 
     @PostMapping("/response/all")
     public ResponseEntity<?> respondToAllPending(@RequestParam boolean approved) {
+        String admin = auditService.currentAdmin();
+        String message = (approved ? "Approved by " : "Rejected by ") + admin + " (bulk action)";
         for (CalloutRequest request : approvalsRepository.findByState("pending")) {
             try {
                 approvalsInterface.requestResponse(
                         new CalloutResponse(request.getRequestId(), approved, "bulk action"));
                 auditService.record(approved ? "approved" : "rejected",
-                        request.getRequestId(), request.getResourceName(), "bulk action");
+                        request.getRequestId(), request.getResourceName(), message);
+                webhookNotifier.notifyDecision(request, approved, admin, null);
                 mailNotification.sendEmailNotification(request.getRequestId(), approved);
             } catch (Exception e) {
                 logger.error("Bulk action failed for requestId={}", request.getRequestId(), e);

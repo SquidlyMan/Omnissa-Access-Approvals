@@ -86,8 +86,11 @@ For each application that should require approval:
    - **User-Activated** — the user requests the app from the catalog: they
      open the app's details and click **REQUEST**. The app shows
      **PENDING** while admins approve or decline in the tool. Approved →
-     the app becomes available to launch; declined → the app is deactivated
-     and appears in the tool's Deactivated list.
+     the app becomes available to launch. If an application request is
+     declined, the request is listed as Rejected in this tool, the Pending
+     state for the end user is dropped, and the application returns to a
+     locked option in the Access catalog. The user can request the resource
+     again.
 
      ![App pending approval in the user catalog](images/hub-request-pending.png)
    - **Automatic** — the approval request is sent to the tool automatically;

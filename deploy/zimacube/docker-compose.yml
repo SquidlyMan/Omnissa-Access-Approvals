@@ -1,16 +1,17 @@
 # ZimaCube deployment — used by deploy.sh, safe for CasaOS adoption.
 #
-# Deliberately references a pre-built image (deploy.sh builds it) instead of a
+# Pulls the published image from GHCR (no local build) instead of using a
 # build: context — if CasaOS adopts the app it copies this compose to
 # /var/lib/casaos/apps/ and recreates the container, which would break a
-# relative build path. ALL state is bind-mounted to /media/ZIMARAID so a
-# CasaOS-triggered recreate wipes nothing.
+# relative build path. Because the image lives in a public registry, CasaOS
+# "Check and then update" works for updates. ALL state is bind-mounted to
+# /media/ZIMARAID so a CasaOS-triggered recreate wipes nothing.
 
 name: omnissa-approvals
 
 services:
   omnissa-approvals:
-    image: omnissa-approvals:latest
+    image: ghcr.io/squidlyman/omnissa-access-approvals:latest
     container_name: omnissa-approvals
     restart: unless-stopped
     ports:

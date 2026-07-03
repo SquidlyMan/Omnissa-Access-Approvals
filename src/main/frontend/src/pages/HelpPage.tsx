@@ -5,7 +5,7 @@ interface HelpSectionProps {
 
 function HelpSection({ title, children }: HelpSectionProps) {
   return (
-    <section className="bg-white rounded-xl border border-gray-200 p-6">
+    <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
       <h2 className="font-semibold text-gray-800 text-lg mb-3">{title}</h2>
       <div className="text-sm text-gray-600 space-y-3">{children}</div>
     </section>
@@ -17,7 +17,7 @@ function EnvVar({ name }: { name: string }) {
 }
 
 function Code({ children }: { children: React.ReactNode }) {
-  return <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">{children}</code>
+  return <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5 break-all">{children}</code>
 }
 
 function CodeBlock({ children }: { children: string }) {
@@ -55,7 +55,7 @@ const CONFIG_VARS: ConfigVar[] = [
   { name: 'SPRING_MAIL_PORT', def: '—', purpose: 'SMTP server port.' },
   { name: 'SPRING_MAIL_USERNAME', def: '—', purpose: 'SMTP username.' },
   { name: 'SPRING_MAIL_PASSWORD', def: '—', purpose: 'SMTP password.' },
-  { name: 'WEBHOOK_URL', def: '—', purpose: 'POST a notification to this URL for each new access request.' },
+  { name: 'WEBHOOK_URL', def: '—', purpose: 'POST a notification to this URL for each new access request and each decision.' },
   { name: 'WEBHOOK_FORMAT', def: 'generic', purpose: 'Webhook payload format: generic, slack, or teams.' },
   { name: 'SYSLOG_HOST', def: '—', purpose: 'Forward application logs to this syslog server.' },
   { name: 'SYSLOG_PORT', def: '514', purpose: 'Syslog port number.' },
@@ -117,8 +117,9 @@ export default function HelpPage() {
               details, then click the <span className="font-medium text-gray-800">REQUEST</span> button. The app
               then shows <span className="font-medium text-gray-800">PENDING</span>, and admins must approve or
               decline the request in this tool. If approved, the application becomes available for
-              launch. If declined, the application is deactivated and appears in this tool's
-              Deactivated list.
+              launch. If an application request is declined, the request is listed as Rejected in
+              this tool, the Pending state for the end user is dropped, and the application returns
+              to a locked option in the Access catalog. The user can request the resource again.
             </li>
             <li>
               When an application assignment is set to <span className="font-medium text-gray-800">Automatic</span>,
@@ -216,13 +217,19 @@ export default function HelpPage() {
             <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">AUDIT</code>{' '}
             prefix, so they appear in the downloadable log bundle and syslog export.
           </p>
+          <p>
+            Decision lines in the log and syslog export carry named attribution in the message,
+            e.g. <Code>Approved by &lt;admin&gt;</Code>, <Code>Rejected by &lt;admin&gt; (bulk
+            action)</Code>, or <Code>Auto-Approved by rule #N</Code>.
+          </p>
         </HelpSection>
 
         <HelpSection title="Webhook Notifications">
           <p>
             Set the <EnvVar name="WEBHOOK_URL" /> container environment value to POST a notification
-            for each new access request, and <EnvVar name="WEBHOOK_FORMAT" /> to match the
-            receiving system:
+            for each new access request and for each decision (approved or rejected, whether made
+            by an admin or an auto-approval rule), and <EnvVar name="WEBHOOK_FORMAT" /> to match
+            the receiving system:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
@@ -257,17 +264,27 @@ export default function HelpPage() {
           <p>Example configuration:</p>
           <CodeBlock>{'WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX\nWEBHOOK_FORMAT=slack'}</CodeBlock>
           <p>
-            Example <Code>generic</Code> payload:
+            Example <Code>generic</Code> payload for a new request (<Code>request.created</Code>):
           </p>
           <CodeBlock>{'{"event":"request.created","requestId":"8ab7df4b-...","resourceName":"Example App (SAML)","userId":"123456","operation":"activation","receivedDate":"2026-07-03T08:11:43Z"}'}</CodeBlock>
           <p>
-            Example <Code>slack</Code>/<Code>teams</Code> payload:
+            Example <Code>generic</Code> payloads for a decision (<Code>request.decided</Code>) —
+            an admin decision, then an auto-rule decision (<Code>decidedBy</Code> is{' '}
+            <Code>auto-approval-rule</Code> and <Code>rule</Code> carries the rule number):
+          </p>
+          <CodeBlock>{'{"event":"request.decided","requestId":"8ab7df4b-...","resourceName":"Example App (SAML)","userId":"123456","decision":"approved","decidedBy":"dean","decidedDate":"2026-07-03T18:00:00Z"}'}</CodeBlock>
+          <CodeBlock>{'{"event":"request.decided","requestId":"8ab7df4b-...","resourceName":"Example App (SAML)","userId":"123456","decision":"rejected","decidedBy":"auto-approval-rule","rule":"#7","decidedDate":"2026-07-03T18:00:00Z"}'}</CodeBlock>
+          <p>
+            Example <Code>slack</Code>/<Code>teams</Code> payloads — new request, admin decision,
+            auto-rule decision:
           </p>
           <CodeBlock>{'{"text":"New access request: Example App (SAML) requested by user 123456 — approve or reject in the Access Approval Tool."}'}</CodeBlock>
+          <CodeBlock>{'{"text":"Approved by dean: Example App (SAML) (user 123456)"}'}</CodeBlock>
+          <CodeBlock>{'{"text":"Auto-Rejected by rule #5: Example App (SAML) (user 123456)"}'}</CodeBlock>
           <p>
             Configuration changes are made in the env file (or container key values) and require a
-            container recreate to apply. Delivery failures never block request ingestion — they are
-            logged as a WARN.
+            container recreate to apply. Delivery failures never block request ingestion or
+            decisions — they are logged as a WARN.
           </p>
         </HelpSection>
 
@@ -395,7 +412,7 @@ export default function HelpPage() {
             the env file (or container key values) and require a container recreate to apply.
           </p>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                   <th className="px-3 py-2">Variable</th>

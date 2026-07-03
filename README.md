@@ -18,7 +18,7 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Admin login**: local account and/or "Sign in with Omnissa Access" (OIDC + PKCE), optional OAuth-only mode, automatic consent-screen disable
 - **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence
 - **Audit trail** with admin identity, plus **CSV export**
-- **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats
+- **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats for new requests **and** decisions, with attribution (which admin decided, or which auto-approval rule)
 - **Ops** — log bundle download, syslog export (UDP/TCP/TLS with client certs), health endpoint
 - **API hardening** — optional Basic auth and per-IP rate limiting on the callout endpoint
 
@@ -120,13 +120,15 @@ If nginx runs directly on the host, change the port mapping in `docker-compose-p
 
 ### ZimaCube one-script deploy
 
-For a ZimaCube specifically, `deploy/zimacube/` contains a complete, idempotent deployment: source and H2 data on `/media/ZIMARAID/omnissa-approvals/`, env file with `chmod 600`, a CasaOS-adoption-safe compose (pre-built image, all state bind-mounted), and a systemd unit that keeps port 8081 LAN-only via a `DOCKER-USER` iptables rule. On the NAS:
+For a ZimaCube specifically, `deploy/zimacube/` contains a complete, idempotent deployment: repo checkout and H2 data on `/media/ZIMARAID/omnissa-approvals/`, env file with `chmod 600`, a CasaOS-adoption-safe compose (image pulled from `ghcr.io/squidlyman/omnissa-access-approvals` — no local build on the NAS, all state bind-mounted), and a systemd unit that keeps port 8081 LAN-only via a `DOCKER-USER` iptables rule. On the NAS:
 
 ```bash
 git clone https://github.com/SquidlyMan/Omnissa-Access-Approvals.git /media/ZIMARAID/omnissa-approvals/src
 sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 # first run creates the env file and stops — edit it, then re-run
 ```
+
+Update by re-running `deploy.sh`, or via CasaOS **"Check and then update"** once the app is in CasaOS (possible because the image comes from a public registry).
 
 Then add the NPM proxy host `approvals.example.com` → `http://<nas-ip>:8081`. If NPM returns 502 and its access log shows requests arriving from a `172.x` Docker-bridge address, the LAN-only rule is dropping proxy traffic — insert an accept for the bridge network above the drop: `iptables -I DOCKER-USER -p tcp --dport 8081 -s 172.16.0.0/12 -j ACCEPT` (and add a matching `ExecStart` line to the systemd unit).
 
