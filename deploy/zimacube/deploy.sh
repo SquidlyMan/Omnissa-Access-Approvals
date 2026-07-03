@@ -17,7 +17,7 @@ RAID_DIR=/media/ZIMARAID/$APP
 SRC_DIR=$RAID_DIR/src
 ENV_FILE=$RAID_DIR/$APP.env
 REPO_URL=https://github.com/squidlyman/Omnissa-Access-Approvals.git
-BRANCH=claude/review-project-codebase-RQeOt   # switch to main once merged
+BRANCH=main
 
 [ "$(id -u)" = 0 ] || { echo "Run with sudo."; exit 1; }
 
