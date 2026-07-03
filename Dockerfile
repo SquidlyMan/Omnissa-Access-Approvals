@@ -1,5 +1,5 @@
 # Stage 1 — build the JAR
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 COPY pom.xml mvnw ./
 COPY .mvn .mvn
@@ -8,7 +8,7 @@ COPY src src
 RUN ./mvnw package -DskipTests -q
 
 # Stage 2 — minimal runtime image
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 COPY --from=build /app/target/omnissa-approval-*.jar app.jar
 
