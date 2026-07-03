@@ -9,6 +9,8 @@ RUN ./mvnw package -DskipTests -q
 
 # Stage 2 — minimal runtime image
 FROM eclipse-temurin:25-jre
+# temurin dropped curl after 21-jre; the container healthcheck depends on it
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/target/omnissa-approval-*.jar app.jar
 
