@@ -22,6 +22,20 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Ops** — log bundle download, syslog export (UDP/TCP/TLS with client certs), health endpoint
 - **API hardening** — optional Basic auth and per-IP rate limiting on the callout endpoint
 
+## Screenshots
+
+| Dashboard | Approval Queue |
+|---|---|
+| ![Dashboard](docs/images/tool-dashboard.png) | ![Queue](docs/images/tool-queue-review.png) |
+
+| Auto-Approval Rules | Audit Trail |
+|---|---|
+| ![Rules](docs/images/tool-rules.png) | ![Audit](docs/images/tool-audit.png) |
+
+| Sign-in (local + OIDC) | OAuth-only mode |
+|---|---|
+| ![Login](docs/images/tool-login-local-admin-enabled.png) | ![OAuth-only login](docs/images/tool-login-local-admin-disabled.png) |
+
 ## Quick Start
 
 Pull the image (once published) and run it with an env file and a data volume:

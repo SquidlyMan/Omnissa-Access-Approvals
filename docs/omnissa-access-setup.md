@@ -13,8 +13,8 @@ must already be deployed with a publicly reachable HTTPS endpoint for
 This client lets the tool post approval decisions back to Omnissa Access and
 powers the dashboard connectivity check.
 
-1. In the Omnissa Access console, create a new OAuth client (*(screenshots
-   TBD)*):
+1. In the Omnissa Access console, create a new OAuth client under
+   **Settings > OAuth 2.0 Management**:
    - **Client type:** Service Client / Service Access Token
    - **Grant type:** Client Credentials
    - Suggested name: `ApprovalService`
@@ -24,6 +24,8 @@ powers the dashboard connectivity check.
 3. Set `OMNISSA_BOOTSTRAP_URL` to the tenant hostname (no scheme), e.g.
    `tenant.us1.wss.workspaceone.com`.
 
+![Service client configuration in Omnissa Access](images/access-oauth-service-client.png)
+
 > If you plan to use `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` (step 5),
 > this service client needs admin rights in the tenant.
 
@@ -32,7 +34,7 @@ powers the dashboard connectivity check.
 Lets administrators sign in to the tool with their Omnissa Access
 credentials.
 
-1. Create a second OAuth client (*(screenshots TBD)*):
+1. Create a second OAuth client:
    - **Client type:** User Access Token (**confidential**)
    - **Grant type:** `authorization_code` — PKCE enforced by Access is
      supported by the tool
@@ -49,10 +51,14 @@ credentials.
 4. **Restrict which users may authenticate through this client** — every
    user who signs in through it receives full admin access to the tool.
 
+![OIDC admin login client configuration](images/access-oauth-admin-client.png)
+
 ## 3. Configure Settings > Approvals
 
-In the Omnissa Access console, go to **Settings > Approvals**
-(*(screenshots TBD)*):
+In the Omnissa Access console, go to **Resources > Web Apps > Settings >
+Approvals**:
+
+![Approvals settings in Omnissa Access](images/access-approvals-settings.png)
 
 - **Enable Approvals:** on
 - **Approval Engine:** REST API
@@ -68,16 +74,22 @@ saving fails with "Unable to connect to the URI", see
 
 ## 4. Put Applications Behind Approval
 
-For each application that should require approval (*(screenshots TBD)*):
+For each application that should require approval:
 
 1. Add or edit the application with **License Approval Required** enabled.
    License Pricing and Type (cost, number of licenses) are optional.
+
+   ![License Approval Required setting](images/access-license-approval.png)
 2. Choose the assignment **deployment type** — it determines the flow:
+
+   ![Assignment deployment type selection](images/access-assignment-user-activated.png)
    - **User-Activated** — the user requests the app from the catalog: they
      open the app's details and click **REQUEST**. The app shows
      **PENDING** while admins approve or decline in the tool. Approved →
      the app becomes available to launch; declined → the app is deactivated
      and appears in the tool's Deactivated list.
+
+     ![App pending approval in the user catalog](images/hub-request-pending.png)
    - **Automatic** — the approval request is sent to the tool automatically;
      once approved, the application appears for the user.
    - **Excluded** — the application is deactivated, hidden from the user's
@@ -102,6 +114,10 @@ on every run.
 
 - The dashboard **Access Connectivity** tile turns green when the service
   client can fetch a token (result cached ~60 s).
+
+  ![Dashboard with connected tenant tile](images/tool-dashboard.png)
 - Request an app as a test user — it should appear in the tool's queue
   within seconds (live via SSE).
+
+  ![Request awaiting review in the queue](images/tool-queue-review.png)
 - Approve it and confirm the app activates for the user in Access.
