@@ -18,9 +18,14 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -45,7 +50,8 @@ public class SecurityConfig {
     private String adminClientId;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+            ObjectProvider<ClientRegistrationRepository> clientRegistrations) throws Exception {
         http
             // CSRF: cookie-based so the SPA can read the token via JS and include it
             // as X-XSRF-TOKEN on mutating requests. The inbound callout endpoint is
@@ -84,13 +90,23 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             // OAuth2 login — only wired when an admin OAuth2 client-id is configured
-            .oauth2Login(oauth2 -> oauth2
-                .loginPage("/login")
-                .defaultSuccessUrl("/", true)
-                .userInfoEndpoint(userInfo -> userInfo
-                    .oidcUserService(oidcUserService())
-                )
-            )
+            .oauth2Login(oauth2 -> {
+                oauth2
+                    .loginPage("/login")
+                    .defaultSuccessUrl("/", true)
+                    .userInfoEndpoint(userInfo -> userInfo
+                        .oidcUserService(oidcUserService())
+                    );
+                // Omnissa Access enforces PKCE even for confidential clients; Spring
+                // only sends code_challenge for public clients unless opted in here.
+                ClientRegistrationRepository repo = clientRegistrations.getIfAvailable();
+                if (repo != null) {
+                    var resolver = new DefaultOAuth2AuthorizationRequestResolver(
+                        repo, OAuth2AuthorizationRequestRedirectFilter.DEFAULT_AUTHORIZATION_REQUEST_BASE_URI);
+                    resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+                    oauth2.authorizationEndpoint(authz -> authz.authorizationRequestResolver(resolver));
+                }
+            })
             // Form login — local username/password fallback
             .formLogin(form -> form
                 .loginPage("/login")
