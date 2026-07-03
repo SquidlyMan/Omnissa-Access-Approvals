@@ -140,16 +140,22 @@ per-IP rate limiting — see [SECURITY.md](../SECURITY.md).
 ## ZimaCube / CasaOS
 
 For a ZimaCube NAS, `deploy/zimacube/` contains a complete idempotent
-deployment script — source, env file, and H2 data on
-`/media/ZIMARAID/omnissa-approvals/`, a CasaOS-adoption-safe compose file,
-and a systemd unit that keeps port 8081 LAN-only via a `DOCKER-USER`
-iptables rule:
+deployment script — repo checkout (for the compose/env/service assets), env
+file, and H2 data on `/media/ZIMARAID/omnissa-approvals/`, a
+CasaOS-adoption-safe compose file, and a systemd unit that keeps port 8081
+LAN-only via a `DOCKER-USER` iptables rule. The container image is pulled
+from `ghcr.io/squidlyman/omnissa-access-approvals` — no local build on the
+NAS is required:
 
 ```bash
 git clone https://github.com/SquidlyMan/Omnissa-Access-Approvals.git /media/ZIMARAID/omnissa-approvals/src
 sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 # first run creates the env file and stops — edit it, then re-run
 ```
+
+**Updates:** re-run `deploy.sh` (git pull + image pull + recreate), or —
+once the app appears in CasaOS — use CasaOS **"Check and then update"**,
+which works because the image comes from a public registry.
 
 See [`deploy/zimacube/deploy.sh`](../deploy/zimacube/deploy.sh) and the
 README's ZimaCube section for the Nginx Proxy Manager wiring and the

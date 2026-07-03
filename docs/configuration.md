@@ -87,33 +87,57 @@ Outbound mail for approval decision notifications to requestors. Blank host
 
 ## Webhook Notifications
 
-POSTs a notification whenever a new activation request arrives.
-Fire-and-forget: delivery failures are logged as WARN and never block
-request ingestion.
+POSTs a notification whenever a new activation request arrives and whenever
+a request is decided (approved or rejected — by an admin or by an
+auto-approval rule). Fire-and-forget: delivery failures are logged as WARN
+and never block request ingestion or decisions.
 
 | Variable | Default | Description |
 |---|---|---|
-| `WEBHOOK_URL` | — | Webhook URL to POST to on each new request. Blank = disabled |
+| `WEBHOOK_URL` | — | Webhook URL to POST to on each new request and each decision. Blank = disabled |
 | `WEBHOOK_FORMAT` | `generic` | Payload format: `generic`, `slack`, or `teams` |
 
 The three formats:
 
 - **`generic`** — a plain JSON event, for n8n, Zapier catch hooks, custom
-  scripts, or webhook.site testing:
+  scripts, or webhook.site testing. New request (`request.created`):
 
   ```json
   {"event":"request.created","requestId":"8ab7df4b-...","resourceName":"Example App (SAML)","userId":"123456","operation":"activation","receivedDate":"2026-07-03T08:11:43Z"}
   ```
 
+  Decision (`request.decided`) — an admin decision:
+
+  ```json
+  {"event":"request.decided","requestId":"8ab7df4b-...","resourceName":"Example App (SAML)","userId":"123456","decision":"approved","decidedBy":"dean","decidedDate":"2026-07-03T18:00:00Z"}
+  ```
+
+  and an auto-rule decision (`decidedBy` is the literal
+  `auto-approval-rule`, and `rule` carries the rule number):
+
+  ```json
+  {"event":"request.decided","requestId":"8ab7df4b-...","resourceName":"Example App (SAML)","userId":"123456","decision":"rejected","decidedBy":"auto-approval-rule","rule":"#7","decidedDate":"2026-07-03T18:00:00Z"}
+  ```
+
 - **`slack`** — Slack Incoming Webhook payload (create one under your Slack
   app's **Incoming Webhooks**; URL looks like
-  `https://hooks.slack.com/services/T…/B…/…`):
+  `https://hooks.slack.com/services/T…/B…/…`). New request:
 
   ```json
   {"text":"New access request: Example App (SAML) requested by user 123456 — approve or reject in the Access Approval Tool."}
   ```
 
-- **`teams`** — same `text` payload for a Microsoft Teams channel workflow
+  Decisions — admin and auto-rule:
+
+  ```json
+  {"text":"Approved by dean: Example App (SAML) (user 123456)"}
+  ```
+
+  ```json
+  {"text":"Auto-Rejected by rule #5: Example App (SAML) (user 123456)"}
+  ```
+
+- **`teams`** — same `text` payloads for a Microsoft Teams channel workflow
   ("Post to a channel when a webhook request is received"; URL on
   `webhook.office.com`).
 

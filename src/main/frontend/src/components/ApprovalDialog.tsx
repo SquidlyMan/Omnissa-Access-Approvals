@@ -34,8 +34,8 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-full overflow-y-auto">
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Review Request</h2>
         <p className="text-sm text-gray-500 mb-5">
           Application: <span className="font-medium text-gray-700">{resourceName}</span>

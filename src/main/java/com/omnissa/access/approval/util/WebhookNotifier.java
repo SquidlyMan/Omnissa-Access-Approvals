@@ -17,7 +17,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Optional webhook notification when a new activation request arrives.
+ * Optional webhook notification when a new activation request arrives or a
+ * request is decided (approved/rejected, manually or by an auto-rule).
  * Fire-and-forget: runs async, never throws, and is a no-op when
  * webhook.url is blank. Formats: generic (JSON event), slack, teams.
  */
@@ -42,11 +43,27 @@ public class WebhookNotifier {
     }
 
     public void notifyNewRequest(CalloutRequest request) {
-        if (webhookUrl == null || webhookUrl.isBlank()) {
+        if (request == null || webhookUrl == null || webhookUrl.isBlank()) {
             return;
         }
-        Map<String, Object> payload = buildPayload(request);
-        String requestId = request.getRequestId();
+        postAsync(buildNewRequestPayload(request), request.getRequestId());
+    }
+
+    /**
+     * Notifies the webhook of an approval/rejection decision.
+     *
+     * @param decidedBy admin username for human decisions, or the literal
+     *                  "auto-approval-rule" for rule decisions
+     * @param ruleLabel "#&lt;id&gt;" for rule decisions, null for human decisions
+     */
+    public void notifyDecision(CalloutRequest request, boolean approved, String decidedBy, String ruleLabel) {
+        if (request == null || webhookUrl == null || webhookUrl.isBlank()) {
+            return;
+        }
+        postAsync(buildDecisionPayload(request, approved, decidedBy, ruleLabel), request.getRequestId());
+    }
+
+    private void postAsync(Map<String, Object> payload, String requestId) {
         CompletableFuture.runAsync(() -> {
             try {
                 HttpHeaders headers = new HttpHeaders();
@@ -59,9 +76,13 @@ public class WebhookNotifier {
         });
     }
 
-    private Map<String, Object> buildPayload(CalloutRequest request) {
+    private String resolvedFormat() {
+        return webhookFormat == null ? "generic" : webhookFormat.trim().toLowerCase();
+    }
+
+    private Map<String, Object> buildNewRequestPayload(CalloutRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        String format = webhookFormat == null ? "generic" : webhookFormat.trim().toLowerCase();
+        String format = resolvedFormat();
         if ("slack".equals(format) || "teams".equals(format)) {
             // Teams incoming webhooks accept the same simple text payload as Slack.
             payload.put("text", "New access request: " + request.getResourceName()
@@ -76,6 +97,31 @@ public class WebhookNotifier {
             payload.put("receivedDate", request.getReceivedDate() != null
                     ? request.getReceivedDate().toInstant().toString()
                     : Instant.now().toString());
+        }
+        return payload;
+    }
+
+    private Map<String, Object> buildDecisionPayload(CalloutRequest request, boolean approved,
+                                                     String decidedBy, String ruleLabel) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        String format = resolvedFormat();
+        if ("slack".equals(format) || "teams".equals(format)) {
+            String attribution = ruleLabel != null
+                    ? (approved ? "Auto-Approved by rule " : "Auto-Rejected by rule ") + ruleLabel
+                    : (approved ? "Approved by " : "Rejected by ") + decidedBy;
+            payload.put("text", attribution + ": " + request.getResourceName()
+                    + " (user " + request.getUserId() + ")");
+        } else {
+            payload.put("event", "request.decided");
+            payload.put("requestId", request.getRequestId());
+            payload.put("resourceName", request.getResourceName());
+            payload.put("userId", request.getUserId());
+            payload.put("decision", approved ? "approved" : "rejected");
+            payload.put("decidedBy", decidedBy);
+            if (ruleLabel != null) {
+                payload.put("rule", ruleLabel);
+            }
+            payload.put("decidedDate", Instant.now().toString());
         }
         return payload;
     }

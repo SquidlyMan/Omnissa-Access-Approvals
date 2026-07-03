@@ -1,7 +1,11 @@
 #!/bin/sh
 # Omnissa Access Approvals — ZimaCube deploy/update script.
 # Run ON the ZimaCube as root:  sudo sh deploy/zimacube/deploy.sh
-# Idempotent: safe to re-run for updates (git pull + rebuild + recreate).
+# First run bootstraps everything (repo checkout for compose/env/service
+# assets, env file, firewall unit). Idempotent: update by re-running this
+# script (git pull + image pull + recreate) OR — once the app is in CasaOS —
+# via CasaOS "Check and then update" (the image is pulled from GHCR, no
+# local build).
 #
 # Follows the zimacube-container-deploy runbook:
 #   - nothing written to / (rootfs is 1.2 GB and ~full)
@@ -47,8 +51,8 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 chmod 600 "$ENV_FILE"
 
-echo "==> Building image (Maven + npm inside Docker — slow on first run, ~7.5 GB RAM box)"
-docker build -t $APP:latest "$SRC_DIR"
+echo "==> Pulling image from GHCR"
+docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" pull
 
 echo "==> Starting container"
 docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" up -d

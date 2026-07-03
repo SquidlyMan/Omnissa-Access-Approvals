@@ -89,12 +89,12 @@ export default function QueuePage() {
       )}
 
       {/* Tab bar */}
-      <div className="flex gap-1 mb-5 border-b border-gray-200">
+      <div className="flex gap-1 mb-5 border-b border-gray-200 overflow-x-auto md:overflow-visible pb-px md:pb-0">
         {STATE_TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => switchState(tab.key)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-t-lg transition-colors -mb-px border-b-2
               ${activeState === tab.key
                 ? 'border-omnissa text-omnissa'
                 : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -122,7 +122,7 @@ export default function QueuePage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                       <th className="px-5 py-3">Time</th>
@@ -139,7 +139,7 @@ export default function QueuePage() {
                         <td className="px-5 py-3 text-gray-900">{ev.adminUsername}</td>
                         <td className="px-5 py-3"><AuditActionBadge action={ev.action} /></td>
                         <td className="px-5 py-3 text-gray-900">{ev.resourceName}</td>
-                        <td className="px-5 py-3 text-gray-500">{ev.message}</td>
+                        <td className="px-5 py-3 text-gray-500 break-words">{ev.message}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -185,11 +185,11 @@ export default function QueuePage() {
               {page.content.map(req => (
                 <li
                   key={req.id}
-                  className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 hover:bg-gray-50 transition-colors"
                 >
                   <AppIcon resourceUuid={req.resourceUuid} resourceName={req.resourceName} size={44} />
                   <div
-                    className="flex-1 min-w-0 cursor-pointer"
+                    className="flex-1 min-w-[10rem] cursor-pointer"
                     onClick={() => navigate(`/requests/${req.requestId}`)}
                   >
                     <p className="font-medium text-gray-900 truncate">{req.resourceName}</p>

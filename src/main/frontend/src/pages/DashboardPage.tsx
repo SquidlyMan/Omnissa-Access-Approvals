@@ -36,10 +36,10 @@ function TenantStatusCard() {
   }, [])
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-6 flex items-center justify-between gap-4">
+    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Omnissa Access Tenant</p>
-        <p className="font-medium text-gray-900 truncate">
+        <p className="font-medium text-gray-900 break-all sm:break-normal sm:truncate">
           {failed ? 'Status unavailable' : status ? (status.tenantUrl || 'Not configured') : 'Checking…'}
         </p>
         {status?.error && !status.reachable && (
@@ -47,7 +47,7 @@ function TenantStatusCard() {
         )}
       </div>
       {status && !failed && (
-        <div className="shrink-0 flex flex-col items-end gap-1">
+        <div className="shrink-0 flex flex-col items-start sm:items-end gap-1">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium
               ${status.reachable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
@@ -98,7 +98,7 @@ export default function DashboardPage() {
       <TenantStatusCard />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Awaiting Review"
           count={stats.pending}
@@ -144,10 +144,10 @@ export default function DashboardPage() {
               <li
                 key={req.id}
                 onClick={() => navigate(`/requests/${req.requestId}`)}
-                className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
               >
                 <AppIcon resourceUuid={req.resourceUuid} resourceName={req.resourceName} size={40} />
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[10rem]">
                   <p className="font-medium text-gray-900 truncate">{req.resourceName}</p>
                   <p className="text-sm text-gray-500 truncate">Requested by {req.userId}</p>
                 </div>

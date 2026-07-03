@@ -37,11 +37,11 @@ export default function RequestDetailPage() {
       </button>
 
       {/* App header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4 flex items-center gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <AppIcon resourceUuid={req.resourceUuid} resourceName={req.resourceName} size={56} />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[10rem]">
           <h1 className="text-xl font-semibold text-gray-900 truncate">{req.resourceName}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Request ID: {req.requestId}</p>
+          <p className="text-sm text-gray-500 mt-0.5 break-all">Request ID: {req.requestId}</p>
         </div>
         <StatusBadge state={req.state} />
       </div>
@@ -97,8 +97,8 @@ export default function RequestDetailPage() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex px-5 py-3 text-sm gap-4">
-      <span className="w-32 shrink-0 text-gray-500">{label}</span>
+    <div className="flex flex-col sm:flex-row px-5 py-3 text-sm gap-1 sm:gap-4">
+      <span className="sm:w-32 shrink-0 text-gray-500">{label}</span>
       <span className="text-gray-900 break-all">{children}</span>
     </div>
   )

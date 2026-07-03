@@ -132,7 +132,7 @@ export default function RulesPage() {
         ) : (
           <ul className="divide-y divide-gray-100">
             {rules.map(rule => (
-              <li key={rule.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
+              <li key={rule.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 hover:bg-gray-50 transition-colors">
                 <span
                   className={`shrink-0 inline-block rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap
                     ${rule.enabled ? 'bg-gray-100 text-gray-600' : 'bg-gray-100 text-gray-400'}`}
@@ -140,7 +140,7 @@ export default function RulesPage() {
                 >
                   #{rule.id}
                 </span>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[10rem]">
                   <p className={`font-medium truncate ${rule.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
                     {describeRule(rule)}
                   </p>
@@ -174,7 +174,7 @@ export default function RulesPage() {
       </div>
 
       {/* Add rule form */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 max-w-2xl">
         <h2 className="font-semibold text-gray-800 mb-4">Add Rule</h2>
         <form onSubmit={addRule} className="space-y-4">
           <div className="flex gap-6 text-sm text-gray-700">

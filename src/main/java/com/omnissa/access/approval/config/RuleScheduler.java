@@ -7,6 +7,7 @@ import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
 import com.omnissa.access.approval.repository.AutoRuleRepository;
 import com.omnissa.access.approval.util.AuditService;
+import com.omnissa.access.approval.util.WebhookNotifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ public class RuleScheduler {
     @Autowired
     private AuditService auditService;
 
+    @Autowired
+    private WebhookNotifier webhookNotifier;
+
     @Scheduled(fixedDelayString = "PT1H", initialDelayString = "PT5M")
     public void applyExpiryRules() {
         List<AutoRule> expiryRules = autoRuleRepository.findAll().stream()
@@ -63,7 +67,8 @@ public class RuleScheduler {
                             "Auto-rejected: pending longer than " + rule.getExpiryDays() + " days"));
                     auditService.record("auto-rejected", request.getRequestId(), request.getResourceName(),
                             "Auto-rejected by rule #" + rule.getId()
-                                    + ": pending longer than " + rule.getExpiryDays() + " days");
+                                    + " (pending longer than " + rule.getExpiryDays() + " days)");
+                    webhookNotifier.notifyDecision(request, false, "auto-approval-rule", "#" + rule.getId());
                 } catch (Exception e) {
                     logger.error("Expiry rule #{} failed for requestId={}",
                             rule.getId(), request.getRequestId(), e);
