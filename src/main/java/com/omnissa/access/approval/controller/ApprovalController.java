@@ -58,7 +58,18 @@ public class ApprovalController {
 
     @PostMapping(value = "/new",
             consumes = {CustomContentTypes.APPROVAL_MESSAGE_REQUEST, CustomContentTypes.MESSAGING_MESSAGE})
-    public ResponseEntity<?> saveCalloutRequest(@RequestBody(required = false) CalloutRequest calloutRequest) {
+    public ResponseEntity<?> saveCalloutRequest(@RequestBody(required = false) String rawBody) {
+        logger.info("Raw callout body: {}", rawBody);
+        CalloutRequest calloutRequest = null;
+        if (rawBody != null && !rawBody.isBlank()) {
+            try {
+                calloutRequest = new com.fasterxml.jackson.databind.ObjectMapper()
+                        .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                        .readValue(rawBody, CalloutRequest.class);
+            } catch (Exception e) {
+                logger.warn("Could not parse callout body: {}", e.getMessage());
+            }
+        }
         // Access sends an empty test POST when the approvals settings are saved —
         // acknowledge it but don't store a junk all-null request (it blanks the UI).
         if (calloutRequest == null || calloutRequest.getRequestId() == null
