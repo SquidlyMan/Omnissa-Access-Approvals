@@ -146,6 +146,18 @@ server {
 
 If you use **Nginx Proxy Manager**: create a proxy host for `approvals.flaming.ws` → `http://<host-ip>:8081`, select your wildcard certificate, and add the `/api/approvals/stream` settings above as a *Custom Location* if live queue updates stall.
 
+### ZimaCube one-script deploy
+
+For a ZimaCube specifically, `deploy/zimacube/` contains a complete, idempotent deployment: source and H2 data on `/media/ZIMARAID/omnissa-approvals/`, env file with `chmod 600`, a CasaOS-adoption-safe compose (pre-built image, all state bind-mounted), and a systemd unit that keeps port 8081 LAN-only via a `DOCKER-USER` iptables rule. On the NAS:
+
+```bash
+git clone https://github.com/squidlyman/Omnissa-Access-Approvals.git /media/ZIMARAID/omnissa-approvals/src
+sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
+# first run creates the env file and stops — edit it, then re-run
+```
+
+Then add the NPM proxy host `approvals.flaming.ws` → `http://10.88.88.30:8081`. If NPM returns 502 and its access log shows requests arriving from a `172.x` Docker-bridge address, the LAN-only rule is dropping proxy traffic — insert an accept for the bridge network above the drop: `iptables -I DOCKER-USER -p tcp --dport 8081 -s 172.16.0.0/12 -j ACCEPT` (and add a matching `ExecStart` line to the systemd unit).
+
 **Notes for this mode:**
 
 - `X-Forwarded-Proto` is required — the app uses it to generate `https://` OAuth2 redirect URIs (`server.forward-headers-strategy=framework` is set by default).

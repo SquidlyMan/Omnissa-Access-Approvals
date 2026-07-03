@@ -1,0 +1,13 @@
+[Unit]
+Description=LAN-only lockdown for omnissa-approvals port 8081 (DOCKER-USER)
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'iptables -C DOCKER-USER -p tcp --dport 8081 ! -s 10.88.88.0/24 -j DROP 2>/dev/null || iptables -I DOCKER-USER -p tcp --dport 8081 ! -s 10.88.88.0/24 -j DROP'
+
+[Install]
+WantedBy=multi-user.target

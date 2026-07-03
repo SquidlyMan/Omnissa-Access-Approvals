@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSse } from '../hooks/useSse'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
-import type { Stats, CalloutRequest } from '../types'
+import type { Stats, Page, CalloutRequest } from '../types'
 
 interface StatCardProps {
   label: string
