@@ -1,4 +1,4 @@
-# Access Approval Tool for Omnissa
+# <img src="docs/images/app-icon.svg" alt="" width="40" align="top"/> Access Approval Tool for Omnissa
 
 A self-hosted approval gateway for Omnissa Access (Workspace ONE): users request applications from the catalog, administrators approve or deny them in a live web queue, and decisions flow back to Omnissa Access automatically.
 

@@ -124,7 +124,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/api/approvals/new").permitAll()
                 // Static assets served by Vite build
-                .requestMatchers("/assets/**", "/favicon.ico", "/vite.svg").permitAll()
+                .requestMatchers("/assets/**", "/favicon.ico", "/favicon.svg",
+                        "/apple-touch-icon.png", "/vite.svg").permitAll()
                 // OpenAPI / Swagger UI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // Health probe for Docker
