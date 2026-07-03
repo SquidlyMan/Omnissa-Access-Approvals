@@ -43,6 +43,14 @@ public class OmnissaRestClient {
         return (String) response.getBody().get("access_token");
     }
 
+    /**
+     * Connectivity probe: attempts a client_credentials token fetch and lets
+     * any failure propagate to the caller. Used by the /api/config/status check.
+     */
+    public void checkToken() {
+        getAccessToken();
+    }
+
     public <T> ResponseEntity<T> exchange(String url, HttpMethod method,
                                           HttpEntity<?> requestEntity, Class<T> responseType,
                                           Object... uriVars) {

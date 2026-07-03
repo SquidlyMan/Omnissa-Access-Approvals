@@ -27,6 +27,14 @@ export default function Layout() {
             >
               Queue
             </NavLink>
+            <NavLink
+              to="/rules"
+              className={({ isActive }) =>
+                `text-sm px-3 py-1 rounded transition-colors ${isActive ? 'bg-white/20' : 'hover:bg-white/10'}`
+              }
+            >
+              Rules
+            </NavLink>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <NavLink

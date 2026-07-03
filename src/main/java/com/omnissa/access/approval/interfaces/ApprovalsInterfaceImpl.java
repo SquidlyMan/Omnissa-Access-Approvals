@@ -4,6 +4,7 @@ import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.model.OmnissaServer;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
+import com.omnissa.access.approval.util.AuditService;
 import com.omnissa.access.approval.util.CustomContentTypes;
 import com.omnissa.access.approval.util.OmnissaRestClient;
 import com.omnissa.access.approval.util.Paths;
@@ -26,6 +27,9 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
 
     @Autowired
     private ApprovalsRepository repository;
+
+    @Autowired
+    private AuditService auditService;
 
     @Override
     public CalloutRequest[] getPendingApprovals() {
@@ -66,6 +70,7 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
             }
 
             calloutRequest.setState(response.isApproved() ? "approved" : "rejected");
+            calloutRequest.setDecidedBy(auditService.currentAdmin());
             repository.save(calloutRequest);
         } catch (Exception e) {
             logger.error("Failed to submit approval response for requestId={}: {}",

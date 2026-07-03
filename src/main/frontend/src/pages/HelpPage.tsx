@@ -115,6 +115,77 @@ export default function HelpPage() {
           </ul>
         </HelpSection>
 
+        <HelpSection title="Audit Trail">
+          <p>
+            Every incoming request, every decision (with the deciding admin's username), and every
+            auto-rule action is recorded in the audit trail. View it under{' '}
+            <span className="font-medium text-gray-800">Queue &gt; Audit</span> tab. Audit lines are
+            also written to the application log with the{' '}
+            <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">AUDIT</code>{' '}
+            prefix, so they appear in the downloadable log bundle and syslog export.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="Webhook Notifications">
+          <p>
+            Set the <EnvVar name="WEBHOOK_URL" /> container environment value to POST a notification
+            for each new access request. Set <EnvVar name="WEBHOOK_FORMAT" /> to{' '}
+            <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">generic</code>{' '}
+            (structured JSON),{' '}
+            <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">slack</code>, or{' '}
+            <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">teams</code>{' '}
+            (simple text payloads for incoming-webhook integrations). Restart the container to apply.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="Auto-Approval Rules">
+          <p>
+            Rules are managed on the <span className="font-medium text-gray-800">Rules</span> page.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <span className="font-medium text-gray-800">Match rules</span> auto-approve or
+              auto-reject requests on arrival, by application name pattern (
+              <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">*</code>{' '}
+              wildcard) and/or Access group membership.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Expiry rules</span> auto-reject requests
+              that stay pending longer than N days (checked hourly).
+            </li>
+          </ul>
+          <p>
+            All rule decisions appear in the Audit trail as{' '}
+            <span className="font-medium text-gray-800">auto-approved</span> or{' '}
+            <span className="font-medium text-gray-800">auto-rejected</span>.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="Access Connectivity">
+          <p>
+            The dashboard tile checks that the service client can obtain a token from the Omnissa
+            Access tenant (result cached for about 60 seconds). A red status usually means an
+            expired or changed client secret.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="CSV Export">
+          <p>
+            On the <span className="font-medium text-gray-800">Queue</span> page, click{' '}
+            <span className="font-medium text-gray-800">Export CSV</span> to download the full
+            request history, including who decided each request.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="Rate Limiting">
+          <p>
+            The callout endpoint is limited to <EnvVar name="OMNISSA_API_RATE_LIMIT" /> requests per
+            minute per source IP (default 60; set to{' '}
+            <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">0</code> to
+            disable). Excess requests receive HTTP 429.
+          </p>
+        </HelpSection>
+
         <HelpSection title="Logs">
           <a
             href="/api/logs/bundle"

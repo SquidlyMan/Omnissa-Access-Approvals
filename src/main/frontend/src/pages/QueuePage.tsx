@@ -4,14 +4,33 @@ import { useSse } from '../hooks/useSse'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
 import ApprovalDialog from '../components/ApprovalDialog'
-import type { Page, CalloutRequest } from '../types'
+import type { Page, CalloutRequest, AuditPage, AuditAction } from '../types'
 
 const STATE_TABS = [
   { key: 'pending',     label: 'Awaiting Review' },
   { key: 'approved',    label: 'Approved' },
   { key: 'rejected',    label: 'Rejected' },
   { key: 'deactivated', label: 'Deactivated' },
+  { key: 'audit',       label: 'Audit' },
 ]
+
+const AUDIT_ACTION_STYLES: Record<AuditAction, string> = {
+  'approved':               'bg-green-100 text-green-800',
+  'auto-approved':          'bg-green-100 text-green-800',
+  'rejected':               'bg-red-100 text-red-800',
+  'auto-rejected':          'bg-red-100 text-red-800',
+  'request-received':       'bg-gray-100 text-gray-600',
+  'deactivation-received':  'bg-gray-100 text-gray-600',
+}
+
+function AuditActionBadge({ action }: { action: AuditAction }) {
+  const style = AUDIT_ACTION_STYLES[action] ?? 'bg-gray-100 text-gray-600'
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${style}`}>
+      {action}
+    </span>
+  )
+}
 
 export default function QueuePage() {
   const navigate = useNavigate()
@@ -22,8 +41,16 @@ export default function QueuePage() {
   const [pageNum, setPageNum] = useState(0)
   const [pendingLiveUpdate, setPendingLiveUpdate] = useState(false)
   const [dialogReq, setDialogReq] = useState<CalloutRequest | null>(null)
+  const [auditPage, setAuditPage] = useState<AuditPage | null>(null)
 
   const load = useCallback(() => {
+    if (activeState === 'audit') {
+      fetch(`/api/audit?page=${pageNum}&size=25`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(setAuditPage)
+        .finally(() => setPendingLiveUpdate(false))
+      return
+    }
     fetch(`/api/approvals/requests?state=${activeState}&page=${pageNum}&size=20&sort=id,desc`, {
       credentials: 'include',
     })
@@ -46,7 +73,16 @@ export default function QueuePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900 mb-5">Queue</h1>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-semibold text-gray-900">Queue</h1>
+        <a
+          href="/api/approvals/export.csv"
+          download
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Export CSV
+        </a>
+      </div>
 
       {/* Live update banner */}
       {pendingLiveUpdate && (
@@ -75,7 +111,67 @@ export default function QueuePage() {
         ))}
       </div>
 
+      {/* Audit trail */}
+      {activeState === 'audit' && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {!auditPage || auditPage.content.length === 0 ? (
+            <p className="text-sm text-gray-400 px-5 py-8 text-center">No audit events recorded yet.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-5 py-3">Time</th>
+                      <th className="px-5 py-3">Admin</th>
+                      <th className="px-5 py-3">Action</th>
+                      <th className="px-5 py-3">Application</th>
+                      <th className="px-5 py-3">Message</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {auditPage.content.map(ev => (
+                      <tr key={ev.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3 whitespace-nowrap text-gray-500">{formatDate(ev.timestamp)}</td>
+                        <td className="px-5 py-3 text-gray-900">{ev.adminUsername}</td>
+                        <td className="px-5 py-3"><AuditActionBadge action={ev.action} /></td>
+                        <td className="px-5 py-3 text-gray-900">{ev.resourceName}</td>
+                        <td className="px-5 py-3 text-gray-500">{ev.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Audit pagination */}
+              {auditPage.totalPages > 1 && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm text-gray-500">
+                  <span>Page {auditPage.number + 1} of {auditPage.totalPages}</span>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={auditPage.first}
+                      onClick={() => setPageNum(p => p - 1)}
+                      className="px-3 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                    >
+                      ← Prev
+                    </button>
+                    <button
+                      disabled={auditPage.last}
+                      onClick={() => setPageNum(p => p + 1)}
+                      className="px-3 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Request list */}
+      {activeState !== 'audit' && (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {!page || page.content.length === 0 ? (
           <p className="text-sm text-gray-400 px-5 py-8 text-center">No requests in this category.</p>
@@ -137,6 +233,7 @@ export default function QueuePage() {
           </>
         )}
       </div>
+      )}
 
       {/* Approval dialog */}
       {dialogReq && (

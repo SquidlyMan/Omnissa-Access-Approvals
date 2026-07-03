@@ -60,6 +60,23 @@ public class SecurityConfig {
     @Value("${omnissa.auth.local-login-disabled:false}")
     private boolean localLoginDisabled;
 
+    @Value("${omnissa.api.rate-limit:60}")
+    private int apiRateLimit;
+
+    /**
+     * Per-IP rate limiting on the inbound callout endpoint. Registered at
+     * HIGHEST_PRECEDENCE so cheap rejection happens before basic auth.
+     * A no-op when omnissa.api.rate-limit is 0.
+     */
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilter() {
+        FilterRegistrationBean<RateLimitFilter> registration =
+                new FilterRegistrationBean<>(new RateLimitFilter(apiRateLimit));
+        registration.addUrlPatterns("/api/approvals/new");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
+    }
+
     /**
      * Optional Basic auth on the inbound callout endpoint. Runs before the
      * Spring Security chain; a no-op when omnissa.api.username is blank.
@@ -69,7 +86,7 @@ public class SecurityConfig {
         FilterRegistrationBean<ApiBasicAuthFilter> registration =
                 new FilterRegistrationBean<>(new ApiBasicAuthFilter(apiUsername, apiPassword));
         registration.addUrlPatterns("/api/approvals/new");
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
         return registration;
     }
 

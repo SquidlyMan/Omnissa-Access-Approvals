@@ -211,6 +211,7 @@ Enables Omnissa Access as an OIDC identity provider for administrator login. If 
 | `OMNISSA_API_USERNAME` | No | When set, the callout endpoint `POST /api/approvals/new` requires HTTP Basic auth with these credentials (configure the same username/password in the Omnissa Access approvals settings). Blank = open endpoint. OPTIONS probes remain unauthenticated. |
 | `OMNISSA_API_PASSWORD` | No | Password paired with `OMNISSA_API_USERNAME` |
 | `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED` | No | Set to `true` to disable local username/password login entirely (OAuth2-only admin login). Requires a working `OMNISSA_ADMIN_OAUTH_*` setup. Default: `false` |
+| `OMNISSA_API_RATE_LIMIT` | No | Maximum requests per minute per client IP on the callout endpoint `POST /api/approvals/new`. Excess requests get HTTP 429. `0` disables rate limiting. Default: `60` |
 
 ### Syslog Export (Optional)
 
@@ -218,6 +219,15 @@ Enables Omnissa Access as an OIDC identity provider for administrator login. If 
 |---|---|---|
 | `SYSLOG_HOST` | No | Syslog server to forward application logs to (UDP). Blank = disabled |
 | `SYSLOG_PORT` | No | Syslog port. Default: `514` |
+
+### Webhook Notifications (Optional)
+
+POSTs a notification to a webhook whenever a new activation request arrives. Fire-and-forget — webhook failures never affect callout processing.
+
+| Variable | Required | Description |
+|---|---|---|
+| `WEBHOOK_URL` | No | Webhook URL to POST to on each new activation request. Blank = disabled |
+| `WEBHOOK_FORMAT` | No | Payload format: `generic` (JSON event), `slack`, or `teams`. Default: `generic` |
 
 ### Email Notifications (Optional)
 
@@ -287,6 +297,15 @@ On first startup, if `OMNISSA_BOOTSTRAP_ADMIN_USERNAME` and `OMNISSA_BOOTSTRAP_A
 ### Omnissa Access OAuth2
 
 If the `OMNISSA_ADMIN_OAUTH_*` variables are configured, a **Sign in with Omnissa Access** button appears on the login page. Any user who authenticates successfully through that client is granted full admin access.
+
+---
+
+## Additional Features
+
+- **Audit trail** — every request received, approval, rejection, and auto-rule decision is recorded (who/what/when) and available at `GET /api/audit`; audit lines are also written to the log (and syslog export) under the `AUDIT` logger.
+- **Auto-approval rules** — manage rules via `GET/POST/PUT/DELETE /api/rules`: match rules auto-approve/reject new requests by app name pattern (`*` wildcards) and/or requestor group; expiry rules auto-reject requests pending longer than N days (checked hourly).
+- **CSV export** — download all requests as CSV from `GET /api/approvals/export.csv`.
+- **Connectivity status** — `GET /api/config/status` reports whether the configured Omnissa Access tenant is reachable (token fetch, cached 60 s).
 
 ---
 

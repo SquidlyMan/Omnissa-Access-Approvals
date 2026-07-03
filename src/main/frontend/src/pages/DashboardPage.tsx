@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSse } from '../hooks/useSse'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
-import type { Stats, Page, CalloutRequest } from '../types'
+import type { Stats, Page, CalloutRequest, TenantStatus } from '../types'
 
 interface StatCardProps {
   label: string
@@ -21,6 +21,46 @@ function StatCard({ label, count, color, onClick }: StatCardProps) {
       <span className="text-3xl font-bold">{count}</span>
       <span className="text-sm font-medium mt-1">{label}</span>
     </button>
+  )
+}
+
+function TenantStatusCard() {
+  const [status, setStatus] = useState<TenantStatus | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/config/status', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`Server error ${r.status}`)))
+      .then((s: TenantStatus) => setStatus(s))
+      .catch(() => setFailed(true))
+  }, [])
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-6 flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Omnissa Access Tenant</p>
+        <p className="font-medium text-gray-900 truncate">
+          {failed ? 'Status unavailable' : status ? (status.tenantUrl || 'Not configured') : 'Checking…'}
+        </p>
+        {status?.error && !status.reachable && (
+          <p className="text-xs text-gray-500 mt-0.5 truncate">{status.error}</p>
+        )}
+      </div>
+      {status && !failed && (
+        <div className="shrink-0 flex flex-col items-end gap-1">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium
+              ${status.reachable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+          >
+            <span className={`inline-block w-2 h-2 rounded-full ${status.reachable ? 'bg-green-500' : 'bg-red-500'}`} />
+            {status.reachable ? 'Connected' : 'Unreachable'}
+          </span>
+          {status.checkedAt && (
+            <span className="text-xs text-gray-400">Checked {formatDate(status.checkedAt)}</span>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -53,6 +93,9 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+
+      {/* Access tenant connectivity */}
+      <TenantStatusCard />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
