@@ -77,8 +77,11 @@ public class SecurityConfig {
                 // authorizes FORWARD/ERROR dispatches too, which turned /login into a
                 // redirect loop. Authorization already happened on the original request.
                 .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
-                // Omnissa Access POSTs callout requests here — must be unauthenticated
+                // Omnissa Access POSTs callout requests here — must be unauthenticated.
+                // It also probes with OPTIONS when saving the approvals settings; a
+                // redirect-to-login there reads as "Unable to connect to the URI".
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/api/approvals/new").permitAll()
                 // Static assets served by Vite build
                 .requestMatchers("/assets/**", "/favicon.ico", "/vite.svg").permitAll()
                 // OpenAPI / Swagger UI
