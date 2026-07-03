@@ -93,8 +93,13 @@ public class LogsController {
         }
 
         LocalDateTime cutoff = LocalDateTime.now().minus(1, ChronoUnit.HOURS);
+        boolean wroteAny = false;
         for (Path source : sources) {
-            copyLinesWithinWindow(source, cutoff, writer);
+            wroteAny |= copyLinesWithinWindow(source, cutoff, writer);
+        }
+        if (!wroteAny) {
+            writer.write("No log lines in the last hour (application idle since "
+                    + "its last logged event).\n");
         }
     }
 
@@ -118,9 +123,10 @@ public class LogsController {
         }
     }
 
-    private void copyLinesWithinWindow(Path source, LocalDateTime cutoff, Writer writer)
+    private boolean copyLinesWithinWindow(Path source, LocalDateTime cutoff, Writer writer)
             throws IOException {
         boolean withinWindow = false;
+        boolean wroteAny = false;
         try (BufferedReader reader = openReader(source)) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -133,9 +139,11 @@ public class LogsController {
                 if (withinWindow) {
                     writer.write(line);
                     writer.write('\n');
+                    wroteAny = true;
                 }
             }
         }
+        return wroteAny;
     }
 
     private BufferedReader openReader(Path source) throws IOException {
