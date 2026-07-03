@@ -22,7 +22,10 @@ BRANCH=claude/review-project-codebase-RQeOt   # switch to main once merged
 [ "$(id -u)" = 0 ] || { echo "Run with sudo."; exit 1; }
 
 echo "==> Directories on RAID"
-mkdir -p "$RAID_DIR/data"
+mkdir -p "$RAID_DIR/data" "$RAID_DIR/docker-config"
+# / is a read-only squashfs on ZimaOS — docker/git must never write to $HOME (/root).
+export DOCKER_CONFIG="$RAID_DIR/docker-config"
+export HOME="$RAID_DIR"
 
 echo "==> Source checkout"
 if [ -d "$SRC_DIR/.git" ]; then
