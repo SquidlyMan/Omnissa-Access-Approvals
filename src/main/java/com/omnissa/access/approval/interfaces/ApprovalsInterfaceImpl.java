@@ -4,6 +4,7 @@ import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.model.OmnissaServer;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
+import com.omnissa.access.approval.util.AuditService;
 import com.omnissa.access.approval.util.CustomContentTypes;
 import com.omnissa.access.approval.util.OmnissaRestClient;
 import com.omnissa.access.approval.util.Paths;
@@ -27,6 +28,9 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
     @Autowired
     private ApprovalsRepository repository;
 
+    @Autowired
+    private AuditService auditService;
+
     @Override
     public CalloutRequest[] getPendingApprovals() {
         OmnissaServer server = RestPreconditions.omnissaServerConfig();
@@ -45,7 +49,8 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
     public void requestResponse(CalloutResponse response) {
         CalloutRequest calloutRequest = repository.findByRequestId(response.getRequestId());
 
-        HttpHeaders headers = CustomContentTypes.add(CustomContentTypes.APPROVAL_RESPONSE);
+        // Access 415s the legacy vendor types on this PUT; it wants plain JSON
+        HttpHeaders headers = CustomContentTypes.add("application/json");
         HttpEntity<CalloutResponse> httpEntity = new HttpEntity<>(response, headers);
 
         OmnissaServer server = RestPreconditions.omnissaServerConfig();
@@ -64,7 +69,8 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
                 calloutRequest.setResponseMessage(response.getMessage());
             }
 
-            calloutRequest.setState(response.isApproved() ? "approved" : "denied");
+            calloutRequest.setState(response.isApproved() ? "approved" : "rejected");
+            calloutRequest.setDecidedBy(auditService.currentAdmin());
             repository.save(calloutRequest);
         } catch (Exception e) {
             logger.error("Failed to submit approval response for requestId={}: {}",
@@ -77,7 +83,7 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
         OmnissaServer server = RestPreconditions.omnissaServerConfig();
         OmnissaRestClient restClient = new OmnissaRestClient(server);
 
-        HttpHeaders headers = CustomContentTypes.add(CustomContentTypes.APPROVAL_RESPONSE);
+        HttpHeaders headers = CustomContentTypes.add("application/json");
 
         for (CalloutRequest request : getPendingApprovals()) {
             CalloutResponse response = new CalloutResponse(request.getRequestId(), false, "deactivation");

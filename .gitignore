@@ -20,4 +20,12 @@ target/
 
 # Frontend build artifacts
 src/main/frontend/node_modules/
+src/main/frontend/node/
 src/main/resources/static/
+
+# OS cruft
+.DS_Store
+
+# Local assets - not distributed
+Omnissa_Identity_Service_Logo.png
+zimacube-container-deploy/

@@ -1,0 +1,51 @@
+# Mode 3 (EXTERNAL PROXY) — app only, TLS terminated by your own reverse proxy
+# (nginx, Nginx Proxy Manager, Traefik, etc.) running on the same host or network.
+# Built for setups like a ZimaCube/CasaOS box where nginx already owns 443
+# with a wildcard certificate.
+#
+# Usage:
+#   1. cp .env.example .env and fill in values (APPROVAL_DOMAIN and
+#      SSL_KEYSTORE_PASSWORD are not used in this mode)
+#   2. docker compose -f docker-compose-proxy.yml up -d --build
+#   3. Point your proxy at http://<host>:8081 for approvals.example.com
+#      (see README "Deploying behind your own reverse proxy" for the nginx config —
+#      the SSE endpoint /api/approvals/stream needs proxy_buffering off)
+
+services:
+
+  app:
+    build: .
+    ports:
+      # If nginx runs directly on the host, "127.0.0.1:8081:8081" is safer —
+      # it keeps the plain-HTTP port off the LAN. Use "8081:8081" if your proxy
+      # runs in a container (e.g. Nginx Proxy Manager) and reaches the app over
+      # the Docker/LAN network.
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      OMNISSA_BOOTSTRAP_URL:            ${OMNISSA_BOOTSTRAP_URL}
+      OMNISSA_BOOTSTRAP_CLIENT_ID:      ${OMNISSA_BOOTSTRAP_CLIENT_ID}
+      OMNISSA_BOOTSTRAP_CLIENT_SECRET:  ${OMNISSA_BOOTSTRAP_CLIENT_SECRET}
+      OMNISSA_BOOTSTRAP_ADMIN_USERNAME: ${OMNISSA_BOOTSTRAP_ADMIN_USERNAME:-}
+      OMNISSA_BOOTSTRAP_ADMIN_PASSWORD: ${OMNISSA_BOOTSTRAP_ADMIN_PASSWORD:-}
+      OMNISSA_BOOTSTRAP_ADMIN_EMAIL:    ${OMNISSA_BOOTSTRAP_ADMIN_EMAIL:-}
+      OMNISSA_ADMIN_OAUTH_CLIENT_ID:    ${OMNISSA_ADMIN_OAUTH_CLIENT_ID:-}
+      OMNISSA_ADMIN_OAUTH_CLIENT_SECRET: ${OMNISSA_ADMIN_OAUTH_CLIENT_SECRET:-}
+      OMNISSA_ADMIN_OAUTH_REDIRECT_URI: ${OMNISSA_ADMIN_OAUTH_REDIRECT_URI:-https://approvals.example.com/login/oauth2/code/omnissa}
+      OMNISSA_ADMIN_OAUTH_ISSUER_URI:        ${OMNISSA_ADMIN_OAUTH_ISSUER_URI:-}
+      OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT:   ${OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT:-false}
+      SPRING_MAIL_HOST:                 ${SPRING_MAIL_HOST:-}
+      SPRING_MAIL_PORT:                 ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME:             ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD:             ${SPRING_MAIL_PASSWORD:-}
+    volumes:
+      - app_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  app_data:

@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import QueuePage from './pages/QueuePage'
 import RequestDetailPage from './pages/RequestDetailPage'
+import RulesPage from './pages/RulesPage'
+import HelpPage from './pages/HelpPage'
 import Layout from './components/Layout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -30,6 +32,8 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="queue" element={<QueuePage />} />
           <Route path="requests/:requestId" element={<RequestDetailPage />} />
+          <Route path="rules" element={<RulesPage />} />
+          <Route path="help" element={<HelpPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

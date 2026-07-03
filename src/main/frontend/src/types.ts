@@ -35,3 +35,46 @@ export interface Stats {
   rejected: number
   deactivated: number
 }
+
+export type AuditAction =
+  | 'request-received'
+  | 'deactivation-received'
+  | 'approved'
+  | 'rejected'
+  | 'auto-approved'
+  | 'auto-rejected'
+
+export interface AuditEvent {
+  id: number
+  timestamp: string
+  adminUsername: string
+  action: AuditAction
+  requestId: string
+  resourceName: string
+  message: string
+}
+
+export interface AuditPage {
+  content: AuditEvent[]
+  totalElements: number
+  totalPages: number
+  number: number
+  last: boolean
+  first: boolean
+}
+
+export interface Rule {
+  id: number
+  enabled: boolean
+  action: 'approve' | 'reject'
+  appPattern: string | null
+  groupName: string | null
+  expiryDays: number | null
+}
+
+export interface TenantStatus {
+  tenantUrl: string
+  reachable: boolean
+  checkedAt: string
+  error: string | null
+}

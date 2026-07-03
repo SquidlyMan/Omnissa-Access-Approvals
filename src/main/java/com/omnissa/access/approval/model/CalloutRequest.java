@@ -67,6 +67,10 @@ public class CalloutRequest implements Serializable {
     @Nullable
     private String responseMessage;
 
+    /** Admin (or "system"/rule) that decided this request. */
+    @Nullable
+    private String decidedBy;
+
     private String state;
 
     public CalloutRequest() {}
@@ -127,6 +131,9 @@ public class CalloutRequest implements Serializable {
 
     @Nullable public String getResponseMessage() { return responseMessage; }
     public void setResponseMessage(@Nullable String responseMessage) { this.responseMessage = responseMessage; }
+
+    @Nullable public String getDecidedBy() { return decidedBy; }
+    public void setDecidedBy(@Nullable String decidedBy) { this.decidedBy = decidedBy; }
 
     @Override
     public String toString() {

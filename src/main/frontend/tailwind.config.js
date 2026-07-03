@@ -5,9 +5,9 @@ export default {
     extend: {
       colors: {
         omnissa: {
-          DEFAULT: '#1d6fa4',
-          dark:    '#155a85',
-          light:   '#e8f3fb',
+          DEFAULT: '#132250',
+          dark:    '#0c1636',
+          light:   '#e9ecf5',
         }
       }
     }
