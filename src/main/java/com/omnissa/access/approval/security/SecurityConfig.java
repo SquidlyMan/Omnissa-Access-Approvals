@@ -1,6 +1,7 @@
 package com.omnissa.access.approval.security;
 
 import com.omnissa.access.approval.repository.UserAccountRepository;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,6 +67,10 @@ public class SecurityConfig {
                 }
             }, BasicAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
+                // SpaController serves routes via forward:/index.html; Spring Boot 3
+                // authorizes FORWARD/ERROR dispatches too, which turned /login into a
+                // redirect loop. Authorization already happened on the original request.
+                .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                 // Omnissa Access POSTs callout requests here — must be unauthenticated
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
                 // Static assets served by Vite build
