@@ -14,7 +14,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
@@ -70,20 +69,26 @@ public class OAuthClientConsentService implements ApplicationRunner {
             @SuppressWarnings("unchecked")
             Map<String, Object> clientConfig = new HashMap<>(getResponse.getBody());
 
-            if (!clientConfig.containsKey("displayUserConsent")) {
-                logger.warn("Could not find 'displayUserConsent' field on OIDC client '{}'. " +
+            if (!clientConfig.containsKey("displayUserGrant")) {
+                logger.warn("Could not find 'displayUserGrant' field on OIDC client '{}'. " +
                             "Disable it manually in the Omnissa Access console.", adminClientId);
                 return;
             }
 
-            if (!Boolean.TRUE.equals(clientConfig.get("displayUserConsent"))) {
+            if (!Boolean.TRUE.equals(clientConfig.get("displayUserGrant"))) {
                 logger.info("User consent prompt is already disabled on OIDC client '{}'.", adminClientId);
                 return;
             }
 
-            clientConfig.put("displayUserConsent", false);
+            clientConfig.put("displayUserGrant", false);
+            clientConfig.remove("_links");
+            // The GET masks the secret as "" — sending that back would wipe the real one
+            Object secret = clientConfig.get("secret");
+            if (secret == null || secret.toString().isEmpty()) {
+                clientConfig.remove("secret");
+            }
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Content-Type", "application/vnd.vmware.horizon.manager.oauth2client+json");
             restClient.exchange(url, HttpMethod.PUT, new HttpEntity<>(clientConfig, headers), Map.class);
             logger.info("Successfully disabled user consent prompt on OIDC client '{}'.", adminClientId);
 
