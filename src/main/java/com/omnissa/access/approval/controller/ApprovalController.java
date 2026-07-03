@@ -56,7 +56,8 @@ public class ApprovalController {
         return ResponseEntity.ok(request);
     }
 
-    @PostMapping(value = "/new", consumes = CustomContentTypes.APPROVAL_MESSAGE_REQUEST)
+    @PostMapping(value = "/new",
+            consumes = {CustomContentTypes.APPROVAL_MESSAGE_REQUEST, CustomContentTypes.MESSAGING_MESSAGE})
     public ResponseEntity<?> saveCalloutRequest(@RequestBody CalloutRequest calloutRequest) {
         RestPreconditions.checkNotNull(calloutRequest, "CalloutRequest could not be read");
         logger.info("Received callout request: {}", calloutRequest);
