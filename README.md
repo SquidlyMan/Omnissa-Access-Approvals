@@ -89,6 +89,71 @@ Set `SSL_KEYSTORE_PASSWORD` in `.env` before starting.
 
 ---
 
+## Deploying Behind Your Own Reverse Proxy (nginx / ZimaCube / CasaOS)
+
+Use this mode when another proxy already owns ports 80/443 on the host — for example a ZimaCube running CasaOS with nginx terminating TLS using a wildcard certificate.
+
+**1. On the host, clone and configure:**
+
+```bash
+git clone https://github.com/squidlyman/Omnissa-Access-Approvals.git
+cd Omnissa-Access-Approvals
+cp .env.example .env   # fill in values; APPROVAL_DOMAIN and SSL_KEYSTORE_PASSWORD are unused here
+```
+
+**2. Start the app container (no Caddy):**
+
+```bash
+docker compose -f docker-compose-proxy.yml up -d --build
+```
+
+The first build takes several minutes (Maven + npm run inside the build). The app listens on plain HTTP port `8081`.
+
+**3. Add an nginx server block** for `approvals.flaming.ws` proxying to the app:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name approvals.flaming.ws;
+
+    # wildcard cert — adjust paths to your setup
+    ssl_certificate     /etc/nginx/certs/flaming.ws/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/flaming.ws/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+    }
+
+    # Server-Sent Events — live queue updates need buffering off and a long read timeout
+    location /api/approvals/stream {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 24h;
+    }
+}
+```
+
+If you use **Nginx Proxy Manager**: create a proxy host for `approvals.flaming.ws` → `http://<host-ip>:8081`, select your wildcard certificate, and add the `/api/approvals/stream` settings above as a *Custom Location* if live queue updates stall.
+
+**Notes for this mode:**
+
+- `X-Forwarded-Proto` is required — the app uses it to generate `https://` OAuth2 redirect URIs (`server.forward-headers-strategy=framework` is set by default).
+- The OAuth2 redirect URI stays `https://approvals.flaming.ws/login/oauth2/code/omnissa` — it is tied to the public hostname, not the backend host or port.
+- Port 8081 serves plain HTTP. If nginx runs directly on the host, change the port mapping in `docker-compose-proxy.yml` to `"127.0.0.1:8081:8081"` so the unencrypted port is not reachable from the LAN. Keep `"8081:8081"` if your proxy runs in a container and reaches the app over the network.
+
+---
+
 ## Configuration Reference
 
 All variables are set in `.env` for Docker deployments, or in `config/application-local.properties` for local development.
