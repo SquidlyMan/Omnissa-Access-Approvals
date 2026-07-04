@@ -3,9 +3,11 @@
 # Pulls the published image from GHCR (no local build) instead of using a
 # build: context — if CasaOS adopts the app it copies this compose to
 # /var/lib/casaos/apps/ and recreates the container, which would break a
-# relative build path. Because the image lives in a public registry, CasaOS
-# "Check and then update" works for updates. ALL state is bind-mounted to
-# /media/ZIMARAID so a CasaOS-triggered recreate wipes nothing.
+# relative build path. Update via deploy.sh, `docker compose pull` + `up -d`,
+# or the opt-in watchtower service below — the CasaOS "Check and then update"
+# button does NOT reliably detect new registry images for externally-managed
+# containers. ALL state is bind-mounted to /media/ZIMARAID so a
+# CasaOS-triggered recreate wipes nothing.
 
 name: omnissa-approvals
 
@@ -14,6 +16,9 @@ services:
     image: ghcr.io/squidlyman/omnissa-access-approvals:latest
     container_name: omnissa-approvals
     restart: unless-stopped
+    labels:
+      # Opt-in marker for the (disabled-by-default) watchtower service below.
+      com.centurylinklabs.watchtower.enable: "true"
     ports:
       # Bound to the LAN IP; note CasaOS adoption resets this to 0.0.0.0 —
       # the DOCKER-USER iptables rule (omnissa-approvals-fw.service) is what
@@ -31,6 +36,28 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # Optional auto-updater — DISABLED BY DEFAULT. This service only runs when
+  # the "autoupdate" compose profile is explicitly enabled:
+  #   docker compose -f <this file> --profile autoupdate up -d
+  # When enabled, Watchtower checks GHCR daily and pulls + recreates the
+  # approvals container whenever a new image is published. It only manages
+  # containers carrying the com.centurylinklabs.watchtower.enable label
+  # (WATCHTOWER_LABEL_ENABLE) — nothing else on the host is touched. It
+  # requires access to the Docker socket; that is the standard Watchtower
+  # deployment model, but it grants the container control over Docker —
+  # which is exactly why this ships disabled.
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: omnissa-approvals-watchtower
+    restart: unless-stopped
+    profiles: ["autoupdate"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"   # only touch labeled containers
+      WATCHTOWER_CLEANUP: "true"        # remove superseded images
+      WATCHTOWER_POLL_INTERVAL: "86400" # daily; override via env if desired
 
 x-casaos:
   architectures: [amd64]

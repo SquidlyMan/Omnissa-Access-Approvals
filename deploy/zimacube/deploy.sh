@@ -3,9 +3,10 @@
 # Run ON the ZimaCube as root:  sudo sh deploy/zimacube/deploy.sh
 # First run bootstraps everything (repo checkout for compose/env/service
 # assets, env file, firewall unit). Idempotent: update by re-running this
-# script (git pull + image pull + recreate) OR — once the app is in CasaOS —
-# via CasaOS "Check and then update" (the image is pulled from GHCR, no
-# local build).
+# script (git pull + image pull + recreate), or opt in to Watchtower
+# auto-updates via the "autoupdate" compose profile (see below). The CasaOS
+# "Check and then update" button does NOT reliably detect new GHCR images
+# for this externally-managed container — don't rely on it.
 #
 # Follows the zimacube-container-deploy runbook:
 #   - nothing written to / (rootfs is 1.2 GB and ~full)
@@ -55,6 +56,12 @@ echo "==> Pulling image from GHCR"
 docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" pull
 
 echo "==> Starting container"
+# Optional auto-updates (disabled by default): run the same compose commands
+# with `--profile autoupdate` to also start the Watchtower service, e.g.
+#   docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" --profile autoupdate up -d
+# To disable again:
+#   docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" --profile autoupdate down watchtower
+# then the normal `up -d` below. See docs/deployment.md "Automatic Updates".
 docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" up -d
 
 echo "==> Firewall persistence (LAN-only on 8081)"

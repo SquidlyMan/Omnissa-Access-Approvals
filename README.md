@@ -128,7 +128,7 @@ sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 # first run creates the env file and stops — edit it, then re-run
 ```
 
-Update by re-running `deploy.sh`, or via CasaOS **"Check and then update"** once the app is in CasaOS (possible because the image comes from a public registry).
+Update by re-running `deploy.sh`, or opt in to Watchtower-based auto-updates via the `autoupdate` compose profile (disabled by default; daily, label-scoped) — see [docs/deployment.md](docs/deployment.md#automatic-updates-optional-disabled-by-default). Note that the CasaOS **"Check and then update"** button does not reliably detect new registry images for this container.
 
 Then add the NPM proxy host `approvals.example.com` → `http://<nas-ip>:8081`. If NPM returns 502 and its access log shows requests arriving from a `172.x` Docker-bridge address, the LAN-only rule is dropping proxy traffic — insert an accept for the bridge network above the drop: `iptables -I DOCKER-USER -p tcp --dport 8081 -s 172.16.0.0/12 -j ACCEPT` (and add a matching `ExecStart` line to the systemd unit).
 

@@ -406,6 +406,41 @@ export default function HelpPage() {
           <CodeBlock>{'SYSLOG_HOST=syslog.example.com\nSYSLOG_PORT=6514\nSYSLOG_PROTOCOL=tls\nSYSLOG_CLIENT_CERT_FILE=/app/data/certs/client.pem\nSYSLOG_CLIENT_KEY_FILE=/app/data/certs/client-key.pem'}</CodeBlock>
         </HelpSection>
 
+        <HelpSection title="Updates">
+          <p>Three ways to update the container to a newly published image:</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <span className="font-medium text-gray-800">Re-run the deploy script</span> (ZimaCube)
+              — <Code>sudo sh deploy/zimacube/deploy.sh</Code> pulls the latest image and recreates
+              the container. Equivalent for any Docker host:
+              <CodeBlock>{'docker compose -f <compose file> pull\ndocker compose -f <compose file> up -d'}</CodeBlock>
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Optional Watchtower auto-update</span> —
+              the ZimaCube compose file includes a Watchtower service behind the{' '}
+              <Code>autoupdate</Code> compose profile. It is{' '}
+              <span className="font-medium text-gray-800">disabled by default</span>; when enabled it
+              checks the registry daily and recreates only this container (label-scoped — it never
+              touches other containers on the host). Enable with:
+              <CodeBlock>{'docker compose -f <compose file> --profile autoupdate up -d'}</CodeBlock>
+              Disable by stopping/removing the watchtower container:
+              <CodeBlock>{'docker compose -f <compose file> --profile autoupdate down watchtower'}</CodeBlock>
+              Note: Watchtower requires the Docker socket, which grants it control of the Docker
+              engine — the reason it ships disabled. See the deployment guide for details.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">CasaOS warning</span> — the CasaOS{' '}
+              <span className="font-medium text-gray-800">"Check and then update"</span> button does
+              NOT reliably detect new registry images for this externally-managed container (it
+              compares against the local image cache). Use one of the two methods above instead.
+            </li>
+          </ul>
+          <p>
+            All state (H2 database, certificates) lives on the mounted data volume, so a container
+            recreate during an update loses nothing.
+          </p>
+        </HelpSection>
+
         <HelpSection title="Configuration Reference">
           <p>
             All container environment values, their defaults, and what they do. Values are set in
