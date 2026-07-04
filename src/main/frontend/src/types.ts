@@ -43,6 +43,7 @@ export type AuditAction =
   | 'rejected'
   | 'auto-approved'
   | 'auto-rejected'
+  | 'decision-undeliverable'
 
 export interface AuditEvent {
   id: number

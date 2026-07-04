@@ -92,6 +92,20 @@ The SSE endpoint `/api/approvals/stream` needs `proxy_buffering off`,
 `proxy_cache off`, HTTP/1.1, and a long `proxy_read_timeout` — see the
 nginx snippet in [deployment](deployment.md).
 
+## Request stuck in Awaiting Review / decision not delivered
+
+Two distinct failure modes when a decision is submitted:
+
+- **Transient Access outage** (network error, HTTP 5xx): the request stays
+  in Awaiting Review and the review dialog shows a red "Could not reach
+  Omnissa Access — decision not delivered" error. Try again once the tenant
+  is reachable; expiry rules also retry on the hourly scheduler.
+- **Request unknown to Access** (HTTP 4xx — the request no longer exists on
+  the tenant): the request is marked **Expired** automatically. It moves to
+  the Deactivated tab with an Expired badge, the audit trail records a
+  `decision-undeliverable` event, and the webhook (if configured) emits
+  `request.expired`.
+
 ## Still stuck?
 
 Download the **Log Bundle** (last hour) from the in-app Help page, or check

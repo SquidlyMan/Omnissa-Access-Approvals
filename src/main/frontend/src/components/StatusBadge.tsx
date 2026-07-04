@@ -3,6 +3,7 @@ const styles: Record<string, string> = {
   approved:    'bg-green-100 text-green-800',
   rejected:    'bg-red-100 text-red-800',
   deactivated: 'bg-gray-100 text-gray-600',
+  expired:     'bg-orange-100 text-orange-800',
 }
 
 const labels: Record<string, string> = {
@@ -10,6 +11,7 @@ const labels: Record<string, string> = {
   approved:    'Approved',
   rejected:    'Rejected',
   deactivated: 'Deactivated',
+  expired:     'Expired',
 }
 
 export default function StatusBadge({ state }: { state: string }) {

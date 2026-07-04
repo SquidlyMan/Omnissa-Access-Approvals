@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-07-03
+
+### Added
+
+- **Expired-request handling** — when an admin (or auto-rule) decides a
+  request that Omnissa Access no longer knows about (the decision PUT is
+  answered 4xx), the request is no longer left stuck in Awaiting Review: it
+  is automatically moved to the Deactivated tab with an **Expired** badge,
+  a `decision-undeliverable` event is recorded in the audit trail, and the
+  webhook (if configured) emits `request.expired`. The decision endpoint
+  now returns a real outcome (`delivered`, `expired`, or `unreachable`)
+  and the review dialog shows matching notices: an amber "moved to
+  Deactivated" notice for expired requests and a red "could not reach
+  Omnissa Access — try again" error for transient outages (which leave the
+  request pending for retry).
+
 ## [1.1.1] - 2026-07-03
 
 ### Added
@@ -96,6 +112,7 @@ Initial public release.
   standalone TLS, behind-your-own-reverse-proxy mode, and a one-script
   ZimaCube/CasaOS deployment.
 
+[1.2.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/releases/tag/v1.0.0

@@ -13,6 +13,7 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [expired, setExpired] = useState(false)
 
   async function submit() {
     if (approved === null) return
@@ -26,7 +27,17 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
         body: JSON.stringify({ requestId, approved, responseMessage: message }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
-      onComplete()
+      const data: { outcome?: string } | null = await res.json().catch(() => null)
+      const outcome = data?.outcome ?? 'delivered'
+      if (outcome === 'expired') {
+        setExpired(true)
+        setSubmitting(false)
+      } else if (outcome === 'unreachable') {
+        setError('Could not reach Omnissa Access — decision not delivered. Try again.')
+        setSubmitting(false)
+      } else {
+        onComplete()
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Request failed')
       setSubmitting(false)
@@ -44,7 +55,8 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
         <div className="flex gap-3 mb-5">
           <button
             onClick={() => setApproved(true)}
-            className={`flex-1 rounded-lg border-2 py-2.5 text-sm font-medium transition-colors
+            disabled={expired}
+            className={`flex-1 rounded-lg border-2 py-2.5 text-sm font-medium transition-colors disabled:opacity-50
               ${approved === true
                 ? 'border-green-500 bg-green-50 text-green-700'
                 : 'border-gray-200 text-gray-600 hover:border-green-300'}`}
@@ -53,7 +65,8 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
           </button>
           <button
             onClick={() => setApproved(false)}
-            className={`flex-1 rounded-lg border-2 py-2.5 text-sm font-medium transition-colors
+            disabled={expired}
+            className={`flex-1 rounded-lg border-2 py-2.5 text-sm font-medium transition-colors disabled:opacity-50
               ${approved === false
                 ? 'border-red-500 bg-red-50 text-red-700'
                 : 'border-gray-200 text-gray-600 hover:border-red-300'}`}
@@ -65,28 +78,45 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
         <textarea
           value={message}
           onChange={e => setMessage(e.target.value)}
+          disabled={expired}
           placeholder="Optional message to the requestor…"
           rows={3}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa resize-none mb-4"
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa resize-none mb-4 disabled:opacity-50"
         />
 
+        {expired && (
+          <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+            Request no longer exists in Omnissa Access — moved to Deactivated.
+          </div>
+        )}
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
         <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={approved === null || submitting}
-            className="px-4 py-2 text-sm rounded-lg bg-omnissa text-white font-medium hover:bg-omnissa-dark disabled:opacity-50 transition-colors"
-          >
-            {submitting ? 'Submitting…' : 'Submit'}
-          </button>
+          {expired ? (
+            <button
+              onClick={onComplete}
+              className="px-4 py-2 text-sm rounded-lg bg-omnissa text-white font-medium hover:bg-omnissa-dark transition-colors"
+            >
+              Close
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submit}
+                disabled={approved === null || submitting}
+                className="px-4 py-2 text-sm rounded-lg bg-omnissa text-white font-medium hover:bg-omnissa-dark disabled:opacity-50 transition-colors"
+              >
+                {submitting ? 'Submitting…' : 'Submit'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

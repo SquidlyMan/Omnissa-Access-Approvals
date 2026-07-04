@@ -5,6 +5,7 @@ import com.omnissa.access.approval.model.AutoRule;
 import com.omnissa.access.approval.model.CalloutOperation;
 import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.CalloutResponse;
+import com.omnissa.access.approval.model.DecisionOutcome;
 import com.omnissa.access.approval.model.Mappings;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
 import com.omnissa.access.approval.util.AuditService;
@@ -27,6 +28,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping(value = Mappings.APPROVALS)
@@ -64,6 +67,11 @@ public class ApprovalController {
     public ResponseEntity<Page<CalloutRequest>> getLocalApprovals(
             @RequestParam(required = false) String state, Pageable pageable) {
         String filter = state != null ? state : "pending";
+        if ("deactivated".equals(filter)) {
+            // Expired requests (decision undeliverable) ride in the Deactivated tab.
+            return ResponseEntity.ok(approvalsRepository.findByStateInOrderByIdDesc(
+                    List.of("deactivated", "expired"), pageable));
+        }
         return ResponseEntity.ok(approvalsRepository.findByStateOrderByIdDesc(filter, pageable));
     }
 
@@ -131,12 +139,27 @@ public class ApprovalController {
             String message = (approve ? "Auto-approved" : "Auto-rejected") + " by rule #" + rule.getId();
             logger.info("Auto-rule #{} matched requestId={} — {}",
                     rule.getId(), calloutRequest.getRequestId(), rule.getAction());
-            approvalsInterface.requestResponse(new CalloutResponse(
+            DecisionOutcome outcome = approvalsInterface.requestResponse(new CalloutResponse(
                     calloutRequest.getRequestId(), approve, message));
-            auditService.record(approve ? "auto-approved" : "auto-rejected",
-                    calloutRequest.getRequestId(), calloutRequest.getResourceName(), message);
-            webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
-            sseController.publishQueueUpdate("queue-updated");
+            switch (outcome) {
+                case DELIVERED -> {
+                    auditService.record(approve ? "auto-approved" : "auto-rejected",
+                            calloutRequest.getRequestId(), calloutRequest.getResourceName(), message);
+                    webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
+                    sseController.publishQueueUpdate("queue-updated");
+                }
+                case EXPIRED -> {
+                    auditService.record("decision-undeliverable",
+                            calloutRequest.getRequestId(), calloutRequest.getResourceName(),
+                            "Decision by auto-approval-rule #" + rule.getId()
+                                    + " could not be delivered — request no longer exists in Omnissa Access");
+                    webhookNotifier.notifyExpired(calloutRequest);
+                    sseController.publishQueueUpdate("queue-updated");
+                }
+                case UNREACHABLE -> logger.warn(
+                        "Auto-rule #{} decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
+                        rule.getId(), calloutRequest.getRequestId());
+            }
         } catch (Exception e) {
             logger.error("Auto-rule evaluation failed for requestId={}",
                     calloutRequest.getRequestId(), e);
@@ -148,18 +171,36 @@ public class ApprovalController {
         logger.info("Processing approval response: {}", calloutResponse);
         try {
             CalloutRequest request = approvalsRepository.findByRequestId(calloutResponse.getRequestId());
-            approvalsInterface.requestResponse(calloutResponse);
+            DecisionOutcome outcome = approvalsInterface.requestResponse(calloutResponse);
             String admin = auditService.currentAdmin();
-            String note = calloutResponse.getMessage();
-            String message = (calloutResponse.isApproved() ? "Approved by " : "Rejected by ") + admin
-                    + (note != null && !note.isBlank() ? " — " + note : "");
-            auditService.record(calloutResponse.isApproved() ? "approved" : "rejected",
-                    calloutResponse.getRequestId(),
-                    request != null ? request.getResourceName() : null,
-                    message);
-            webhookNotifier.notifyDecision(request, calloutResponse.isApproved(), admin, null);
-            mailNotification.sendEmailNotification(calloutResponse.getRequestId(), calloutResponse.isApproved());
-            sseController.publishQueueUpdate("queue-updated");
+            switch (outcome) {
+                case DELIVERED -> {
+                    String note = calloutResponse.getMessage();
+                    String message = (calloutResponse.isApproved() ? "Approved by " : "Rejected by ") + admin
+                            + (note != null && !note.isBlank() ? " — " + note : "");
+                    auditService.record(calloutResponse.isApproved() ? "approved" : "rejected",
+                            calloutResponse.getRequestId(),
+                            request != null ? request.getResourceName() : null,
+                            message);
+                    webhookNotifier.notifyDecision(request, calloutResponse.isApproved(), admin, null);
+                    mailNotification.sendEmailNotification(calloutResponse.getRequestId(), calloutResponse.isApproved());
+                    sseController.publishQueueUpdate("queue-updated");
+                }
+                case EXPIRED -> {
+                    auditService.record("decision-undeliverable",
+                            calloutResponse.getRequestId(),
+                            request != null ? request.getResourceName() : null,
+                            (calloutResponse.isApproved() ? "Approval by " : "Rejection by ") + admin
+                                    + " could not be delivered — request no longer exists in Omnissa Access");
+                    webhookNotifier.notifyExpired(request);
+                    sseController.publishQueueUpdate("queue-updated");
+                }
+                case UNREACHABLE -> logger.warn(
+                        "Decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
+                        calloutResponse.getRequestId());
+            }
+            // HTTP 200 for every outcome — the SPA branches on the JSON body.
+            return ResponseEntity.ok(Map.of("outcome", outcome.name().toLowerCase()));
         } catch (Exception e) {
             logger.error("Error processing approval response", e);
         }
@@ -178,12 +219,26 @@ public class ApprovalController {
         String message = (approved ? "Approved by " : "Rejected by ") + admin + " (bulk action)";
         for (CalloutRequest request : approvalsRepository.findByState("pending")) {
             try {
-                approvalsInterface.requestResponse(
+                DecisionOutcome outcome = approvalsInterface.requestResponse(
                         new CalloutResponse(request.getRequestId(), approved, "bulk action"));
-                auditService.record(approved ? "approved" : "rejected",
-                        request.getRequestId(), request.getResourceName(), message);
-                webhookNotifier.notifyDecision(request, approved, admin, null);
-                mailNotification.sendEmailNotification(request.getRequestId(), approved);
+                switch (outcome) {
+                    case DELIVERED -> {
+                        auditService.record(approved ? "approved" : "rejected",
+                                request.getRequestId(), request.getResourceName(), message);
+                        webhookNotifier.notifyDecision(request, approved, admin, null);
+                        mailNotification.sendEmailNotification(request.getRequestId(), approved);
+                    }
+                    case EXPIRED -> {
+                        auditService.record("decision-undeliverable",
+                                request.getRequestId(), request.getResourceName(),
+                                (approved ? "Approval by " : "Rejection by ") + admin
+                                        + " could not be delivered — request no longer exists in Omnissa Access");
+                        webhookNotifier.notifyExpired(request);
+                    }
+                    case UNREACHABLE -> logger.warn(
+                            "Bulk decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
+                            request.getRequestId());
+                }
             } catch (Exception e) {
                 logger.error("Bulk action failed for requestId={}", request.getRequestId(), e);
             }
