@@ -7,7 +7,7 @@ PartOf=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/sh -c 'iptables -C DOCKER-USER -p tcp --dport 8081 ! -s 10.88.88.0/24 -j DROP 2>/dev/null || iptables -I DOCKER-USER -p tcp --dport 8081 ! -s 10.88.88.0/24 -j DROP'
+ExecStart=/bin/sh -c 'iptables -C DOCKER-USER -p tcp --dport 8081 ! -s __LAN_SUBNET__ -j DROP 2>/dev/null || iptables -I DOCKER-USER -p tcp --dport 8081 ! -s __LAN_SUBNET__ -j DROP'
 
 [Install]
 WantedBy=multi-user.target
