@@ -83,6 +83,7 @@ Outbound mail for approval decision notifications to requestors. Blank host
 | `SPRING_MAIL_PORT` | `587` | SMTP port |
 | `SPRING_MAIL_USERNAME` | — | SMTP authentication username |
 | `SPRING_MAIL_PASSWORD` | — | SMTP authentication password |
+| `SPRING_MAIL_FROM` | `no-reply@example.com` | Sender (From) address for requester emails — must be an address the relay accepts (Office 365: an accepted-domain address matching the sending account) |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | `false` | `true` for SMTP servers requiring STARTTLS (e.g. Gmail on 587) |
 
 ## Webhook Notifications

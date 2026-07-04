@@ -55,6 +55,11 @@ const CONFIG_VARS: ConfigVar[] = [
   { name: 'SPRING_MAIL_PORT', def: '—', purpose: 'SMTP server port.' },
   { name: 'SPRING_MAIL_USERNAME', def: '—', purpose: 'SMTP username.' },
   { name: 'SPRING_MAIL_PASSWORD', def: '—', purpose: 'SMTP password.' },
+  {
+    name: 'SPRING_MAIL_FROM',
+    def: 'no-reply@example.com',
+    purpose: 'Sender (From) address for requester emails — must be accepted by the relay.',
+  },
   { name: 'WEBHOOK_URL', def: '—', purpose: 'POST a notification to this URL for each new access request and each decision.' },
   { name: 'WEBHOOK_FORMAT', def: 'generic', purpose: 'Webhook payload format: generic, slack, or teams.' },
   { name: 'SYSLOG_HOST', def: '—', purpose: 'Forward application logs to this syslog server.' },
