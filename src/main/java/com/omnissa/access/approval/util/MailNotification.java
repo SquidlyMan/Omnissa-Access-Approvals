@@ -8,6 +8,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -32,6 +33,11 @@ public class MailNotification {
 
     @Autowired
     private ApprovalsRepository approvalsRepository;
+
+    // Sender address — must be an accepted/authorized address on your SMTP
+    // relay (e.g. the HVE account for Office 365). Env: SPRING_MAIL_FROM.
+    @Value("${spring.mail.from:no-reply@example.com}")
+    private String fromAddress;
 
     public void sendEmailNotification(String requestId, boolean approved) {
         CalloutRequest calloutRequest = approvalsRepository.findByRequestId(requestId);
@@ -69,7 +75,7 @@ public class MailNotification {
             String omnissaURL = RestPreconditions.omnissaServerBaseUrl();
 
             helper.setSubject("Your Omnissa Access Application Request has been processed");
-            helper.setFrom("no-reply@example.com");
+            helper.setFrom(fromAddress);
             helper.setTo(getMail(request));
 
             Map<String, Object> model = new HashMap<>();
