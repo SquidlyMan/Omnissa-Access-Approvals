@@ -24,7 +24,7 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
-        body: JSON.stringify({ requestId, approved, responseMessage: message }),
+        body: JSON.stringify({ requestId, approved, message }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const data: { outcome?: string } | null = await res.json().catch(() => null)

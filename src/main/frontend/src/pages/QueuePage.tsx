@@ -5,6 +5,7 @@ import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
 import ApprovalDialog from '../components/ApprovalDialog'
 import type { Page, CalloutRequest, AuditPage, AuditAction } from '../types'
+import { getCsrfToken } from '../utils/csrf'
 
 const STATE_TABS = [
   { key: 'pending',     label: 'Awaiting Review' },
@@ -68,8 +69,38 @@ export default function QueuePage() {
     useCallback(() => { load() }, [load])
   )
 
+  const [pulling, setPulling] = useState(false)
+  const [pullMsg, setPullMsg] = useState<string | null>(null)
+
   function switchState(s: string) {
     setSearchParams({ state: s })
+  }
+
+  async function pullFromAccess() {
+    setPulling(true)
+    setPullMsg(null)
+    try {
+      const res = await fetch('/api/approvals/pull', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-XSRF-TOKEN': getCsrfToken() },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPullMsg(data.error || 'Could not reach Omnissa Access.')
+      } else {
+        setPullMsg(
+          data.pulled > 0
+            ? `Pulled ${data.pulled} new request${data.pulled === 1 ? '' : 's'} from Omnissa Access.`
+            : `No new requests — the queue is in sync (${data.total} pending in Access).`,
+        )
+        load()
+      }
+    } catch {
+      setPullMsg('Could not reach Omnissa Access.')
+    } finally {
+      setPulling(false)
+    }
   }
 
   return (
@@ -173,6 +204,21 @@ export default function QueuePage() {
           )}
         </div>
         </>
+      )}
+
+      {/* Manual pull (Awaiting Review only) */}
+      {activeState === 'pending' && (
+        <div className="flex flex-wrap items-center justify-end gap-3 mb-3">
+          {pullMsg && <span className="text-sm text-gray-500">{pullMsg}</span>}
+          <button
+            onClick={pullFromAccess}
+            disabled={pulling}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            title="Fetch any pending requests Omnissa Access is holding but did not push"
+          >
+            {pulling ? 'Pulling…' : 'Pull from Access'}
+          </button>
+        </div>
       )}
 
       {/* Request list */}

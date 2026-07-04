@@ -63,6 +63,45 @@ public class ApprovalController {
         return ResponseEntity.ok(approvalsInterface.getPendingApprovals());
     }
 
+    /**
+     * Manual sync: pull all pending requests from Omnissa Access and ingest any
+     * the local queue does not already have. Recovers requests Access holds but
+     * never successfully pushed (e.g. a callout that hit a container restart or
+     * a transient network gap — Access does not auto-retry the push).
+     */
+    @PostMapping("/pull")
+    public ResponseEntity<?> pullFromAccess() {
+        int pulled = 0;
+        int total = 0;
+        try {
+            CalloutRequest[] remote = approvalsInterface.getPendingApprovals();
+            if (remote != null) {
+                total = remote.length;
+                for (CalloutRequest req : remote) {
+                    if (req == null || req.getRequestId() == null || req.getRequestId().isBlank()) {
+                        continue;
+                    }
+                    if (approvalsRepository.findByRequestId(req.getRequestId()) != null) {
+                        continue; // already have it locally
+                    }
+                    req.setState("pending");
+                    approvalsRepository.save(req);
+                    auditService.record("request-received", req.getRequestId(),
+                            req.getResourceName(), "Pulled from Omnissa Access (manual sync)");
+                    sseController.publishNewRequest(req);
+                    pulled++;
+                }
+            }
+            sseController.publishQueueUpdate("queue-updated");
+        } catch (Exception e) {
+            logger.error("Manual pull from Omnissa Access failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(java.util.Map.of("error", "Could not reach Omnissa Access: "
+                            + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())));
+        }
+        return ResponseEntity.ok(java.util.Map.of("pulled", pulled, "total", total));
+    }
+
     @GetMapping("/requests")
     public ResponseEntity<Page<CalloutRequest>> getLocalApprovals(
             @RequestParam(required = false) String state, Pageable pageable) {
