@@ -36,6 +36,10 @@ function TenantStatusCard() {
   }, [])
 
   return (
+    <>
+      {status?.version && !failed && (
+        <p className="text-xs text-gray-400 text-right mb-1">version {status.version}</p>
+      )}
     <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Omnissa Access Tenant</p>
@@ -61,6 +65,7 @@ function TenantStatusCard() {
         </div>
       )}
     </div>
+    </>
   )
 }
 

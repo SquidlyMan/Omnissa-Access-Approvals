@@ -60,6 +60,8 @@ public class ConfigController {
         }
 
         Map<String, Object> status = new LinkedHashMap<>();
+        String version = ConfigController.class.getPackage().getImplementationVersion();
+        status.put("version", version != null ? version : "dev");
         status.put("tenantUrl", "");
         status.put("reachable", false);
         status.put("checkedAt", Instant.now().toString());

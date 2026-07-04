@@ -74,6 +74,7 @@ export interface Rule {
 }
 
 export interface TenantStatus {
+  version?: string
   tenantUrl: string
   reachable: boolean
   checkedAt: string
