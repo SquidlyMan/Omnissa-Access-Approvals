@@ -113,6 +113,30 @@ the service client, which must have admin rights) and disables the prompt
 automatically. Until this is set, the startup log reminds you of the option
 on every run.
 
+## The End-User Flow, Illustrated
+
+What the requesting user and the reviewing administrator each see:
+
+1. The gated application offers a REQUEST button in the catalog:
+
+   ![App available for request](images/app_available_for_request.png)
+
+2. After requesting, the user sees PENDING while the decision is made:
+
+   ![App request pending](images/app_request_pending.png)
+
+3. The request appears on the administrator's dashboard within seconds:
+
+   ![Pending request on the dashboard](images/review_pending_app_request.png)
+
+4. The request detail view shows the full callout, including the user's directory attributes:
+
+   ![Request details](images/app_request_details.png)
+
+5. The Review dialog delivers the decision — with an optional message emailed to the requester when SMTP is configured:
+
+   ![Approve or reject](images/app_approval_or_rejection.png)
+
 ## Verify
 
 - The dashboard **Access Connectivity** tile turns green when the service
