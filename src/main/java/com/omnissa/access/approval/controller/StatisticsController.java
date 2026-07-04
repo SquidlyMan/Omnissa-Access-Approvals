@@ -26,7 +26,13 @@ public class StatisticsController {
     public ResponseEntity<?> approvalStats() {
         HashMap<String, Integer> approvalStates = new HashMap<>();
         for (State state : State.values()) {
-            approvalStates.put(state.name().toLowerCase(), repository.countByState(state.name().toLowerCase()));
+            String key = state.name().toLowerCase();
+            int count = repository.countByState(key);
+            if (state == State.DEACTIVATED) {
+                // Expired requests ride in the Deactivated tab — count them there too.
+                count += repository.countByState("expired");
+            }
+            approvalStates.put(key, count);
         }
 
         List<AppRequests> appReqs = new ArrayList<>();

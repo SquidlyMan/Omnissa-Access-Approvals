@@ -4,6 +4,7 @@ import com.omnissa.access.approval.interfaces.ApprovalsInterface;
 import com.omnissa.access.approval.model.AutoRule;
 import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.CalloutResponse;
+import com.omnissa.access.approval.model.DecisionOutcome;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
 import com.omnissa.access.approval.repository.AutoRuleRepository;
 import com.omnissa.access.approval.util.AuditService;
@@ -62,13 +63,27 @@ public class RuleScheduler {
                 try {
                     logger.info("Expiry rule #{} rejecting stale pending requestId={}",
                             rule.getId(), request.getRequestId());
-                    approvalsInterface.requestResponse(new CalloutResponse(
+                    DecisionOutcome outcome = approvalsInterface.requestResponse(new CalloutResponse(
                             request.getRequestId(), false,
                             "Auto-rejected: pending longer than " + rule.getExpiryDays() + " days"));
-                    auditService.record("auto-rejected", request.getRequestId(), request.getResourceName(),
-                            "Auto-rejected by rule #" + rule.getId()
-                                    + " (pending longer than " + rule.getExpiryDays() + " days)");
-                    webhookNotifier.notifyDecision(request, false, "auto-approval-rule", "#" + rule.getId());
+                    switch (outcome) {
+                        case DELIVERED -> {
+                            auditService.record("auto-rejected", request.getRequestId(), request.getResourceName(),
+                                    "Auto-rejected by rule #" + rule.getId()
+                                            + " (pending longer than " + rule.getExpiryDays() + " days)");
+                            webhookNotifier.notifyDecision(request, false, "auto-approval-rule", "#" + rule.getId());
+                        }
+                        case EXPIRED -> {
+                            auditService.record("decision-undeliverable",
+                                    request.getRequestId(), request.getResourceName(),
+                                    "Decision by auto-approval-rule #" + rule.getId()
+                                            + " could not be delivered — request no longer exists in Omnissa Access");
+                            webhookNotifier.notifyExpired(request);
+                        }
+                        case UNREACHABLE -> logger.warn(
+                                "Expiry rule #{} decision for requestId={} not delivered — Omnissa Access unreachable; will retry next run",
+                                rule.getId(), request.getRequestId());
+                    }
                 } catch (Exception e) {
                     logger.error("Expiry rule #{} failed for requestId={}",
                             rule.getId(), request.getRequestId(), e);

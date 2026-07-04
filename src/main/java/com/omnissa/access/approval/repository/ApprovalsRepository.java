@@ -14,6 +14,7 @@ public interface ApprovalsRepository extends JpaRepository<CalloutRequest, Long>
 
     List<CalloutRequest> findByState(String state);
     Page<CalloutRequest> findByStateOrderByIdDesc(String state, Pageable pageable);
+    Page<CalloutRequest> findByStateInOrderByIdDesc(List<String> states, Pageable pageable);
     Page<CalloutRequest> findByStateAndResourceName(String state, String resourceName, Pageable pageable);
     CalloutRequest findByRequestId(String requestId);
     Integer countByState(String state);

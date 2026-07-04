@@ -2,6 +2,7 @@ package com.omnissa.access.approval.interfaces;
 
 import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.CalloutResponse;
+import com.omnissa.access.approval.model.DecisionOutcome;
 import com.omnissa.access.approval.model.OmnissaServer;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
 import com.omnissa.access.approval.util.AuditService;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.Date;
 
@@ -46,7 +48,7 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
     }
 
     @Override
-    public void requestResponse(CalloutResponse response) {
+    public DecisionOutcome requestResponse(CalloutResponse response) {
         CalloutRequest calloutRequest = repository.findByRequestId(response.getRequestId());
 
         // Access 415s the legacy vendor types on this PUT; it wants plain JSON
@@ -62,7 +64,27 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
                     HttpMethod.PUT,
                     httpEntity,
                     CalloutResponse.class);
+        } catch (HttpClientErrorException e) {
+            // PERMANENT: Access rejected the decision — the request no longer exists there.
+            logger.warn("Decision for requestId={} rejected by Omnissa Access ({}) — marking request expired",
+                    response.getRequestId(), e.getStatusCode());
+            if (calloutRequest != null) {
+                calloutRequest.setState("expired");
+                calloutRequest.setResponseDate(new Date());
+                calloutRequest.setResponseMessage(
+                        "Decision could not be delivered — request no longer exists in Omnissa Access");
+                calloutRequest.setDecidedBy(auditService.currentAdmin());
+                repository.save(calloutRequest);
+            }
+            return DecisionOutcome.EXPIRED;
+        } catch (Exception e) {
+            // TRANSIENT: Access unreachable or server error — leave the request pending.
+            logger.warn("Could not deliver decision for requestId={} — Omnissa Access unreachable: {}",
+                    response.getRequestId(), e.getMessage());
+            return DecisionOutcome.UNREACHABLE;
+        }
 
+        if (calloutRequest != null) {
             calloutRequest.setResponseDate(new Date());
 
             if (response.getMessage() != null && !response.getMessage().isEmpty()) {
@@ -72,10 +94,8 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
             calloutRequest.setState(response.isApproved() ? "approved" : "rejected");
             calloutRequest.setDecidedBy(auditService.currentAdmin());
             repository.save(calloutRequest);
-        } catch (Exception e) {
-            logger.error("Failed to submit approval response for requestId={}: {}",
-                    response.getRequestId(), e.getMessage(), e);
         }
+        return DecisionOutcome.DELIVERED;
     }
 
     @Override

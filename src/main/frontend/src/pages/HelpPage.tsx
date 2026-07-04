@@ -131,6 +131,15 @@ export default function HelpPage() {
               application is deactivated, hidden from the user's catalog, and appears in this
               tool's Deactivated list.
             </li>
+            <li>
+              If a decision cannot be delivered because the request no longer exists in Omnissa
+              Access, the request is moved to the{' '}
+              <span className="font-medium text-gray-800">Deactivated</span> list with an{' '}
+              <span className="font-medium text-gray-800">Expired</span> badge. The audit trail
+              records a <Code>decision-undeliverable</Code> event and the webhook (if configured)
+              emits <Code>request.expired</Code>. A transient Access outage does NOT expire the
+              request — it stays in Awaiting Review and the decision can be retried.
+            </li>
           </ul>
         </HelpSection>
 

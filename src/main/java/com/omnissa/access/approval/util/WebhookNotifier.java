@@ -17,8 +17,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Optional webhook notification when a new activation request arrives or a
- * request is decided (approved/rejected, manually or by an auto-rule).
+ * Optional webhook notification when a new activation request arrives, a
+ * request is decided (approved/rejected, manually or by an auto-rule), or a
+ * request expires because a decision could not be delivered.
  * Fire-and-forget: runs async, never throws, and is a no-op when
  * webhook.url is blank. Formats: generic (JSON event), slack, teams.
  */
@@ -61,6 +62,17 @@ public class WebhookNotifier {
             return;
         }
         postAsync(buildDecisionPayload(request, approved, decidedBy, ruleLabel), request.getRequestId());
+    }
+
+    /**
+     * Notifies the webhook that a request expired: a decision could not be
+     * delivered because the request no longer exists in Omnissa Access.
+     */
+    public void notifyExpired(CalloutRequest request) {
+        if (request == null || webhookUrl == null || webhookUrl.isBlank()) {
+            return;
+        }
+        postAsync(buildExpiredPayload(request), request.getRequestId());
     }
 
     private void postAsync(Map<String, Object> payload, String requestId) {
@@ -122,6 +134,22 @@ public class WebhookNotifier {
                 payload.put("rule", ruleLabel);
             }
             payload.put("decidedDate", Instant.now().toString());
+        }
+        return payload;
+    }
+
+    private Map<String, Object> buildExpiredPayload(CalloutRequest request) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        String format = resolvedFormat();
+        if ("slack".equals(format) || "teams".equals(format)) {
+            payload.put("text", "Decision could not be delivered — request no longer exists in Access: "
+                    + request.getResourceName() + " (user " + request.getUserId() + ")");
+        } else {
+            payload.put("event", "request.expired");
+            payload.put("requestId", request.getRequestId());
+            payload.put("resourceName", request.getResourceName());
+            payload.put("userId", request.getUserId());
+            payload.put("detail", "decision could not be delivered — request no longer exists in Omnissa Access");
         }
         return payload;
     }
