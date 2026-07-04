@@ -111,3 +111,9 @@ Two distinct failure modes when a decision is submitted:
 Download the **Log Bundle** (last hour) from the in-app Help page, or check
 `docker logs`. For suspected security issues, see
 [SECURITY.md](../SECURITY.md).
+
+## Requests missing from the queue (held pending in Access)
+
+Omnissa Access pushes each callout once and does not retry. If a push lands during a container restart or a transient network gap, Access keeps the request **Pending** on its side but it never reaches the tool, and re-requesting the same app does nothing (Access already considers it pending).
+
+Fix: on the **Awaiting Review** tab, click **Pull from Access**. The tool fetches every pending request Access is holding and ingests any it does not already have. Safe to click anytime — it only adds requests missing locally.
