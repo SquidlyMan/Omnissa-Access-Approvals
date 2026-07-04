@@ -153,10 +153,68 @@ sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 # first run creates the env file and stops — edit it, then re-run
 ```
 
-**Updates:** re-run `deploy.sh` (git pull + image pull + recreate), or —
-once the app appears in CasaOS — use CasaOS **"Check and then update"**,
-which works because the image comes from a public registry.
+**Updates:** re-run `deploy.sh` (git pull + image pull + recreate), run
+`docker compose -f <compose file> pull && docker compose -f <compose file>
+up -d` yourself, or opt in to Watchtower auto-updates — see
+[Automatic Updates](#automatic-updates-optional-disabled-by-default) below.
+Do **not** rely on the CasaOS "Check and then update" button (explained in
+that section).
 
 See [`deploy/zimacube/deploy.sh`](../deploy/zimacube/deploy.sh) and the
 README's ZimaCube section for the Nginx Proxy Manager wiring and the
 Docker-bridge firewall note.
+
+## Automatic Updates (optional, disabled by default)
+
+The ZimaCube compose file
+([`deploy/zimacube/docker-compose.yml`](../deploy/zimacube/docker-compose.yml))
+ships an optional [Watchtower](https://containrrr.dev/watchtower/) service
+behind the `autoupdate` Docker Compose profile. **It does not run unless you
+explicitly enable the profile** — a plain `docker compose up -d` (what
+`deploy.sh` runs) never starts it.
+
+When enabled, Watchtower polls GHCR once a day; when a new
+`ghcr.io/squidlyman/omnissa-access-approvals` image is published, it pulls
+it, recreates the approvals container with the same settings, and removes
+the superseded image (`WATCHTOWER_CLEANUP`). All application state is
+bind-mounted to `/media/ZIMARAID`, so the recreate loses nothing.
+
+**Enable:**
+
+```bash
+docker compose -f /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/docker-compose.yml \
+  --profile autoupdate up -d
+```
+
+**Disable** (stop and remove only the Watchtower container; the app keeps
+running):
+
+```bash
+docker compose -f /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/docker-compose.yml \
+  --profile autoupdate down watchtower
+```
+
+**Change the poll interval:** the default is daily
+(`WATCHTOWER_POLL_INTERVAL: "86400"`, in seconds). Edit that value in the
+compose file's `watchtower` service, or set it in a compose override file,
+then re-run the enable command.
+
+**Scoping guarantee:** Watchtower runs with `WATCHTOWER_LABEL_ENABLE=true`,
+so it only ever manages containers that carry the
+`com.centurylinklabs.watchtower.enable: "true"` label — in this deployment,
+exactly the `omnissa-approvals` container. Other containers on the host are
+never touched.
+
+**Security consideration:** Watchtower needs the Docker socket
+(`/var/run/docker.sock`) mounted to pull images and recreate containers.
+This is the standard Watchtower deployment model, but a process with the
+Docker socket effectively has root-level control of the host's Docker
+engine — which is why this ships disabled and opt-in. Only enable it if
+that trade-off is acceptable in your environment.
+
+**Why not CasaOS "Check and then update"?** For externally-managed
+containers like this one, the CasaOS update button does **not** reliably
+detect registry updates — it compares against the local image cache rather
+than checking GHCR for a newer digest, so it frequently reports
+"up to date" when a newer image exists. Use `deploy.sh`,
+`docker compose pull` + `up -d`, or Watchtower instead.

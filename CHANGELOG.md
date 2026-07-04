@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-07-03
+
+### Added
+
+- **Optional Watchtower auto-update** for the ZimaCube/Docker deployment —
+  a `watchtower` service in `deploy/zimacube/docker-compose.yml` behind the
+  `autoupdate` compose profile. **Disabled by default**; when explicitly
+  enabled (`docker compose --profile autoupdate up -d`) it checks GHCR
+  daily and recreates only the label-scoped approvals container. Documented
+  in `docs/deployment.md` and the in-app Help page, including the
+  Docker-socket security trade-off and the note that CasaOS "Check and
+  then update" does not reliably detect new registry images.
+
+### Fixed
+
+- **`curl` restored in the runtime image** — Temurin dropped `curl` after
+  the 21-jre base image, which silently broke the container healthcheck;
+  it is now installed explicitly in the runtime stage.
+
 ## [1.1.0] - 2026-07-03
 
 ### Added
@@ -77,5 +96,6 @@ Initial public release.
   standalone TLS, behind-your-own-reverse-proxy mode, and a one-script
   ZimaCube/CasaOS deployment.
 
+[1.1.1]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/releases/tag/v1.0.0
