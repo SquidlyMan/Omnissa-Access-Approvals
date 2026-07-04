@@ -12,8 +12,13 @@
 #   - nothing written to / (rootfs is 1.2 GB and ~full)
 #   - source, env file, and H2 data live on /media/ZIMARAID/omnissa-approvals
 #   - image + layers go to the NVMe docker root as normal
-#   - port 8081 published on the LAN IP, locked to 10.88.88.0/24 via DOCKER-USER
-#     with a systemd unit so the rule survives docker/NAS restarts
+#   - port 8081 published on the LAN IP, locked to the LAN subnet via
+#     DOCKER-USER with a systemd unit so the rule survives docker/NAS restarts
+#
+# LAN_IP / LAN_SUBNET are auto-detected. To override, create
+# /media/ZIMARAID/omnissa-approvals/deploy.conf with e.g.:
+#   LAN_IP=192.168.1.50
+#   LAN_SUBNET=192.168.1.0/24
 
 set -eu
 
@@ -25,6 +30,13 @@ REPO_URL=https://github.com/squidlyman/Omnissa-Access-Approvals.git
 BRANCH=main
 
 [ "$(id -u)" = 0 ] || { echo "Run with sudo."; exit 1; }
+
+# LAN address handling: auto-detect, allow override via deploy.conf
+[ -f "$RAID_DIR/deploy.conf" ] && . "$RAID_DIR/deploy.conf"
+LAN_IP="${LAN_IP:-$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="src") print $(i+1)}' | head -1)}"
+[ -n "$LAN_IP" ] || { echo "Could not detect LAN IP - set LAN_IP in $RAID_DIR/deploy.conf"; exit 1; }
+LAN_SUBNET="${LAN_SUBNET:-${LAN_IP%.*}.0/24}"
+echo "==> LAN: $LAN_IP (subnet $LAN_SUBNET)"
 
 echo "==> Directories on RAID"
 mkdir -p "$RAID_DIR/data" "$RAID_DIR/docker-config"
@@ -62,10 +74,11 @@ echo "==> Starting container"
 # To disable again:
 #   docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" --profile autoupdate down watchtower
 # then the normal `up -d` below. See docs/deployment.md "Automatic Updates".
+printf 'LAN_IP=%s\n' "$LAN_IP" > "$SRC_DIR/deploy/zimacube/.env"
 docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" up -d
 
 echo "==> Firewall persistence (LAN-only on 8081)"
-cp "$SRC_DIR/deploy/zimacube/$APP-fw.service" /etc/systemd/system/$APP-fw.service
+sed "s|__LAN_SUBNET__|$LAN_SUBNET|g" "$SRC_DIR/deploy/zimacube/$APP-fw.service" > /etc/systemd/system/$APP-fw.service
 systemctl daemon-reload
 systemctl enable --now $APP-fw.service
 
@@ -73,17 +86,17 @@ echo "==> Verify"
 sleep 5
 docker ps --filter name=$APP --format '  container: {{.Names}} {{.Status}}'
 i=0
-until curl -sf http://10.88.88.30:8081/actuator/health >/dev/null 2>&1; do
+until curl -sf "http://$LAN_IP:8081/actuator/health" >/dev/null 2>&1; do
     i=$((i+1))
     [ $i -ge 24 ] && { echo "  health: NOT RESPONDING after 2 min — check: docker logs $APP"; exit 1; }
     sleep 5
 done
-echo "  health: $(curl -s http://10.88.88.30:8081/actuator/health)"
-iptables -C DOCKER-USER -p tcp --dport 8081 ! -s 10.88.88.0/24 -j DROP && echo "  firewall: rule active"
+echo "  health: $(curl -s "http://$LAN_IP:8081/actuator/health")"
+iptables -C DOCKER-USER -p tcp --dport 8081 ! -s "$LAN_SUBNET" -j DROP && echo "  firewall: rule active"
 systemctl is-enabled $APP-fw.service >/dev/null && echo "  firewall: unit enabled"
 ls -ld "$RAID_DIR/data" && echo "  state: on RAID"
 
 echo ""
-echo "Done. Next: add the NPM proxy host  approvals.flaming.ws -> http://10.88.88.30:8081"
-echo "(wildcard cert; add /api/approvals/stream custom location with proxy_buffering off"
-echo " if live queue updates stall — see README 'Deploying Behind Your Own Reverse Proxy')."
+echo "Done. Next: point your TLS reverse proxy at  http://$LAN_IP:8081"
+echo "(add an /api/approvals/stream location with proxy_buffering off if live"
+echo " queue updates stall — see README 'Deploying Behind Your Own Reverse Proxy')."
