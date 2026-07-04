@@ -4,11 +4,31 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Deferred majors — handled as a planned platform-upgrade batch
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-ui"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/src/main/frontend"
     schedule:
       interval: "weekly"
+    ignore:
+      # Deferred majors — minor/patch/security updates still flow
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "docker"
     directory: "/"
