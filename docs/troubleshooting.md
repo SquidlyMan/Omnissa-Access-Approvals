@@ -117,3 +117,11 @@ Download the **Log Bundle** (last hour) from the in-app Help page, or check
 Omnissa Access pushes each callout once and does not retry. If a push lands during a container restart or a transient network gap, Access keeps the request **Pending** on its side but it never reaches the tool, and re-requesting the same app does nothing (Access already considers it pending).
 
 Fix: on the **Awaiting Review** tab, click **Pull from Access**. The tool fetches every pending request Access is holding and ingests any it does not already have. Safe to click anytime — it only adds requests missing locally.
+
+## Behind a Unified Access Gateway (UAG): disable Identity Bridging
+
+If you publish the tool through a UAG Web Reverse Proxy and enable **Identity Bridging**, Omnissa Access cannot deliver approval callouts and the **Settings > Approvals** page fails to save with **"Unable to connect to the URI."**
+
+Why: the callout endpoint (`POST /api/approvals/new`) and Access's save-time validation probe are **unauthenticated**. Identity Bridging asserts an authenticated identity to the backend for every routed request — an unauthenticated callout has no identity to bridge, so the request fails before reaching the app. Adding the path to the UAG **unSecurePattern** does not help: that only waives front-end authentication, not Identity Bridging.
+
+Fix: **disable Identity Bridging on the reverse proxy for this application.** The tool authenticates its own administrators — "Sign in with Omnissa Access" (OIDC) and local login — so UAG identity bridging is redundant here, and it also conflicts with the app's own OIDC flow. The UAG still terminates TLS and reverse-proxies normally; the callout path stays open (rate-limited, with optional Basic auth). To require OIDC sign-in for admins, set `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=true` — that enforces the same SAML-backed SSO at the application layer instead of the gateway.
