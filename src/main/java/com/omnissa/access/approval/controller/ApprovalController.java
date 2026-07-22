@@ -124,22 +124,7 @@ public class ApprovalController {
     @PostMapping(value = "/new",
             consumes = {CustomContentTypes.APPROVAL_MESSAGE_REQUEST, CustomContentTypes.MESSAGING_MESSAGE})
     public ResponseEntity<?> saveCalloutRequest(@RequestBody(required = false) String rawBody) {
-        // Access wraps the callout in a messaging envelope whose "body" field is a
-        // JSON-encoded STRING of the actual request: {"type":...,"body":"{\"operation\":...}"}.
-        // Unwrap it; fall back to parsing the payload directly (admin-API flat format).
-        CalloutRequest calloutRequest = null;
-        if (rawBody != null && !rawBody.isBlank()) {
-            try {
-                var mapper = new com.fasterxml.jackson.databind.ObjectMapper()
-                        .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-                var root = mapper.readTree(rawBody);
-                var bodyNode = root.get("body");
-                String payload = (bodyNode != null && bodyNode.isTextual()) ? bodyNode.asText() : rawBody;
-                calloutRequest = mapper.readValue(payload, CalloutRequest.class);
-            } catch (Exception e) {
-                logger.warn("Could not parse callout body ({}): {}", e.getMessage(), rawBody);
-            }
-        }
+        CalloutRequest calloutRequest = parseCalloutBody(rawBody);
         // Access sends an empty test POST when the approvals settings are saved —
         // acknowledge it but don't store a junk all-null request (it blanks the UI).
         if (calloutRequest == null || calloutRequest.getRequestId() == null
@@ -162,6 +147,30 @@ public class ApprovalController {
             applyAutoRules(calloutRequest);
         }
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    /**
+     * Parses an inbound callout body. Access wraps the callout in a messaging
+     * envelope whose "body" field is a JSON-encoded STRING of the actual request:
+     * {"type":...,"body":"{\"operation\":...}"}. Unwrap it; fall back to parsing
+     * the payload directly (admin-API flat format). Returns null for blank input
+     * or anything that cannot be parsed.
+     */
+    static CalloutRequest parseCalloutBody(String rawBody) {
+        if (rawBody == null || rawBody.isBlank()) {
+            return null;
+        }
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            var root = mapper.readTree(rawBody);
+            var bodyNode = root.get("body");
+            String payload = (bodyNode != null && bodyNode.isTextual()) ? bodyNode.asText() : rawBody;
+            return mapper.readValue(payload, CalloutRequest.class);
+        } catch (Exception e) {
+            logger.warn("Could not parse callout body ({}): {}", e.getMessage(), rawBody);
+            return null;
+        }
     }
 
     /**
@@ -314,7 +323,7 @@ public class ApprovalController {
     }
 
     /** RFC-4180 escaping: quote fields containing comma/quote/newline, doubling inner quotes. */
-    private String csvField(Object value) {
+    static String csvField(Object value) {
         if (value == null) {
             return "";
         }

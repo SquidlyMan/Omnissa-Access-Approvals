@@ -92,7 +92,7 @@ public class WebhookNotifier {
         return webhookFormat == null ? "generic" : webhookFormat.trim().toLowerCase();
     }
 
-    private Map<String, Object> buildNewRequestPayload(CalloutRequest request) {
+    Map<String, Object> buildNewRequestPayload(CalloutRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         String format = resolvedFormat();
         if ("slack".equals(format) || "teams".equals(format)) {
@@ -113,7 +113,7 @@ public class WebhookNotifier {
         return payload;
     }
 
-    private Map<String, Object> buildDecisionPayload(CalloutRequest request, boolean approved,
+    Map<String, Object> buildDecisionPayload(CalloutRequest request, boolean approved,
                                                      String decidedBy, String ruleLabel) {
         Map<String, Object> payload = new LinkedHashMap<>();
         String format = resolvedFormat();
@@ -138,7 +138,7 @@ public class WebhookNotifier {
         return payload;
     }
 
-    private Map<String, Object> buildExpiredPayload(CalloutRequest request) {
+    Map<String, Object> buildExpiredPayload(CalloutRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         String format = resolvedFormat();
         if ("slack".equals(format) || "teams".equals(format)) {
