@@ -3,7 +3,7 @@ package com.omnissa.access.approval.config;
 import org.apache.catalina.connector.Connector;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,7 +25,7 @@ public class SslRedirectConfig {
 
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> httpToHttpsRedirect() {
-        return factory -> factory.addAdditionalTomcatConnectors(httpConnector());
+        return factory -> factory.addAdditionalConnectors(httpConnector());
     }
 
     private Connector httpConnector() {
