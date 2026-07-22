@@ -36,7 +36,7 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -167,7 +167,7 @@ public class SecurityConfig {
         }
         http
             .logout(logout -> logout
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern("/logout"))
                 .logoutSuccessUrl("/login?logout=true")
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
@@ -176,7 +176,7 @@ public class SecurityConfig {
             .exceptionHandling(ex -> ex
                 .defaultAuthenticationEntryPointFor(
                     new LoginUrlAuthenticationEntryPoint("/login"),
-                    new AntPathRequestMatcher("/**")
+                    PathPatternRequestMatcher.pathPattern("/**")
                 )
             )
             .headers(headers -> headers

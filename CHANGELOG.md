@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-07-22
+
+### Changed
+- Upgraded the backend from Spring Boot 3.5.16 to Spring Boot 4.1.0 (Spring Framework 7, Spring Security 7, Jakarta EE 11) and springdoc-openapi from 2.8.17 to 3.0.3 (the Spring Boot 4 / Framework 7 compatible line). Security 7 migration: replaced the removed `AntPathRequestMatcher` with `PathPatternRequestMatcher` for the logout and authentication-entry-point matchers; the Tomcat SSL-redirect connector now uses the relocated `org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory` and its renamed `addAdditionalConnectors` method. No runtime behavior change.
+
 ## [1.3.0] - 2026-07-04
 
 ### Added
@@ -125,6 +130,7 @@ Initial public release.
   standalone TLS, behind-your-own-reverse-proxy mode, and a one-script
   ZimaCube/CasaOS deployment.
 
+[1.4.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/SquidlyMan/Omnissa-Access-Approvals/compare/v1.1.1...v1.2.0
