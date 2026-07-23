@@ -59,11 +59,15 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
         OmnissaRestClient restClient = new OmnissaRestClient(server);
 
         try {
+            // Response body is not used — deserialize as String so a 2xx with a
+            // body that doesn't map to CalloutResponse (varies by tenant) is not
+            // misread as a delivery failure. Only a real 4xx/connection error
+            // signals EXPIRED/UNREACHABLE below.
             restClient.exchange(
                     RestPreconditions.omnissaServerBaseUrl() + Paths.APPROVALS,
                     HttpMethod.PUT,
                     httpEntity,
-                    CalloutResponse.class);
+                    String.class);
         } catch (HttpClientErrorException e) {
             // PERMANENT: Access rejected the decision — the request no longer exists there.
             logger.warn("Decision for requestId={} rejected by Omnissa Access ({}) — marking request expired",
@@ -113,7 +117,7 @@ public class ApprovalsInterfaceImpl implements ApprovalsInterface {
                         RestPreconditions.omnissaServerBaseUrl() + Paths.APPROVALS,
                         HttpMethod.PUT,
                         httpEntity,
-                        CalloutResponse.class);
+                        String.class);
                 logger.info("Deleted remote callout for requestId={}", request.getRequestId());
             } catch (Exception e) {
                 logger.error("Failed to delete callout for requestId={}: {}",
