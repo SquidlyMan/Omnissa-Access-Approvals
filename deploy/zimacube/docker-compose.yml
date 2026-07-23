@@ -3,17 +3,26 @@
 # Pulls the published image from GHCR (no local build) instead of using a
 # build: context — if CasaOS adopts the app it copies this compose to
 # /var/lib/casaos/apps/ and recreates the container, which would break a
-# relative build path. Update via deploy.sh, `docker compose pull` + `up -d`,
-# or the opt-in watchtower service below — the CasaOS "Check and then update"
-# button does NOT reliably detect new registry images for externally-managed
-# containers. ALL state is bind-mounted to /media/ZIMARAID so a
+# relative build path. ALL state is bind-mounted to /media/ZIMARAID so a
 # CasaOS-triggered recreate wipes nothing.
+#
+# IMAGE TAG / UPDATES — CasaOS "Check and then update" special-cases the
+# :latest tag as "always current" and often skips the pull, so it can report
+# "on the latest version" while the container is stale. It DOES reliably detect
+# a moved *version* tag. CI now publishes a moving major.minor tag (e.g. 1.4)
+# that advances on every main merge, plus the immutable full version (1.4.1).
+# Track the minor tag for CasaOS-detectable updates:
+#   set OMNISSA_IMAGE_TAG=1.4 in this compose's .env (or the shell environment).
+# Default stays :latest (unchanged behavior). Other update paths still work:
+# deploy.sh, `docker compose pull` + `up -d`, or the opt-in watchtower profile.
 
 name: omnissa-approvals
 
 services:
   omnissa-approvals:
-    image: ghcr.io/squidlyman/omnissa-access-approvals:latest
+    # Pin OMNISSA_IMAGE_TAG to the minor line (e.g. 1.4) for CasaOS-detectable
+    # updates; defaults to :latest so existing deployments are unaffected.
+    image: ghcr.io/squidlyman/omnissa-access-approvals:${OMNISSA_IMAGE_TAG:-latest}
     container_name: omnissa-approvals
     restart: unless-stopped
     labels:
