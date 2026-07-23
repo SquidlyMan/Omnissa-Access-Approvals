@@ -19,6 +19,10 @@ export interface CalloutRequest {
   responseMessage: string | null
   notes: string | null
   userAttributes: Record<string, string[]>
+  // JIT / time-bound access (#49). Null on permanent grants.
+  accessTtlMinutes: number | null
+  accessExpiresAt: string | null
+  revokedAt: string | null
 }
 
 export interface Page<T> {
@@ -44,6 +48,7 @@ export type AuditAction =
   | 'auto-approved'
   | 'auto-rejected'
   | 'decision-undeliverable'
+  | 'access-revoked'
 
 export interface AuditEvent {
   id: number
@@ -71,6 +76,7 @@ export interface Rule {
   appPattern: string | null
   groupName: string | null
   expiryDays: number | null
+  grantTtlMinutes: number | null
 }
 
 export interface TenantStatus {

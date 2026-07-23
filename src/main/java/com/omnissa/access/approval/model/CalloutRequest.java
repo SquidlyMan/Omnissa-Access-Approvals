@@ -73,6 +73,22 @@ public class CalloutRequest implements Serializable {
 
     private String state;
 
+    // --- JIT / time-bound access (#49). All nullable → null = permanent grant. ---
+
+    /** Granted access duration in minutes; null = permanent (default behavior). */
+    @Nullable
+    private Integer accessTtlMinutes;
+
+    /** When the grant expires (= approval time + TTL). The expiry sweep revokes past this. */
+    @Nullable
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date accessExpiresAt;
+
+    /** When the scheduler removed the entitlement in Access. */
+    @Nullable
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date revokedAt;
+
     public CalloutRequest() {}
 
     public CalloutRequest(@Nonnull String userId) {
@@ -134,6 +150,15 @@ public class CalloutRequest implements Serializable {
 
     @Nullable public String getDecidedBy() { return decidedBy; }
     public void setDecidedBy(@Nullable String decidedBy) { this.decidedBy = decidedBy; }
+
+    @Nullable public Integer getAccessTtlMinutes() { return accessTtlMinutes; }
+    public void setAccessTtlMinutes(@Nullable Integer accessTtlMinutes) { this.accessTtlMinutes = accessTtlMinutes; }
+
+    @Nullable public Date getAccessExpiresAt() { return accessExpiresAt; }
+    public void setAccessExpiresAt(@Nullable Date accessExpiresAt) { this.accessExpiresAt = accessExpiresAt; }
+
+    @Nullable public Date getRevokedAt() { return revokedAt; }
+    public void setRevokedAt(@Nullable Date revokedAt) { this.revokedAt = revokedAt; }
 
     @Override
     public String toString() {

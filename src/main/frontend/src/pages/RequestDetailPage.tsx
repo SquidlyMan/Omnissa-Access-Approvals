@@ -54,6 +54,13 @@ export default function RequestDetailPage() {
         <Row label="Operation">{req.operation}</Row>
         <Row label="Received">{formatDate(req.receivedDate)}</Row>
         {req.responseDate && <Row label="Decided">{formatDate(req.responseDate)}</Row>}
+        {req.accessTtlMinutes != null && (
+          <Row label="Access duration">{formatDuration(req.accessTtlMinutes)}</Row>
+        )}
+        {req.accessExpiresAt && req.state !== 'revoked' && (
+          <Row label="Access expires">{formatDate(req.accessExpiresAt)}</Row>
+        )}
+        {req.revokedAt && <Row label="Access revoked">{formatDate(req.revokedAt)}</Row>}
         {req.responseMessage && <Row label="Message">{req.responseMessage}</Row>}
         {req.notes && <Row label="Notes">{req.notes}</Row>}
       </div>
@@ -107,4 +114,17 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function formatDate(iso: string) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString()
+}
+
+/** Humanize a TTL in minutes: 60 → "1 hour", 1440 → "1 day", etc. */
+function formatDuration(minutes: number): string {
+  if (minutes % 1440 === 0) {
+    const d = minutes / 1440
+    return `${d} day${d === 1 ? '' : 's'}`
+  }
+  if (minutes % 60 === 0) {
+    const h = minutes / 60
+    return `${h} hour${h === 1 ? '' : 's'}`
+  }
+  return `${minutes} min`
 }
