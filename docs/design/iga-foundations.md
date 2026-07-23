@@ -1,8 +1,10 @@
 # IGA Foundations — Pre-Work Design
 
-Status: **Draft for review** (no code yet). Covers three cross-cutting design
-areas that the IGA feature tasks all depend on. Designing these once, up front,
-avoids retrofitting entities and re-plumbing identity per feature.
+Status: **Approved — pre-work (#54) complete.** All 6 design decisions
+resolved, and the #49 JIT revocation mechanism is now **verified against the
+live tenant** (see 1.2). Covers three cross-cutting design areas that the IGA
+feature tasks all depend on. Designing these once, up front, avoids retrofitting
+entities and re-plumbing identity per feature.
 
 Feature tasks these support: **#49 JIT**, **#50 Slack**, **#51 delegation/
 escalation**, **#52 RBAC**, **#53 multi-stage approval**, **#55 Teams**.
@@ -43,7 +45,7 @@ already unused in persistence). Extend the vocabulary rather than the column:
 | `approved` / `rejected` | decided + delivered to Access | decision flow |
 | `deactivated` | deactivation callout | ingestion |
 | `expired` | decision undeliverable (4xx from Access) | `ApprovalsInterfaceImpl` |
-| **`revoked`** *(new, #49)* | JIT access expired, deactivation pushed to Access | scheduler |
+| **`revoked`** *(new, #49)* | JIT access expired, entitlement deleted in Access | scheduler |
 | **`awaiting-stage`** *(new, #53)* | approved at current stage, more stages remain | chain engine |
 
 Note the distinction the JIT feature needs: **`expired`** already means "we
@@ -59,18 +61,41 @@ Additive columns on **`CalloutRequest`** (all nullable):
 |---|---|---|
 | `accessTtlMinutes` | `Integer` | requested/granted TTL; nullable = permanent (today's behavior) |
 | `accessExpiresAt` | `Date` (TIMESTAMP) | set **at approval time** = `now + ttl`, or by rule |
-| `revokedAt` | `Date` | when the scheduler pushed the deactivation |
+| `revokedAt` | `Date` | when the scheduler deleted the entitlement |
 
 Flow: TTL is chosen at approval time (UI field) or supplied by an AutoRule (see
 1.6). On DELIVERED approval, set `accessExpiresAt`. `RuleScheduler` gains a
-second sweep that finds `state='approved' AND accessExpiresAt < now`, pushes a
-**deactivation** decision to Access via the existing
-`ApprovalsInterface.requestResponse(...)` path, then sets `state='revoked'`,
-`revokedAt`, and audits `access-revoked`. Reuses the existing
-DELIVERED/EXPIRED/UNREACHABLE outcome handling — UNREACHABLE simply retries next
-hour, exactly like expiry rules do today.
+second sweep that finds `state='approved' AND accessExpiresAt < now`, **revokes
+the entitlement** (see below), then sets `state='revoked'`, `revokedAt`, and
+audits `access-revoked`. UNREACHABLE/error simply retries next hour, exactly
+like expiry rules do today.
 
 *All additive. No backfill* (null TTL = existing permanent grants).
+
+#### Revocation mechanism — VERIFIED against the live tenant (2026-07)
+
+The approval **callout response** path only *answers a pending request*; it
+cannot withdraw access that was already granted. Revocation is therefore a
+direct mutation of the **entitlements** API using the OAuth service client
+(`ApprovalService`), not a callout response. Confirmed end-to-end against a
+throwaway app:
+
+| step | call | result |
+|---|---|---|
+| **read** | `GET /SAAS/jersey/manager/api/entitlements/definitions/catalogitems/{catalogItemId}` | lists entitled subjects + `totalCount` |
+| **revoke** | `DELETE …/entitlements/definitions/catalogitems/{catalogItemId}/users/{scimUserId}` | `200`; the entitlement disappears (`totalCount` 1 → 0) |
+| **grant** | `POST …/entitlements/definitions` body `{"operations":[{"method":"POST","data":{"catalogItemId":…,"subjectType":"USERS","subjectId":…,"activationPolicy":"USER_ACTIVATED"}}]}` | `201 Created` (re-provision / restore) |
+
+Content type for the bulk grant:
+`application/vnd.vmware.horizon.manager.entitlements.definition.bulk+json`.
+
+**ID mapping caveat:** the callout gives us the app's catalog UUID
+(`CalloutRequest.resourceUuid`) and Access's numeric `userId` — but the
+entitlements API keys the subject on the user's **SCIM id**, not that numeric
+userId. Resolve it via the SCIM `/Users` API (filter by userName/email) or by
+reading the catalog item's entitlement listing, which returns each entitled
+user's `subjectId` (the SCIM id). #49 implementation must persist/resolve the
+SCIM id at grant time so the expiry sweep can target the right `DELETE`.
 
 ### 1.3 #51 delegation / escalation
 
