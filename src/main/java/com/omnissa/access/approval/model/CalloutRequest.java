@@ -89,6 +89,15 @@ public class CalloutRequest implements Serializable {
     @Temporal(value = TemporalType.TIMESTAMP)
     private Date revokedAt;
 
+    /**
+     * The requester's Access SCIM id, resolved and stored at approval time. The
+     * inbound callout only carries a numeric userId that Access cannot map back
+     * to a SCIM id, so we capture it once (when granting) and reuse it to add the
+     * exclusion at expiry. Nullable = not yet/again resolved.
+     */
+    @Nullable
+    private String scimUserId;
+
     public CalloutRequest() {}
 
     public CalloutRequest(@Nonnull String userId) {
@@ -159,6 +168,9 @@ public class CalloutRequest implements Serializable {
 
     @Nullable public Date getRevokedAt() { return revokedAt; }
     public void setRevokedAt(@Nullable Date revokedAt) { this.revokedAt = revokedAt; }
+
+    @Nullable public String getScimUserId() { return scimUserId; }
+    public void setScimUserId(@Nullable String scimUserId) { this.scimUserId = scimUserId; }
 
     @Override
     public String toString() {
