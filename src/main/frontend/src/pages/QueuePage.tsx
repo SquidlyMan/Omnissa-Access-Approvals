@@ -6,6 +6,7 @@ import AppIcon from '../components/AppIcon'
 import ApprovalDialog from '../components/ApprovalDialog'
 import type { Page, CalloutRequest, AuditPage, AuditAction } from '../types'
 import { getCsrfToken } from '../utils/csrf'
+import { requesterLabel } from '../utils/requester'
 
 const STATE_TABS = [
   { key: 'pending',     label: 'Awaiting Review' },
@@ -241,7 +242,7 @@ export default function QueuePage() {
                   >
                     <p className="font-medium text-gray-900 truncate">{req.resourceName}</p>
                     <p className="text-sm text-gray-500 truncate">
-                      {req.userId} · {formatDate(req.receivedDate)}
+                      {requesterLabel(req)} · {formatDate(req.receivedDate)}
                     </p>
                   </div>
                   <div className="shrink-0 flex items-center gap-3">

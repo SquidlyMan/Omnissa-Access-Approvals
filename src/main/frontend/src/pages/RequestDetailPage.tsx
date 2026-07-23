@@ -4,6 +4,7 @@ import AppIcon from '../components/AppIcon'
 import StatusBadge from '../components/StatusBadge'
 import ApprovalDialog from '../components/ApprovalDialog'
 import type { CalloutRequest } from '../types'
+import { requesterLabel } from '../utils/requester'
 
 export default function RequestDetailPage() {
   const { requestId } = useParams<{ requestId: string }>()
@@ -22,8 +23,7 @@ export default function RequestDetailPage() {
   if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
   if (!req) return <p className="text-sm text-red-500 py-10 text-center">Request not found.</p>
 
-  const firstName = req.userAttributes?.['firstName']?.[0] ?? ''
-  const lastName  = req.userAttributes?.['lastName']?.[0]  ?? ''
+  const requestor = requesterLabel(req)
   const email     = req.userAttributes?.['email']?.[0]     ?? req.userId
 
   return (
@@ -48,7 +48,7 @@ export default function RequestDetailPage() {
 
       {/* Details grid */}
       <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 mb-4">
-        <Row label="Requestor">{firstName || lastName ? `${firstName} ${lastName}`.trim() : req.userId}</Row>
+        <Row label="Requestor">{requestor}</Row>
         <Row label="Email">{email}</Row>
         <Row label="Device">{req.userDeviceName || '—'}</Row>
         <Row label="Operation">{req.operation}</Row>
