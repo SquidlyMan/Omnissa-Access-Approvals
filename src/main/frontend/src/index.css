@@ -1,3 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Custom Omnissa navy palette — Tailwind 4 CSS-first theme.
+   Generates the bg-omnissa / text-omnissa / border-omnissa / ring-omnissa /
+   accent-omnissa (+ -dark / -light) utility classes used across the UI. */
+@theme {
+  --color-omnissa: #132250;
+  --color-omnissa-dark: #0c1636;
+  --color-omnissa-light: #e9ecf5;
+}

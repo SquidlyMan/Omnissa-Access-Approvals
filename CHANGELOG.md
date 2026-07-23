@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Upgraded the backend from Spring Boot 3.5.16 to Spring Boot 4.1.0 (Spring Framework 7, Spring Security 7, Jakarta EE 11) and springdoc-openapi from 2.8.17 to 3.0.3 (the Spring Boot 4 / Framework 7 compatible line). Security 7 migration: replaced the removed `AntPathRequestMatcher` with `PathPatternRequestMatcher` for the logout and authentication-entry-point matchers; the Tomcat SSL-redirect connector now uses the relocated `org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory` and its renamed `addAdditionalConnectors` method. No runtime behavior change.
+- Upgraded the frontend major dependencies together: React 18 → 19 (`react`/`react-dom`/`@types/react`/`@types/react-dom`), Vite 5 → 8 with `@vitejs/plugin-react` 4 → 6, Tailwind CSS 3 → 4, and TypeScript 5 → 6. Tailwind 4 moved to CSS-first configuration: the PostCSS setup was replaced with the official `@tailwindcss/vite` plugin, the CSS entry now uses `@import "tailwindcss"`, and the custom `omnissa` navy palette (`#132250` / dark `#0c1636` / light `#e9ecf5`) migrated to a CSS `@theme` block — the `bg-omnissa` / `text-omnissa` / `-dark` / `-light` / `ring` / `border` / `accent` utility classes and the navy banner are unchanged. The `frontend-maven-plugin` Node pin was bumped from v20.14.0 (npm 10.7.0) to v22.23.1 (npm 10.9.8) to satisfy Vite 8's Node requirement. No UI behavior or visual change.
 
 ## [1.3.0] - 2026-07-04
 
