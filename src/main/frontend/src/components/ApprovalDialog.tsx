@@ -11,6 +11,8 @@ interface Props {
 // Time-bound (JIT) access options. null = permanent (today's default).
 const TTL_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: 'Permanent', minutes: null },
+  { label: '5 minutes', minutes: 5 },
+  { label: '15 minutes', minutes: 15 },
   { label: '1 hour', minutes: 60 },
   { label: '8 hours', minutes: 480 },
   { label: '24 hours', minutes: 1440 },
