@@ -298,7 +298,19 @@ directly for non-session callers.
 
 ---
 
-## Open decisions for Dean
+## Resolved decisions (2026-07-22)
+
+All six confirmed by Dean. These are the design baseline for the feature builds (#49–#53, #55).
+
+1. **RBAC role set** — REUSE existing `AuthorityName` (`ROLE_ADMIN` = ADMIN, `ROLE_APPROVER` = APPROVER, `ROLE_USER` = READ_ONLY). No new role enum.
+2. **OIDC group → role mapping** — map Access group claims to roles; add a `groups` scope/claim to the Access OIDC client (today it sends only `openid email profile`). *Still needed: the actual Access group names → which map to ADMIN vs APPROVER (collect at #52 build time).*
+3. **Approver scoping** — ROLE-ONLY. Any APPROVER may act on any request; one shared queue. No `ApproverScope` table. Targeted routing comes from #51 (delegation owner) and #53 (per-stage approvers) instead.
+4. **Escalation shape (#51)** — COLUMNS on `CalloutRequest` (`assignedOwner`, `escalationTarget`, `escalationTimeout`, `escalatedAt`). Single hop (assignee + backup). No `Assignment` sub-entity.
+5. **JIT default TTL (#49)** — NULL = permanent. TTL is always explicit: a review-dialog picker (Permanent / 1h / 8h / 7d / custom) and `AutoRule.grantTtlMinutes`. Normal approvals stay permanent; JIT is opt-in per approval/rule.
+6. **Chat-user identity trust (#50/#55)** — REQUIRE an explicit Slack/Teams-user → app-approver mapping. Never trust any workspace member who can see the message.
+
+<!-- Original open-decisions list, now resolved above:
+
 
 1. **RBAC role set.** Reuse existing `AuthorityName` (`ROLE_ADMIN`,
    `ROLE_APPROVER`, `ROLE_USER`) as ADMIN / APPROVER / READ_ONLY, or add a
@@ -317,3 +329,4 @@ directly for non-session callers.
 6. **Chat-user identity trust (#50/#55).** Confirm we require an explicit
    Slack/Teams-user → app-approver mapping (recommended) rather than trusting any
    workspace member who can see the message.
+-->
