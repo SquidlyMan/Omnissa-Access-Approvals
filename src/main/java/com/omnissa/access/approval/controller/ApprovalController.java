@@ -6,6 +6,7 @@ import com.omnissa.access.approval.model.CalloutOperation;
 import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.model.DecisionOutcome;
+import com.omnissa.access.approval.model.DecisionRequest;
 import com.omnissa.access.approval.model.Mappings;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
 import com.omnissa.access.approval.util.AuditService;
@@ -27,6 +28,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -107,9 +110,10 @@ public class ApprovalController {
             @RequestParam(required = false) String state, Pageable pageable) {
         String filter = state != null ? state : "pending";
         if ("deactivated".equals(filter)) {
-            // Expired requests (decision undeliverable) ride in the Deactivated tab.
+            // Expired (decision undeliverable) and revoked (JIT access torn down)
+            // requests ride in the Deactivated tab.
             return ResponseEntity.ok(approvalsRepository.findByStateInOrderByIdDesc(
-                    List.of("deactivated", "expired"), pageable));
+                    List.of("deactivated", "expired", "revoked"), pageable));
         }
         return ResponseEntity.ok(approvalsRepository.findByStateOrderByIdDesc(filter, pageable));
     }
@@ -191,8 +195,10 @@ public class ApprovalController {
                     calloutRequest.getRequestId(), approve, message));
             switch (outcome) {
                 case DELIVERED -> {
+                    String ttlNote = applyJitTtl(calloutRequest.getRequestId(),
+                            approve ? rule.getGrantTtlMinutes() : null);
                     auditService.record(approve ? "auto-approved" : "auto-rejected",
-                            calloutRequest.getRequestId(), calloutRequest.getResourceName(), message);
+                            calloutRequest.getRequestId(), calloutRequest.getResourceName(), message + ttlNote);
                     webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
                     sseController.publishQueueUpdate("queue-updated");
                 }
@@ -215,37 +221,40 @@ public class ApprovalController {
     }
 
     @PostMapping("/response")
-    public ResponseEntity<?> approveCalloutRequest(@RequestBody CalloutResponse calloutResponse) {
-        logger.info("Processing approval response: {}", calloutResponse);
+    public ResponseEntity<?> approveCalloutRequest(@RequestBody DecisionRequest decision) {
+        logger.info("Processing approval response: requestId={} approved={} ttlMinutes={}",
+                decision.getRequestId(), decision.isApproved(), decision.getTtlMinutes());
         try {
-            CalloutRequest request = approvalsRepository.findByRequestId(calloutResponse.getRequestId());
-            DecisionOutcome outcome = approvalsInterface.requestResponse(calloutResponse);
+            CalloutRequest request = approvalsRepository.findByRequestId(decision.getRequestId());
+            DecisionOutcome outcome = approvalsInterface.requestResponse(decision.toCalloutResponse());
             String admin = auditService.currentAdmin();
             switch (outcome) {
                 case DELIVERED -> {
-                    String note = calloutResponse.getMessage();
-                    String message = (calloutResponse.isApproved() ? "Approved by " : "Rejected by ") + admin
-                            + (note != null && !note.isBlank() ? " — " + note : "");
-                    auditService.record(calloutResponse.isApproved() ? "approved" : "rejected",
-                            calloutResponse.getRequestId(),
+                    String ttlNote = applyJitTtl(decision.getRequestId(),
+                            decision.isApproved() ? decision.getTtlMinutes() : null);
+                    String note = decision.getMessage();
+                    String message = (decision.isApproved() ? "Approved by " : "Rejected by ") + admin
+                            + (note != null && !note.isBlank() ? " — " + note : "") + ttlNote;
+                    auditService.record(decision.isApproved() ? "approved" : "rejected",
+                            decision.getRequestId(),
                             request != null ? request.getResourceName() : null,
                             message);
-                    webhookNotifier.notifyDecision(request, calloutResponse.isApproved(), admin, null);
-                    mailNotification.sendEmailNotification(calloutResponse.getRequestId(), calloutResponse.isApproved());
+                    webhookNotifier.notifyDecision(request, decision.isApproved(), admin, null);
+                    mailNotification.sendEmailNotification(decision.getRequestId(), decision.isApproved());
                     sseController.publishQueueUpdate("queue-updated");
                 }
                 case EXPIRED -> {
                     auditService.record("decision-undeliverable",
-                            calloutResponse.getRequestId(),
+                            decision.getRequestId(),
                             request != null ? request.getResourceName() : null,
-                            (calloutResponse.isApproved() ? "Approval by " : "Rejection by ") + admin
+                            (decision.isApproved() ? "Approval by " : "Rejection by ") + admin
                                     + " could not be delivered — request no longer exists in Omnissa Access");
                     webhookNotifier.notifyExpired(request);
                     sseController.publishQueueUpdate("queue-updated");
                 }
                 case UNREACHABLE -> logger.warn(
                         "Decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
-                        calloutResponse.getRequestId());
+                        decision.getRequestId());
             }
             // HTTP 200 for every outcome — the SPA branches on the JSON body.
             return ResponseEntity.ok(Map.of("outcome", outcome.name().toLowerCase()));
@@ -298,7 +307,8 @@ public class ApprovalController {
     @GetMapping("/export.csv")
     public ResponseEntity<String> exportCsv() {
         StringBuilder csv = new StringBuilder(
-                "requestId,resourceName,userId,operation,state,receivedDate,responseDate,decidedBy,responseMessage\n");
+                "requestId,resourceName,userId,operation,state,receivedDate,responseDate,"
+                + "decidedBy,accessExpiresAt,revokedAt,responseMessage\n");
         for (CalloutRequest request : approvalsRepository.findAll(Sort.by(Sort.Direction.DESC, "id"))) {
             csv.append(csvField(request.getRequestId())).append(',')
                .append(csvField(request.getResourceName())).append(',')
@@ -308,6 +318,8 @@ public class ApprovalController {
                .append(csvField(isoDate(request.getReceivedDate()))).append(',')
                .append(csvField(isoDate(request.getResponseDate()))).append(',')
                .append(csvField(request.getDecidedBy())).append(',')
+               .append(csvField(isoDate(request.getAccessExpiresAt()))).append(',')
+               .append(csvField(isoDate(request.getRevokedAt()))).append(',')
                .append(csvField(request.getResponseMessage())).append('\n');
         }
         String filename = "approval-requests-"
@@ -316,6 +328,28 @@ public class ApprovalController {
         headers.setContentType(MediaType.parseMediaType("text/csv"));
         headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
         return new ResponseEntity<>(csv.toString(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * Apply a JIT / time-bound TTL to a just-approved request (#49). Re-fetches
+     * the entity (the decision delivery already saved state='approved' on a
+     * separate instance) and stamps accessTtlMinutes + accessExpiresAt so the
+     * expiry sweep later revokes it. No-op for a null/non-positive TTL (permanent
+     * grant). Returns an audit-note suffix, or "" when nothing was applied.
+     */
+    private String applyJitTtl(String requestId, Integer ttlMinutes) {
+        if (ttlMinutes == null || ttlMinutes <= 0) {
+            return "";
+        }
+        CalloutRequest fresh = approvalsRepository.findByRequestId(requestId);
+        if (fresh == null) {
+            return "";
+        }
+        Date expiresAt = Date.from(Instant.now().plus(ttlMinutes, ChronoUnit.MINUTES));
+        fresh.setAccessTtlMinutes(ttlMinutes);
+        fresh.setAccessExpiresAt(expiresAt);
+        approvalsRepository.save(fresh);
+        return " (time-bound: access expires in " + ttlMinutes + " min)";
     }
 
     private String isoDate(Date date) {

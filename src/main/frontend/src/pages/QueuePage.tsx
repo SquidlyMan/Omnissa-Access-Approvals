@@ -24,6 +24,7 @@ const AUDIT_ACTION_STYLES: Record<AuditAction, string> = {
   'request-received':       'bg-gray-100 text-gray-600',
   'deactivation-received':  'bg-gray-100 text-gray-600',
   'decision-undeliverable': 'bg-orange-100 text-orange-800',
+  'access-revoked':         'bg-purple-100 text-purple-800',
 }
 
 function AuditActionBadge({ action }: { action: AuditAction }) {

@@ -8,9 +8,20 @@ interface Props {
   onComplete: () => void
 }
 
+// Time-bound (JIT) access options. null = permanent (today's default).
+const TTL_OPTIONS: { label: string; minutes: number | null }[] = [
+  { label: 'Permanent', minutes: null },
+  { label: '1 hour', minutes: 60 },
+  { label: '8 hours', minutes: 480 },
+  { label: '24 hours', minutes: 1440 },
+  { label: '7 days', minutes: 10080 },
+  { label: '30 days', minutes: 43200 },
+]
+
 export default function ApprovalDialog({ requestId, resourceName, onClose, onComplete }: Props) {
   const [approved, setApproved] = useState<boolean | null>(null)
   const [message, setMessage] = useState('')
+  const [ttlMinutes, setTtlMinutes] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [expired, setExpired] = useState(false)
@@ -24,7 +35,8 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
-        body: JSON.stringify({ requestId, approved, message }),
+        // ttlMinutes only applies to approvals; ignored by the server on reject.
+        body: JSON.stringify({ requestId, approved, message, ttlMinutes: approved ? ttlMinutes : null }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const data: { outcome?: string } | null = await res.json().catch(() => null)
@@ -74,6 +86,26 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
             ✗ Reject
           </button>
         </div>
+
+        {approved === true && !expired && (
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Access duration</label>
+            <select
+              value={ttlMinutes ?? ''}
+              onChange={e => setTtlMinutes(e.target.value === '' ? null : Number(e.target.value))}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
+            >
+              {TTL_OPTIONS.map(o => (
+                <option key={o.label} value={o.minutes ?? ''}>{o.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              {ttlMinutes == null
+                ? 'Access stays until manually removed.'
+                : 'Access is automatically revoked in Omnissa Access when the time expires.'}
+            </p>
+          </div>
+        )}
 
         <textarea
           value={message}

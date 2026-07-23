@@ -72,6 +72,14 @@ public class RulesController {
         } else if (!hasMatchCriteria) {
             return "rule must set expiryDays or at least one of appPattern/groupName";
         }
+        if (rule.getGrantTtlMinutes() != null) {
+            if (rule.getGrantTtlMinutes() <= 0) {
+                return "grantTtlMinutes must be greater than 0";
+            }
+            if (!"approve".equals(rule.getAction())) {
+                return "grantTtlMinutes (JIT) applies only to \"approve\" rules";
+            }
+        }
         return null;
     }
 

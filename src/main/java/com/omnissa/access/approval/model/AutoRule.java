@@ -37,6 +37,13 @@ public class AutoRule {
     @Nullable
     private Integer expiryDays;
 
+    /**
+     * For "approve" MATCH rules: grant time-bound (JIT) access for this many
+     * minutes (#49). Null = permanent grant (default). Ignored for reject rules.
+     */
+    @Nullable
+    private Integer grantTtlMinutes;
+
     public AutoRule() {}
 
     public Long getId() { return id; }
@@ -57,10 +64,13 @@ public class AutoRule {
     @Nullable public Integer getExpiryDays() { return expiryDays; }
     public void setExpiryDays(@Nullable Integer expiryDays) { this.expiryDays = expiryDays; }
 
+    @Nullable public Integer getGrantTtlMinutes() { return grantTtlMinutes; }
+    public void setGrantTtlMinutes(@Nullable Integer grantTtlMinutes) { this.grantTtlMinutes = grantTtlMinutes; }
+
     @Override
     public String toString() {
         return "AutoRule{id=" + id + ", enabled=" + enabled + ", action='" + action +
                 "', appPattern='" + appPattern + "', groupName='" + groupName +
-                "', expiryDays=" + expiryDays + "}";
+                "', expiryDays=" + expiryDays + ", grantTtlMinutes=" + grantTtlMinutes + "}";
     }
 }

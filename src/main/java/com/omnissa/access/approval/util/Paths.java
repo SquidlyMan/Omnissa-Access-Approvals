@@ -9,4 +9,9 @@ public class Paths {
     public static final String CATALOG_SEARCH  = ROOT_PATH + "/catalogitems/search";
     public static final String LICENSE         = ROOT_PATH + "/catalogitems/{catalog-id}/license";
     public static final String APPROVAL_POLICY = ROOT_PATH + "/entitlements/definitions/catalogitems/{catalog-id}/approval";
+
+    // Entitlements (JIT revocation, #49). GET the catalog item's entitled users;
+    // DELETE a single user's entitlement to revoke access.
+    public static final String ENTITLEMENTS_CATALOGITEM = ROOT_PATH + "/entitlements/definitions/catalogitems/{catalog-id}";
+    public static final String ENTITLEMENTS_USER        = ENTITLEMENTS_CATALOGITEM + "/users/{scim-id}";
 }

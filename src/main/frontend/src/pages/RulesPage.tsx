@@ -2,6 +2,22 @@ import { useState, useEffect, useCallback } from 'react'
 import { getCsrfToken } from '../utils/csrf'
 import type { Rule } from '../types'
 
+// Time-bound (JIT) grant options for approve rules. '' = permanent.
+const GRANT_TTL_OPTIONS: { label: string; minutes: number | null }[] = [
+  { label: 'Permanent', minutes: null },
+  { label: '1 hour', minutes: 60 },
+  { label: '8 hours', minutes: 480 },
+  { label: '24 hours', minutes: 1440 },
+  { label: '7 days', minutes: 10080 },
+  { label: '30 days', minutes: 43200 },
+]
+
+function describeDuration(minutes: number): string {
+  if (minutes % 1440 === 0) { const d = minutes / 1440; return `${d} day${d === 1 ? '' : 's'}` }
+  if (minutes % 60 === 0) { const h = minutes / 60; return `${h} hour${h === 1 ? '' : 's'}` }
+  return `${minutes} min`
+}
+
 function describeRule(rule: Rule): string {
   if (rule.expiryDays != null) {
     return `Auto-reject requests pending longer than ${rule.expiryDays} day${rule.expiryDays === 1 ? '' : 's'}`
@@ -9,7 +25,10 @@ function describeRule(rule: Rule): string {
   const verb = rule.action === 'approve' ? 'Auto-approve' : 'Auto-reject'
   const app = rule.appPattern && rule.appPattern !== '*' ? `app "${rule.appPattern}"` : 'any app'
   const group = rule.groupName ? ` from group "${rule.groupName}"` : ''
-  return `${verb} requests for ${app}${group}`
+  const ttl = rule.action === 'approve' && rule.grantTtlMinutes != null
+    ? ` for ${describeDuration(rule.grantTtlMinutes)}`
+    : ''
+  return `${verb} requests for ${app}${group}${ttl}`
 }
 
 export default function RulesPage() {
@@ -21,6 +40,7 @@ export default function RulesPage() {
   const [action, setAction] = useState<'approve' | 'reject'>('approve')
   const [appPattern, setAppPattern] = useState('')
   const [groupName, setGroupName] = useState('')
+  const [grantTtl, setGrantTtl] = useState<number | null>(null)
   const [expiryDays, setExpiryDays] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
@@ -50,6 +70,7 @@ export default function RulesPage() {
           appPattern: rule.appPattern,
           groupName: rule.groupName,
           expiryDays: rule.expiryDays,
+          grantTtlMinutes: rule.grantTtlMinutes,
         }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
@@ -78,8 +99,9 @@ export default function RulesPage() {
     setSubmitting(true)
     setFormError('')
     const body = ruleType === 'match'
-      ? { enabled: true, action, appPattern: appPattern.trim() || null, groupName: groupName.trim() || null, expiryDays: null }
-      : { enabled: true, action: 'reject', appPattern: null, groupName: null, expiryDays: Number(expiryDays) }
+      ? { enabled: true, action, appPattern: appPattern.trim() || null, groupName: groupName.trim() || null,
+          expiryDays: null, grantTtlMinutes: action === 'approve' ? grantTtl : null }
+      : { enabled: true, action: 'reject', appPattern: null, groupName: null, expiryDays: Number(expiryDays), grantTtlMinutes: null }
     try {
       const res = await fetch('/api/rules', {
         method: 'POST',
@@ -97,6 +119,7 @@ export default function RulesPage() {
       }
       setAppPattern('')
       setGroupName('')
+      setGrantTtl(null)
       setExpiryDays('')
       load()
     } catch (err: unknown) {
@@ -201,6 +224,7 @@ export default function RulesPage() {
           </div>
 
           {ruleType === 'match' ? (
+            <>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
@@ -235,6 +259,26 @@ export default function RulesPage() {
                 />
               </div>
             </div>
+            {action === 'approve' && (
+              <div className="sm:max-w-[16rem]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Grant duration <span className="font-normal text-gray-400">(JIT)</span>
+                </label>
+                <select
+                  value={grantTtl ?? ''}
+                  onChange={e => setGrantTtl(e.target.value === '' ? null : Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
+                >
+                  {GRANT_TTL_OPTIONS.map(o => (
+                    <option key={o.label} value={o.minutes ?? ''}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Auto-approved access is revoked after this time.
+                </p>
+              </div>
+            )}
+            </>
           ) : (
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
