@@ -23,6 +23,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Read the app version straight from pom.xml so main-branch builds carry a
+      # real, incrementing version tag (not just :latest). CasaOS's "Check and
+      # update" reliably detects a moved *version* tag but special-cases :latest
+      # as "always current" — so the deployment tracks the moving major.minor
+      # tag (e.g. 1.4) published below.
+      - name: Read project version
+        id: ver
+        run: |
+          V=$(grep -m1 '<version>' pom.xml | sed -E 's/.*<version>([^<]+)<.*/\1/')
+          echo "full=$V"        >> "$GITHUB_OUTPUT"
+          echo "minor=${V%.*}"  >> "$GITHUB_OUTPUT"
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -30,6 +42,8 @@ jobs:
           images: ghcr.io/squidlyman/omnissa-access-approvals
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.ver.outputs.full }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.ver.outputs.minor }},enable={{is_default_branch}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha

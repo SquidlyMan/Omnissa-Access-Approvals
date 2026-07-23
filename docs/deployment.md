@@ -157,8 +157,10 @@ sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 `docker compose -f <compose file> pull && docker compose -f <compose file>
 up -d` yourself, or opt in to Watchtower auto-updates — see
 [Automatic Updates](#automatic-updates-optional-disabled-by-default) below.
-Do **not** rely on the CasaOS "Check and then update" button (explained in
-that section).
+To make the CasaOS **"Check and then update"** button work, pin the image to
+the moving version tag instead of `:latest` — set `OMNISSA_IMAGE_TAG` to the
+current minor line (e.g. `1.4`) in the compose's `.env`; see
+[CasaOS updates](#casaos-check-and-then-update) below.
 
 See [`deploy/zimacube/deploy.sh`](../deploy/zimacube/deploy.sh) and the
 README's ZimaCube section for the Nginx Proxy Manager wiring and the
@@ -212,9 +214,30 @@ Docker socket effectively has root-level control of the host's Docker
 engine — which is why this ships disabled and opt-in. Only enable it if
 that trade-off is acceptable in your environment.
 
-**Why not CasaOS "Check and then update"?** For externally-managed
-containers like this one, the CasaOS update button does **not** reliably
-detect registry updates — it compares against the local image cache rather
-than checking GHCR for a newer digest, so it frequently reports
-"up to date" when a newer image exists. Use `deploy.sh`,
-`docker compose pull` + `up -d`, or Watchtower instead.
+### CasaOS "Check and then update"
+
+CasaOS special-cases the `:latest` tag as "always current" and skips the pull,
+so with the default `:latest` image it frequently reports "on the latest
+version" while the container is actually stale. It **does** reliably detect a
+moved **version** tag, so CI publishes one for it:
+
+- a moving **`major.minor`** tag (e.g. `1.4`) that advances on every `main`
+  merge, and
+- the immutable full version (e.g. `1.4.1`).
+
+To make the CasaOS update button work, point the deployment at the moving
+minor tag. Set it in the compose project's `.env` (next to the compose file,
+i.e. `/media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/.env`):
+
+```bash
+OMNISSA_IMAGE_TAG=1.4
+```
+
+then recreate once (`docker compose … up -d`). From then on, when a new patch
+publishes, CasaOS's **Check and then update** sees the moved `1.4` tag and
+pulls it. The dashboard shows the running app version, so you can confirm the
+update landed. (Bump `OMNISSA_IMAGE_TAG` to the new minor — `1.5`, `1.6`, … —
+when the minor version increments.)
+
+If you prefer hands-off updates, use Watchtower (above) instead; it tracks
+`:latest` by digest and is unaffected by the CasaOS `:latest` quirk.
