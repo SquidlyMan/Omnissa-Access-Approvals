@@ -4,6 +4,7 @@ import { useSse } from '../hooks/useSse'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
 import type { Stats, Page, CalloutRequest, TenantStatus } from '../types'
+import { requesterLabel } from '../utils/requester'
 
 interface StatCardProps {
   label: string
@@ -154,7 +155,7 @@ export default function DashboardPage() {
                 <AppIcon resourceUuid={req.resourceUuid} resourceName={req.resourceName} size={40} />
                 <div className="flex-1 min-w-[10rem]">
                   <p className="font-medium text-gray-900 truncate">{req.resourceName}</p>
-                  <p className="text-sm text-gray-500 truncate">Requested by {req.userId}</p>
+                  <p className="text-sm text-gray-500 truncate">Requested by {requesterLabel(req)}</p>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-1">
                   <StatusBadge state={req.state} />
