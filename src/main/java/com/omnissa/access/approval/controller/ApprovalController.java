@@ -1,6 +1,7 @@
 package com.omnissa.access.approval.controller;
 
 import com.omnissa.access.approval.interfaces.ApprovalsInterface;
+import com.omnissa.access.approval.interfaces.EntitlementsInterface;
 import com.omnissa.access.approval.model.AutoRule;
 import com.omnissa.access.approval.model.CalloutOperation;
 import com.omnissa.access.approval.model.CalloutRequest;
@@ -42,6 +43,9 @@ public class ApprovalController {
 
     @Autowired
     ApprovalsInterface approvalsInterface;
+
+    @Autowired
+    EntitlementsInterface entitlementsInterface;
 
     @Autowired
     ApprovalsRepository approvalsRepository;
@@ -195,8 +199,8 @@ public class ApprovalController {
                     calloutRequest.getRequestId(), approve, message));
             switch (outcome) {
                 case DELIVERED -> {
-                    String ttlNote = applyJitTtl(calloutRequest.getRequestId(),
-                            approve ? rule.getGrantTtlMinutes() : null);
+                    String ttlNote = applyGrant(calloutRequest.getRequestId(),
+                            approve, rule.getGrantTtlMinutes());
                     auditService.record(approve ? "auto-approved" : "auto-rejected",
                             calloutRequest.getRequestId(), calloutRequest.getResourceName(), message + ttlNote);
                     webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
@@ -230,8 +234,8 @@ public class ApprovalController {
             String admin = auditService.currentAdmin();
             switch (outcome) {
                 case DELIVERED -> {
-                    String ttlNote = applyJitTtl(decision.getRequestId(),
-                            decision.isApproved() ? decision.getTtlMinutes() : null);
+                    String ttlNote = applyGrant(decision.getRequestId(),
+                            decision.isApproved(), decision.getTtlMinutes());
                     String note = decision.getMessage();
                     String message = (decision.isApproved() ? "Approved by " : "Rejected by ") + admin
                             + (note != null && !note.isBlank() ? " — " + note : "") + ttlNote;
@@ -331,25 +335,34 @@ public class ApprovalController {
     }
 
     /**
-     * Apply a JIT / time-bound TTL to a just-approved request (#49). Re-fetches
-     * the entity (the decision delivery already saved state='approved' on a
-     * separate instance) and stamps accessTtlMinutes + accessExpiresAt so the
-     * expiry sweep later revokes it. No-op for a null/non-positive TTL (permanent
-     * grant). Returns an audit-note suffix, or "" when nothing was applied.
+     * Finalize a just-approved request (#49). On approval we lift any per-user
+     * exclusion so access applies (needed when the app is configured
+     * default-excluded), capture the requester's resolved SCIM id for the later
+     * revoke, and — for a time-bound grant — stamp accessTtlMinutes +
+     * accessExpiresAt so the expiry sweep re-applies the exclusion. Re-fetches
+     * the entity (decision delivery saved state='approved' on a separate
+     * instance). No-op when not approved. Returns an audit-note suffix.
      */
-    private String applyJitTtl(String requestId, Integer ttlMinutes) {
-        if (ttlMinutes == null || ttlMinutes <= 0) {
+    private String applyGrant(String requestId, boolean approved, Integer ttlMinutes) {
+        if (!approved) {
             return "";
         }
         CalloutRequest fresh = approvalsRepository.findByRequestId(requestId);
         if (fresh == null) {
             return "";
         }
-        Date expiresAt = Date.from(Instant.now().plus(ttlMinutes, ChronoUnit.MINUTES));
-        fresh.setAccessTtlMinutes(ttlMinutes);
-        fresh.setAccessExpiresAt(expiresAt);
+        String scimId = entitlementsInterface.grantAccess(fresh);
+        if (scimId != null) {
+            fresh.setScimUserId(scimId);
+        }
+        String note = "";
+        if (ttlMinutes != null && ttlMinutes > 0) {
+            fresh.setAccessTtlMinutes(ttlMinutes);
+            fresh.setAccessExpiresAt(Date.from(Instant.now().plus(ttlMinutes, ChronoUnit.MINUTES)));
+            note = " (time-bound: access expires in " + ttlMinutes + " min)";
+        }
         approvalsRepository.save(fresh);
-        return " (time-bound: access expires in " + ttlMinutes + " min)";
+        return note;
     }
 
     private String isoDate(Date date) {

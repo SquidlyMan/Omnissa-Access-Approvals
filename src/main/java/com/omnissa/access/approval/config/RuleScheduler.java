@@ -130,8 +130,8 @@ public class RuleScheduler {
                         fresh.setRevokedAt(new Date());
                         approvalsRepository.save(fresh);
                         String detail = outcome == RevokeOutcome.REVOKED
-                                ? "JIT access expired — entitlement removed from Omnissa Access"
-                                : "JIT access expired — entitlement was already absent in Omnissa Access";
+                                ? "JIT access expired — user excluded from the app in Omnissa Access"
+                                : "JIT access expired — user was already excluded in Omnissa Access";
                         if (request.getAccessTtlMinutes() != null) {
                             detail += " (TTL " + request.getAccessTtlMinutes() + " min)";
                         }

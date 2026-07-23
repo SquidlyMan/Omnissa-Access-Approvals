@@ -60,6 +60,31 @@ class EntitlementsRevokeMatchTest {
     }
 
     @Test
+    void soleUserAmongGroupsIsMatchedWithoutAttributes() throws Exception {
+        // The real default-excluded shape: a group Include + one excluded user,
+        // and the callout carries no email/userName. The sole USERS subject wins.
+        String groupPlusExcludedUser = """
+            {"items":[
+              {"subjectType":"GROUPS","subjectId":"grp-dean-only","name":"Dean Only","displayName":"Dean Only"},
+              {"subjectType":"USERS","subjectId":"scim-dean","name":"dean","displayName":"dean@flaming.ws","negative":true}
+            ]}""";
+        assertEquals("scim-dean",
+                EntitlementsInterfaceImpl.matchSubjectId(items(groupPlusExcludedUser), null, null));
+    }
+
+    @Test
+    void multipleUsersAmongGroupsWithoutMatchReturnsNull() throws Exception {
+        // Two USERS subjects and no attribute match → ambiguous → null (never guess).
+        String twoUsers = """
+            {"items":[
+              {"subjectType":"GROUPS","subjectId":"grp","name":"g","displayName":"g"},
+              {"subjectType":"USERS","subjectId":"scim-a","name":"a","displayName":"a@x.z"},
+              {"subjectType":"USERS","subjectId":"scim-b","name":"b","displayName":"b@x.z"}
+            ]}""";
+        assertNull(EntitlementsInterfaceImpl.matchSubjectId(items(twoUsers), null, null));
+    }
+
+    @Test
     void emptyOrMissingItemsReturnsNull() throws Exception {
         assertNull(EntitlementsInterfaceImpl.matchSubjectId(items("{\"items\":[]}"), "dean@flaming.ws", "dean"));
         assertNull(EntitlementsInterfaceImpl.matchSubjectId(items("{}"), "dean@flaming.ws", "dean"));

@@ -10,8 +10,11 @@ public class Paths {
     public static final String LICENSE         = ROOT_PATH + "/catalogitems/{catalog-id}/license";
     public static final String APPROVAL_POLICY = ROOT_PATH + "/entitlements/definitions/catalogitems/{catalog-id}/approval";
 
-    // Entitlements (JIT revocation, #49). GET the catalog item's entitled users;
-    // DELETE a single user's entitlement to revoke access.
+    // Entitlements (JIT, #49). GET the catalog item's entitled subjects; PUT a
+    // per-user exclusion (negative entitlement) to revoke; DELETE it to restore.
     public static final String ENTITLEMENTS_CATALOGITEM = ROOT_PATH + "/entitlements/definitions/catalogitems/{catalog-id}";
     public static final String ENTITLEMENTS_USER        = ENTITLEMENTS_CATALOGITEM + "/users/{scim-id}";
+
+    // SCIM user directory — fallback resolution of a requester to their SCIM id.
+    public static final String SCIM_USERS = ROOT_PATH + "/scim/Users";
 }
