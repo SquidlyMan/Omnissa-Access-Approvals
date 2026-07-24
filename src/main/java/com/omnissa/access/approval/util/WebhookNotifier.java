@@ -1,8 +1,5 @@
 package com.omnissa.access.approval.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.omnissa.access.approval.model.CalloutRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,8 +39,6 @@ public class WebhookNotifier {
     /** When true and format=slack, post an interactive (Approve/Reject + duration) message. */
     @Value("${slack.actionable:false}")
     private boolean slackActionable;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** JIT duration menu offered in the Slack message. value = minutes ("0" = permanent). */
     private static final String[][] SLACK_TTL_OPTIONS = {
@@ -73,53 +70,50 @@ public class WebhookNotifier {
      * Approve/Reject buttons. Button {@code value} carries the requestId; the
      * duration select's current value is read from the interaction's
      * {@code state} when a button is clicked (see SlackController).
+     *
+     * <p>Built from plain Map/List structures on purpose: Spring Boot 4 converts
+     * request bodies with Jackson 3, which does not recognize a Jackson 2
+     * {@code ObjectNode} as a tree and serializes it as an opaque POJO — Slack
+     * then rejects the post with {@code 400 "no_text"} and the message is lost.
      */
-    ObjectNode buildSlackActionableMessage(CalloutRequest request) {
+    Map<String, Object> buildSlackActionableMessage(CalloutRequest request) {
         String requester = requesterLabel(request);
-        ObjectNode root = objectMapper.createObjectNode();
+        Map<String, Object> root = new LinkedHashMap<>();
+        // Fallback text — also what notifications//unfurls show.
         root.put("text", "New access request: " + request.getResourceName() + " (" + requester + ")");
-        ArrayNode blocks = root.putArray("blocks");
 
-        ObjectNode section = blocks.addObject();
-        section.put("type", "section");
-        section.putObject("text").put("type", "mrkdwn")
-                .put("text", "*New access request*\n*App:* " + request.getResourceName()
-                        + "\n*Requested by:* " + requester);
+        List<Object> blocks = new ArrayList<>();
+        blocks.add(Map.of(
+                "type", "section",
+                "text", Map.of("type", "mrkdwn",
+                        "text", "*New access request*\n*App:* " + request.getResourceName()
+                                + "\n*Requested by:* " + requester)));
 
-        ObjectNode durationBlock = blocks.addObject();
-        durationBlock.put("type", "actions");
-        durationBlock.put("block_id", "jit_duration");
-        ObjectNode select = durationBlock.putArray("elements").addObject();
+        List<Object> options = new ArrayList<>();
+        for (String[] opt : SLACK_TTL_OPTIONS) {
+            options.add(Map.of(
+                    "text", Map.of("type", "plain_text", "text", opt[0]),
+                    "value", opt[1]));
+        }
+        Map<String, Object> select = new LinkedHashMap<>();
         select.put("type", "static_select");
         select.put("action_id", "duration");
-        select.putObject("placeholder").put("type", "plain_text").put("text", "Access duration");
-        ArrayNode options = select.putArray("options");
-        for (String[] opt : SLACK_TTL_OPTIONS) {
-            ObjectNode o = options.addObject();
-            o.putObject("text").put("type", "plain_text").put("text", opt[0]);
-            o.put("value", opt[1]);
-        }
-        // initial_option must be one of options (Permanent).
-        ObjectNode initial = select.putObject("initial_option");
-        initial.putObject("text").put("type", "plain_text").put("text", SLACK_TTL_OPTIONS[0][0]);
-        initial.put("value", SLACK_TTL_OPTIONS[0][1]);
+        select.put("placeholder", Map.of("type", "plain_text", "text", "Access duration"));
+        select.put("options", options);
+        // initial_option must exactly match one of the options (Permanent).
+        select.put("initial_option", options.get(0));
+        blocks.add(Map.of("type", "actions", "block_id", "jit_duration",
+                "elements", List.of(select)));
 
-        ObjectNode decideBlock = blocks.addObject();
-        decideBlock.put("type", "actions");
-        decideBlock.put("block_id", "decision");
-        ArrayNode buttons = decideBlock.putArray("elements");
-        ObjectNode approve = buttons.addObject();
-        approve.put("type", "button");
-        approve.put("action_id", "approve");
-        approve.put("style", "primary");
-        approve.putObject("text").put("type", "plain_text").put("text", "✓ Approve");
-        approve.put("value", request.getRequestId());
-        ObjectNode reject = buttons.addObject();
-        reject.put("type", "button");
-        reject.put("action_id", "reject");
-        reject.put("style", "danger");
-        reject.putObject("text").put("type", "plain_text").put("text", "✗ Reject");
-        reject.put("value", request.getRequestId());
+        blocks.add(Map.of("type", "actions", "block_id", "decision", "elements", List.of(
+                Map.of("type", "button", "action_id", "approve", "style", "primary",
+                        "text", Map.of("type", "plain_text", "text", "✓ Approve"),
+                        "value", request.getRequestId()),
+                Map.of("type", "button", "action_id", "reject", "style", "danger",
+                        "text", Map.of("type", "plain_text", "text", "✗ Reject"),
+                        "value", request.getRequestId()))));
+
+        root.put("blocks", blocks);
         return root;
     }
 
