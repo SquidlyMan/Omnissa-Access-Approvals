@@ -19,8 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -156,14 +154,19 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
         String userName = requesterUserName(request);
         String email = requesterEmail(request);
         String emailLocal = (email != null && email.contains("@")) ? email.substring(0, email.indexOf('@')) : null;
+        HttpHeaders accept = new HttpHeaders();
+        accept.setAccept(List.of(MediaType.APPLICATION_JSON));
         for (String candidate : new String[]{userName, emailLocal, email}) {
             if (candidate == null || candidate.isBlank()) {
                 continue;
             }
             try {
-                String url = base + Paths.SCIM_USERS + "?filter="
-                        + URLEncoder.encode("userName eq \"" + candidate + "\"", StandardCharsets.UTF_8);
-                String resp = restClient.getForObject(url, String.class);
+                // Pass the filter as a URI template variable so RestTemplate encodes
+                // it exactly once — pre-encoding here yields a double-encoded filter
+                // that Access silently matches zero users against.
+                String resp = restClient.exchange(base + Paths.SCIM_USERS + "?filter={f}",
+                        HttpMethod.GET, new HttpEntity<>(accept), String.class,
+                        "userName eq \"" + candidate + "\"").getBody();
                 JsonNode resources = objectMapper.readTree(resp == null ? "{}" : resp).path("Resources");
                 if (resources.isArray() && !resources.isEmpty()) {
                     String id = text(resources.get(0), "id");
