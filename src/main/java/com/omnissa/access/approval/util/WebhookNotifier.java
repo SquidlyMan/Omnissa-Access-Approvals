@@ -183,13 +183,14 @@ public class WebhookNotifier {
         if ("slack".equals(format) || "teams".equals(format)) {
             // Teams incoming webhooks accept the same simple text payload as Slack.
             payload.put("text", "New access request: " + request.getResourceName()
-                    + " requested by user " + request.getUserId()
+                    + " requested by " + requesterLabel(request)
                     + " — approve or reject in the Access Approval Tool.");
         } else {
             payload.put("event", "request.created");
             payload.put("requestId", request.getRequestId());
             payload.put("resourceName", request.getResourceName());
             payload.put("userId", request.getUserId());
+            payload.put("requester", requesterLabel(request));
             payload.put("operation", "activation");
             payload.put("receivedDate", request.getReceivedDate() != null
                     ? request.getReceivedDate().toInstant().toString()
@@ -207,12 +208,13 @@ public class WebhookNotifier {
                     ? (approved ? "Auto-Approved by rule " : "Auto-Rejected by rule ") + ruleLabel
                     : (approved ? "Approved by " : "Rejected by ") + decidedBy;
             payload.put("text", attribution + ": " + request.getResourceName()
-                    + " (user " + request.getUserId() + ")");
+                    + " (" + requesterLabel(request) + ")");
         } else {
             payload.put("event", "request.decided");
             payload.put("requestId", request.getRequestId());
             payload.put("resourceName", request.getResourceName());
             payload.put("userId", request.getUserId());
+            payload.put("requester", requesterLabel(request));
             payload.put("decision", approved ? "approved" : "rejected");
             payload.put("decidedBy", decidedBy);
             if (ruleLabel != null) {
@@ -228,12 +230,13 @@ public class WebhookNotifier {
         String format = resolvedFormat();
         if ("slack".equals(format) || "teams".equals(format)) {
             payload.put("text", "Decision could not be delivered — request no longer exists in Access: "
-                    + request.getResourceName() + " (user " + request.getUserId() + ")");
+                    + request.getResourceName() + " (" + requesterLabel(request) + ")");
         } else {
             payload.put("event", "request.expired");
             payload.put("requestId", request.getRequestId());
             payload.put("resourceName", request.getResourceName());
             payload.put("userId", request.getUserId());
+            payload.put("requester", requesterLabel(request));
             payload.put("detail", "decision could not be delivered — request no longer exists in Omnissa Access");
         }
         return payload;

@@ -32,7 +32,17 @@ public class AuditService {
     private AuditEventRepository auditEventRepository;
 
     public void record(String action, String requestId, String resourceName, String message) {
-        String admin = currentAdmin();
+        record(action, requestId, resourceName, message, null);
+    }
+
+    /**
+     * Record an audit entry attributed to an explicit actor. Used by decisions
+     * that arrive without a Spring session — e.g. a Slack approval (#50) — so
+     * the audit trail names the real approver instead of falling back to
+     * "system". A null actor resolves from the security context as before.
+     */
+    public void record(String action, String requestId, String resourceName, String message, String actor) {
+        String admin = (actor != null && !actor.isBlank()) ? actor : currentAdmin();
         if (message != null && message.length() > MAX_MESSAGE_LENGTH) {
             message = message.substring(0, MAX_MESSAGE_LENGTH);
         }
