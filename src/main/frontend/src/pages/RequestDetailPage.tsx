@@ -6,6 +6,7 @@ import ApprovalDialog from '../components/ApprovalDialog'
 import DeleteRequestDialog from '../components/DeleteRequestDialog'
 import type { CalloutRequest } from '../types'
 import { requesterLabel } from '../utils/requester'
+import { getCsrfToken } from '../utils/csrf'
 
 export default function RequestDetailPage() {
   const { requestId } = useParams<{ requestId: string }>()
@@ -14,6 +15,39 @@ export default function RequestDetailPage() {
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [unblocking, setUnblocking] = useState(false)
+  const [unblockMsg, setUnblockMsg] = useState('')
+
+  /** Lift a permanent decline: remove the user's exclusion in Omnissa Access. */
+  async function allowReRequest() {
+    setUnblocking(true)
+    setUnblockMsg('')
+    try {
+      const res = await fetch(`/api/approvals/requests/${requestId}/allow-rerequest`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-XSRF-TOKEN': getCsrfToken() },
+      })
+      if (!res.ok) throw new Error(`Server error ${res.status}`)
+      const data: { outcome?: string } = await res.json().catch(() => ({}))
+      if (data.outcome === 'revoked') {
+        // Refresh so the banner disappears and the timestamps update.
+        const fresh = await fetch(`/api/approvals/requests/${requestId}`, { credentials: 'include' })
+          .then(r => (r.ok ? r.json() : null))
+        if (fresh) setReq(fresh)
+      } else if (data.outcome === 'unreachable') {
+        setUnblockMsg('Could not reach Omnissa Access — the block was not lifted. Try again.')
+      } else if (data.outcome === 'not_blocked') {
+        setUnblockMsg('This request does not carry a block.')
+      } else {
+        setUnblockMsg('Could not lift the block. Check the logs and try again.')
+      }
+    } catch (e: unknown) {
+      setUnblockMsg(e instanceof Error ? e.message : 'Request failed')
+    } finally {
+      setUnblocking(false)
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/approvals/requests/${requestId}`, { credentials: 'include' })
@@ -67,6 +101,13 @@ export default function RequestDetailPage() {
         {req.accessExpiresAt && req.state !== 'revoked' && (
           <Row label="Access expires">{formatDate(req.accessExpiresAt)}</Row>
         )}
+        {req.state === 'rejected' && req.reRequestable != null && (
+          <Row label="Rejection">
+            {req.reRequestable
+              ? 'Temporary — the user may request again'
+              : 'Permanent — user is blocked from re-requesting'}
+          </Row>
+        )}
         {req.revokedAt && <Row label="Access revoked">{formatDate(req.revokedAt)}</Row>}
         {req.restoredAt && <Row label="App re-opened">{formatDate(req.restoredAt)}</Row>}
         {req.responseMessage && <Row label="Message">{req.responseMessage}</Row>}
@@ -93,6 +134,25 @@ export default function RequestDetailPage() {
         >
           Review this request
         </button>
+      )}
+
+      {/* Undo a permanent decline — the recovery path for a block applied in error. */}
+      {req.state === 'rejected' && req.reRequestable === false && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-900 font-medium mb-1">This user is blocked from re-requesting</p>
+          <p className="text-xs text-amber-800 mb-3">
+            They are excluded from this app in Omnissa Access. Lifting the block removes the
+            exclusion so they can request it again.
+          </p>
+          {unblockMsg && <p className="text-xs text-amber-900 mb-2">{unblockMsg}</p>}
+          <button
+            onClick={allowReRequest}
+            disabled={unblocking}
+            className="text-sm px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-amber-900 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+          >
+            {unblocking ? 'Lifting…' : 'Allow re-request'}
+          </button>
+        </div>
       )}
 
       {/* Destructive: remove a stale/orphaned local record. Does not touch Access. */}

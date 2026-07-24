@@ -25,6 +25,7 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
   const [message, setMessage] = useState('')
   const [ttlMinutes, setTtlMinutes] = useState<number | null>(null)
   const [reRequestable, setReRequestable] = useState(true) // Option 2 default
+  const [declineReRequestable, setDeclineReRequestable] = useState(true) // temporary decline default
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [expired, setExpired] = useState(false)
@@ -38,11 +39,15 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
-        // ttlMinutes/reRequestable only apply to timed approvals.
+        // reRequestable carries the post-decision policy for BOTH outcomes:
+        // on approve it governs what happens after a timed grant expires; on
+        // reject, false = permanent decline (user is excluded and cannot re-request).
         body: JSON.stringify({
           requestId, approved, message,
           ttlMinutes: approved ? ttlMinutes : null,
-          reRequestable: approved && ttlMinutes != null ? reRequestable : null,
+          reRequestable: approved
+            ? (ttlMinutes != null ? reRequestable : null)
+            : declineReRequestable,
         }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
@@ -142,6 +147,25 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
                 </span>
               </label>
             )}
+          </div>
+        )}
+
+        {approved === false && !expired && (
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-gray-700 mb-1">After rejection</label>
+            <select
+              value={declineReRequestable ? 'temporary' : 'permanent'}
+              onChange={e => setDeclineReRequestable(e.target.value === 'temporary')}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
+            >
+              <option value="temporary">Temporary — the user may request again</option>
+              <option value="permanent">Permanent — block the user from re-requesting</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              {declineReRequestable
+                ? 'Only this request is rejected; the app stays available to request.'
+                : 'The user is excluded from this app in Omnissa Access and it will not reappear for them. This can be undone later from the request details.'}
+            </p>
           </div>
         )}
 

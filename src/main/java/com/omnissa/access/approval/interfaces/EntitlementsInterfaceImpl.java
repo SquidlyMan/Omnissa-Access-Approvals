@@ -96,7 +96,21 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
 
         String subjectId = request.getScimUserId();
         if (subjectId == null) {
-            subjectId = resolveSubjectId(request, restClient, base);
+            // Also record how the user is assigned, so a later restore (JIT re-open,
+            // or lifting a permanent decline) takes the right path.
+            JsonNode items = readListing(restClient, base, catalogItemId);
+            subjectId = (items != null)
+                    ? matchSubjectId(items, requesterEmail(request), requesterUserName(request)) : null;
+            if (subjectId == null) {
+                subjectId = scimLookup(request, restClient, base);
+            }
+            if (subjectId != null) {
+                request.setScimUserId(subjectId);
+                if (request.getAssignmentType() == null) {
+                    request.setAssignmentType(
+                            (items != null && hasPositiveUserEntry(items, subjectId)) ? "USER" : "GROUP");
+                }
+            }
         }
         if (subjectId == null) {
             logger.warn("Revoke requestId={}: could not resolve requester SCIM id — will retry next sweep",
