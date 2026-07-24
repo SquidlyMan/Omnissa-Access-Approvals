@@ -156,6 +156,26 @@ public class ApprovalController {
         return ResponseEntity.ok(Map.of("deleted", true, "requestId", requestId));
     }
 
+    /**
+     * Lift a permanent decline (#57): remove the user's exclusion in Omnissa
+     * Access so they may request the app again. Recovery path for a decline
+     * applied in error — without it, un-blocking would require direct API/console
+     * surgery. Authenticated and audited.
+     */
+    @PostMapping("/requests/{requestId}/allow-rerequest")
+    public ResponseEntity<?> allowReRequest(@PathVariable String requestId) {
+        CalloutRequest request = approvalsRepository.findByRequestId(requestId);
+        if (request == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!Boolean.FALSE.equals(request.getReRequestable())) {
+            return ResponseEntity.ok(Map.of("outcome", "not_blocked",
+                    "detail", "This request does not carry a permanent block."));
+        }
+        var outcome = decisionService.allowReRequest(request, auditService.currentAdmin());
+        return ResponseEntity.ok(Map.of("outcome", outcome.name().toLowerCase()));
+    }
+
     @PostMapping(value = "/new",
             consumes = {CustomContentTypes.APPROVAL_MESSAGE_REQUEST, CustomContentTypes.MESSAGING_MESSAGE})
     public ResponseEntity<?> saveCalloutRequest(@RequestBody(required = false) String rawBody) {

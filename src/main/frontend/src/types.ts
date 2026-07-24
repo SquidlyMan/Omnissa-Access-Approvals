@@ -55,6 +55,8 @@ export type AuditAction =
   | 'access-revoked'
   | 'access-reopened'
   | 'request-deleted'
+  | 'access-blocked'
+  | 'access-block-failed'
 
 export interface AuditEvent {
   id: number
