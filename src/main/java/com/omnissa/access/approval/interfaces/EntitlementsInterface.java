@@ -25,4 +25,12 @@ public interface EntitlementsInterface {
      * was granted via a group, without touching the group entitlement.
      */
     RevokeOutcome revokeAccess(CalloutRequest request);
+
+    /**
+     * Restore requestability for a re-requestable grant (#49, Option 2) after
+     * the exclusion has held long enough for Access to deprovision the app: lift
+     * the exclusion (group user) or re-provision the direct user, so the app
+     * returns to a requestable state.
+     */
+    RevokeOutcome restoreAccess(CalloutRequest request);
 }

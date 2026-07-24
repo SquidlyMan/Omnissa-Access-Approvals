@@ -23,6 +23,10 @@ export interface CalloutRequest {
   accessTtlMinutes: number | null
   accessExpiresAt: string | null
   revokedAt: string | null
+  reRequestable: boolean | null
+  assignmentType: string | null
+  restoreAt: string | null
+  restoredAt: string | null
 }
 
 export interface Page<T> {
@@ -49,6 +53,7 @@ export type AuditAction =
   | 'auto-rejected'
   | 'decision-undeliverable'
   | 'access-revoked'
+  | 'access-reopened'
   | 'request-deleted'
 
 export interface AuditEvent {

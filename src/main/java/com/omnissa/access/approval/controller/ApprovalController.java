@@ -229,8 +229,9 @@ public class ApprovalController {
                     calloutRequest.getRequestId(), approve, message));
             switch (outcome) {
                 case DELIVERED -> {
+                    // Rule-driven JIT grants default to re-requestable (Option 2).
                     String ttlNote = applyGrant(calloutRequest.getRequestId(),
-                            approve, rule.getGrantTtlMinutes());
+                            approve, rule.getGrantTtlMinutes(), null);
                     auditService.record(approve ? "auto-approved" : "auto-rejected",
                             calloutRequest.getRequestId(), calloutRequest.getResourceName(), message + ttlNote);
                     webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
@@ -265,7 +266,7 @@ public class ApprovalController {
             switch (outcome) {
                 case DELIVERED -> {
                     String ttlNote = applyGrant(decision.getRequestId(),
-                            decision.isApproved(), decision.getTtlMinutes());
+                            decision.isApproved(), decision.getTtlMinutes(), decision.getReRequestable());
                     String note = decision.getMessage();
                     String message = (decision.isApproved() ? "Approved by " : "Rejected by ") + admin
                             + (note != null && !note.isBlank() ? " — " + note : "") + ttlNote;
@@ -373,7 +374,7 @@ public class ApprovalController {
      * the entity (decision delivery saved state='approved' on a separate
      * instance). No-op when not approved. Returns an audit-note suffix.
      */
-    private String applyGrant(String requestId, boolean approved, Integer ttlMinutes) {
+    private String applyGrant(String requestId, boolean approved, Integer ttlMinutes, Boolean reRequestable) {
         if (!approved) {
             return "";
         }
@@ -381,15 +382,17 @@ public class ApprovalController {
         if (fresh == null) {
             return "";
         }
-        String scimId = entitlementsInterface.grantAccess(fresh);
-        if (scimId != null) {
-            fresh.setScimUserId(scimId);
-        }
+        // grantAccess resolves + records scimUserId and assignmentType on the entity.
+        entitlementsInterface.grantAccess(fresh);
         String note = "";
         if (ttlMinutes != null && ttlMinutes > 0) {
             fresh.setAccessTtlMinutes(ttlMinutes);
             fresh.setAccessExpiresAt(Date.from(Instant.now().plus(ttlMinutes, ChronoUnit.MINUTES)));
-            note = " (time-bound: access expires in " + ttlMinutes + " min)";
+            // Default to re-requestable (Option 2) unless explicitly turned off.
+            boolean canReRequest = !Boolean.FALSE.equals(reRequestable);
+            fresh.setReRequestable(canReRequest);
+            note = " (time-bound: access expires in " + ttlMinutes + " min"
+                    + (canReRequest ? ", re-requestable after" : ", permanent revoke") + ")";
         }
         approvalsRepository.save(fresh);
         return note;

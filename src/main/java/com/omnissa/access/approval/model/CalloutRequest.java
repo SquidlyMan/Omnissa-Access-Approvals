@@ -98,6 +98,29 @@ public class CalloutRequest implements Serializable {
     @Nullable
     private String scimUserId;
 
+    /**
+     * JIT re-request policy (#49). true (Option 2, default) = after the timed
+     * grant expires and the user is excluded, lift the exclusion after a short
+     * hold so the app becomes requestable again. false (Option 1) = permanent
+     * revoke; the app never reappears. Null = permanent grant (no TTL).
+     */
+    @Nullable
+    private Boolean reRequestable;
+
+    /** How the user gets the app: "USER" (direct) or "GROUP". Detected at grant. */
+    @Nullable
+    private String assignmentType;
+
+    /** When to lift the exclusion for a re-requestable grant (= revoke time + hold). */
+    @Nullable
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date restoreAt;
+
+    /** When the exclusion was lifted and the app re-opened for request. */
+    @Nullable
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date restoredAt;
+
     public CalloutRequest() {}
 
     public CalloutRequest(@Nonnull String userId) {
@@ -171,6 +194,18 @@ public class CalloutRequest implements Serializable {
 
     @Nullable public String getScimUserId() { return scimUserId; }
     public void setScimUserId(@Nullable String scimUserId) { this.scimUserId = scimUserId; }
+
+    @Nullable public Boolean getReRequestable() { return reRequestable; }
+    public void setReRequestable(@Nullable Boolean reRequestable) { this.reRequestable = reRequestable; }
+
+    @Nullable public String getAssignmentType() { return assignmentType; }
+    public void setAssignmentType(@Nullable String assignmentType) { this.assignmentType = assignmentType; }
+
+    @Nullable public Date getRestoreAt() { return restoreAt; }
+    public void setRestoreAt(@Nullable Date restoreAt) { this.restoreAt = restoreAt; }
+
+    @Nullable public Date getRestoredAt() { return restoredAt; }
+    public void setRestoredAt(@Nullable Date restoredAt) { this.restoredAt = restoredAt; }
 
     @Override
     public String toString() {
