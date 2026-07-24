@@ -66,6 +66,7 @@ Use [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-ap
 - [Deployment](docs/deployment.md) — Docker/Compose, reverse-proxy requirements, inbound connectivity, ZimaCube
 - [Configuration reference](docs/configuration.md) — every environment variable
 - [Omnissa Access setup](docs/omnissa-access-setup.md) — OAuth clients, Settings > Approvals, per-app approval
+- [Actionable Slack approvals](docs/slack-approvals.md) — Slack app setup, signature verification, approver mapping
 - [Troubleshooting](docs/troubleshooting.md) — real failure modes and fixes
 - [SECURITY.md](SECURITY.md) — reporting vulnerabilities, endpoint scope, hardening
 - [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup and PR guidelines
