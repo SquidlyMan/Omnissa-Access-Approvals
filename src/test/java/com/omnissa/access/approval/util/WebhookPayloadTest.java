@@ -160,6 +160,63 @@ class WebhookPayloadTest {
         assertThat((String) p.get("detail")).contains("no longer exists");
     }
 
+    // ---- JIT lifecycle (#49): revoked / re-opened ----
+
+    private static CalloutRequest timedGrant(boolean reRequestable) {
+        CalloutRequest r = requestWithIdentity();
+        r.setAccessTtlMinutes(5);
+        r.setReRequestable(reRequestable);
+        return r;
+    }
+
+    @Test
+    void slackRevokedTextNamesRequesterAndTtl() {
+        String text = (String) notifier("slack").buildRevokedPayload(timedGrant(true)).get("text");
+        assertThat(text).contains("Access expired").contains("Salesforce")
+                .contains("Dean Flaming").contains("5 min")
+                .contains("requestable again");
+    }
+
+    @Test
+    void slackRevokedTextSaysPermanentForOneTimeGrant() {
+        String text = (String) notifier("slack").buildRevokedPayload(timedGrant(false)).get("text");
+        assertThat(text).contains("one-time").doesNotContain("requestable again");
+    }
+
+    @Test
+    void genericRevokedPayloadCarriesLifecycleFields() {
+        Map<String, Object> p = notifier("generic").buildRevokedPayload(timedGrant(true));
+        assertThat(p).containsEntry("event", "access.revoked")
+                .containsEntry("resourceName", "Salesforce")
+                .containsEntry("requester", "Dean Flaming")
+                .containsEntry("accessTtlMinutes", 5)
+                .containsEntry("reRequestable", true);
+        assertThat(p).containsKey("revokedDate");
+    }
+
+    @Test
+    void reopenedPayloads() {
+        String text = (String) notifier("slack").buildReopenedPayload(timedGrant(true)).get("text");
+        assertThat(text).contains("requestable again").contains("Dean Flaming").contains("Salesforce");
+
+        Map<String, Object> p = notifier("generic").buildReopenedPayload(timedGrant(true));
+        assertThat(p).containsEntry("event", "access.reopened")
+                .containsEntry("requester", "Dean Flaming");
+        assertThat(p).containsKey("reopenedDate");
+    }
+
+    @Test
+    void lifecycleNotificationsAreSuppressedWhenDisabled() {
+        // notify-lifecycle=false must skip the POST entirely (no URL configured
+        // here either, but the flag is the guard under test).
+        WebhookNotifier n = notifier("slack");
+        ReflectionTestUtils.setField(n, "webhookUrl", "https://hooks.example.invalid/x");
+        ReflectionTestUtils.setField(n, "notifyLifecycle", false);
+        // Should return without attempting delivery; failure would surface as an exception.
+        n.notifyRevoked(timedGrant(true));
+        n.notifyReopened(timedGrant(true));
+    }
+
     @Test
     void slackExpiredText() {
         Map<String, Object> p = notifier("slack").buildExpiredPayload(request());

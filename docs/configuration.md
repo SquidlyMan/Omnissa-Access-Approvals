@@ -97,6 +97,7 @@ and never block request ingestion or decisions.
 |---|---|---|
 | `WEBHOOK_URL` | — | Webhook URL to POST to on each new request and each decision. Blank = disabled |
 | `WEBHOOK_FORMAT` | `generic` | Payload format: `generic`, `slack`, or `teams` |
+| `WEBHOOK_NOTIFY_LIFECYCLE` | `true` | Also notify on JIT lifecycle events: **`access.revoked`** when a time-bound grant expires, and **`access.reopened`** when a re-requestable app becomes requestable again. `false` = those events stay in the audit trail and web UI only |
 
 The three formats:
 
