@@ -142,6 +142,27 @@ The three formats:
   ("Post to a channel when a webhook request is received"; URL on
   `webhook.office.com`).
 
+### Actionable Slack approvals
+
+With `WEBHOOK_FORMAT=slack`, the new-request notification can be an
+**interactive** message — an access-duration menu plus Approve/Reject buttons —
+so approvers decide from Slack. Full walkthrough:
+[Actionable Slack Approvals](slack-approvals.md).
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SLACK_ACTIONABLE` | `false` | `true` posts the interactive message instead of plain text (requires `WEBHOOK_FORMAT=slack`) |
+| `SLACK_SIGNING_SECRET` | — | Slack app **signing secret**. Verifies inbound interactions at `POST /api/slack/interactions` (HMAC-SHA256, 5-minute replay window). Required — without it every click is rejected |
+| `SLACK_APPROVER_MAP` | — | Comma-separated `slackUserId:appIdentity` pairs, e.g. `U0123ABC:dean@example.com,U0456DEF:jane`. Only listed users may decide; everyone else is rejected and audited |
+
+A valid signature proves a request came from your Slack workspace — **not** that
+the clicking user may approve. Authorization comes solely from
+`SLACK_APPROVER_MAP`, so channel membership never grants decision rights.
+
+The callback path `/api/slack/interactions` must be reachable from the internet
+through your reverse proxy (and, behind a UAG, added to the proxyPattern
+whitelist with Identity Bridging off).
+
 Example:
 
 ```bash
