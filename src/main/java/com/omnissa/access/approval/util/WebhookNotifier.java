@@ -40,6 +40,14 @@ public class WebhookNotifier {
     @Value("${slack.actionable:false}")
     private boolean slackActionable;
 
+    /**
+     * When true, also notify on JIT lifecycle events (#49): access revoked at
+     * expiry, and the app re-opened for request. Off leaves those to the audit
+     * trail and the web UI only.
+     */
+    @Value("${webhook.notify-lifecycle:true}")
+    private boolean notifyLifecycle;
+
     /** JIT duration menu offered in the Slack message. value = minutes ("0" = permanent). */
     private static final String[][] SLACK_TTL_OPTIONS = {
             {"Permanent", "0"}, {"5 minutes", "5"}, {"15 minutes", "15"}, {"1 hour", "60"},
@@ -158,6 +166,71 @@ public class WebhookNotifier {
             return;
         }
         postAsync(buildExpiredPayload(request), request.getRequestId());
+    }
+
+    /**
+     * Notifies that a time-bound (JIT) grant expired and the user's access was
+     * revoked in Omnissa Access (#49). Gated by webhook.notify-lifecycle.
+     */
+    public void notifyRevoked(CalloutRequest request) {
+        if (request == null || webhookUrl == null || webhookUrl.isBlank() || !notifyLifecycle) {
+            return;
+        }
+        postAsync(buildRevokedPayload(request), request.getRequestId());
+    }
+
+    /**
+     * Notifies that a re-requestable grant's hold elapsed and the app is
+     * requestable again (#49). Gated by webhook.notify-lifecycle.
+     */
+    public void notifyReopened(CalloutRequest request) {
+        if (request == null || webhookUrl == null || webhookUrl.isBlank() || !notifyLifecycle) {
+            return;
+        }
+        postAsync(buildReopenedPayload(request), request.getRequestId());
+    }
+
+    Map<String, Object> buildRevokedPayload(CalloutRequest request) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        String format = resolvedFormat();
+        String ttl = request.getAccessTtlMinutes() != null
+                ? " (" + request.getAccessTtlMinutes() + " min limit)" : "";
+        if ("slack".equals(format) || "teams".equals(format)) {
+            payload.put("text", "Access expired: " + request.getResourceName()
+                    + " — access for " + requesterLabel(request) + " was revoked in Omnissa Access" + ttl
+                    + (Boolean.TRUE.equals(request.getReRequestable())
+                        ? "; the app will become requestable again shortly."
+                        : "; this was a one-time grant and will not reappear."));
+        } else {
+            payload.put("event", "access.revoked");
+            payload.put("requestId", request.getRequestId());
+            payload.put("resourceName", request.getResourceName());
+            payload.put("userId", request.getUserId());
+            payload.put("requester", requesterLabel(request));
+            payload.put("accessTtlMinutes", request.getAccessTtlMinutes());
+            payload.put("reRequestable", request.getReRequestable());
+            payload.put("revokedDate", request.getRevokedAt() != null
+                    ? request.getRevokedAt().toInstant().toString() : Instant.now().toString());
+        }
+        return payload;
+    }
+
+    Map<String, Object> buildReopenedPayload(CalloutRequest request) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        String format = resolvedFormat();
+        if ("slack".equals(format) || "teams".equals(format)) {
+            payload.put("text", request.getResourceName() + " is requestable again for "
+                    + requesterLabel(request) + " — the temporary exclusion was lifted.");
+        } else {
+            payload.put("event", "access.reopened");
+            payload.put("requestId", request.getRequestId());
+            payload.put("resourceName", request.getResourceName());
+            payload.put("userId", request.getUserId());
+            payload.put("requester", requesterLabel(request));
+            payload.put("reopenedDate", request.getRestoredAt() != null
+                    ? request.getRestoredAt().toInstant().toString() : Instant.now().toString());
+        }
+        return payload;
     }
 
     private void postAsync(Object payload, String requestId) {

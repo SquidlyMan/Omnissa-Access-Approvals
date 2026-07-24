@@ -145,6 +145,7 @@ public class RuleScheduler {
                                 + (reRequestable ? "; app will re-open for request shortly" : "; permanent (not re-requestable)");
                         auditService.record("access-revoked", request.getRequestId(),
                                 request.getResourceName(), detail);
+                        webhookNotifier.notifyRevoked(fresh);
                         anyRevoked = true;
                     }
                     case UNREACHABLE -> logger.warn(
@@ -191,6 +192,7 @@ public class RuleScheduler {
                     auditService.record("access-reopened", request.getRequestId(), request.getResourceName(),
                             "JIT hold elapsed — exclusion lifted; app is requestable again ("
                             + ("USER".equals(request.getAssignmentType()) ? "re-provisioned direct user" : "group entitlement reapplies") + ")");
+                    webhookNotifier.notifyReopened(fresh);
                     anyRestored = true;
                 } else {
                     logger.warn("JIT restore for requestId={} not completed ({}); will retry next sweep",
