@@ -49,9 +49,12 @@ public class DecisionService {
             case DELIVERED -> {
                 String ttlNote = applyGrant(requestId, approved, ttlMinutes, reRequestable, decider);
                 String note = (message != null && !message.isBlank()) ? " — " + message : "";
+                // Attribute the audit entry to the resolved decider — a Slack
+                // approver has no Spring session, so currentAdmin() would say "system".
                 auditService.record(approved ? "approved" : "rejected", requestId,
                         request != null ? request.getResourceName() : null,
-                        (approved ? "Approved by " : "Rejected by ") + decider + note + ttlNote);
+                        (approved ? "Approved by " : "Rejected by ") + decider + note + ttlNote,
+                        decider);
                 webhookNotifier.notifyDecision(request, approved, decider, null);
                 mailNotification.sendEmailNotification(requestId, approved);
                 sseController.publishQueueUpdate("queue-updated");
@@ -60,7 +63,8 @@ public class DecisionService {
                 auditService.record("decision-undeliverable", requestId,
                         request != null ? request.getResourceName() : null,
                         (approved ? "Approval by " : "Rejection by ") + decider
-                                + " could not be delivered — request no longer exists in Omnissa Access");
+                                + " could not be delivered — request no longer exists in Omnissa Access",
+                        decider);
                 webhookNotifier.notifyExpired(request);
                 sseController.publishQueueUpdate("queue-updated");
             }

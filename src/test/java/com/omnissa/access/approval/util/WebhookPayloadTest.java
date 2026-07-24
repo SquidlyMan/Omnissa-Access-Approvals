@@ -16,6 +16,16 @@ class WebhookPayloadTest {
                 "Salesforce", "jdoe", null, null, null, null, null, null);
     }
 
+    /** A request carrying the identity attributes Omnissa Access actually sends. */
+    private static CalloutRequest requestWithIdentity() {
+        java.util.HashMap<String, java.util.List<String>> attrs = new java.util.HashMap<>();
+        attrs.put("firstName", java.util.List.of("Dean"));
+        attrs.put("lastName", java.util.List.of("Flaming"));
+        attrs.put("email", java.util.List.of("dean@flaming.ws"));
+        return new CalloutRequest(CalloutOperation.activation, "req-42", "uuid-9",
+                "Salesforce", "751802", attrs, null, null, null, null, null);
+    }
+
     private static WebhookNotifier notifier(String format) {
         WebhookNotifier n = new WebhookNotifier();
         ReflectionTestUtils.setField(n, "webhookFormat", format);
@@ -97,6 +107,45 @@ class WebhookPayloadTest {
         Map<String, Object> p = notifier("slack")
                 .buildDecisionPayload(request(), false, "auto-approval-rule", "#7");
         assertThat((String) p.get("text")).contains("Auto-Rejected by rule #7");
+    }
+
+    // ---- requester is shown by name/email, not the opaque numeric userId ----
+
+    @Test
+    void chatPayloadsNameTheRequesterInsteadOfNumericId() {
+        CalloutRequest req = requestWithIdentity();
+        assertThat((String) notifier("slack").buildNewRequestPayload(req).get("text"))
+                .contains("Dean Flaming").doesNotContain("751802");
+        assertThat((String) notifier("slack").buildDecisionPayload(req, true, "alice", null).get("text"))
+                .contains("Dean Flaming").doesNotContain("751802");
+        assertThat((String) notifier("slack").buildExpiredPayload(req).get("text"))
+                .contains("Dean Flaming").doesNotContain("751802");
+    }
+
+    @Test
+    void genericPayloadsAddRequesterAlongsideUserId() {
+        // userId is kept for existing consumers; requester is additive.
+        CalloutRequest req = requestWithIdentity();
+        assertThat(notifier("generic").buildNewRequestPayload(req))
+                .containsEntry("userId", "751802").containsEntry("requester", "Dean Flaming");
+        assertThat(notifier("generic").buildDecisionPayload(req, true, "alice", null))
+                .containsEntry("requester", "Dean Flaming");
+        assertThat(notifier("generic").buildExpiredPayload(req))
+                .containsEntry("requester", "Dean Flaming");
+    }
+
+    @Test
+    void requesterFallsBackToEmailThenUserId() {
+        java.util.HashMap<String, java.util.List<String>> emailOnly = new java.util.HashMap<>();
+        emailOnly.put("email", java.util.List.of("dean@flaming.ws"));
+        CalloutRequest byEmail = new CalloutRequest(CalloutOperation.activation, "r", "u",
+                "Salesforce", "751802", emailOnly, null, null, null, null, null);
+        assertThat((String) notifier("slack").buildNewRequestPayload(byEmail).get("text"))
+                .contains("dean@flaming.ws");
+
+        // No attributes at all — the numeric id is all we have.
+        assertThat((String) notifier("slack").buildNewRequestPayload(request()).get("text"))
+                .contains("jdoe");
     }
 
     // ---- expired ----
