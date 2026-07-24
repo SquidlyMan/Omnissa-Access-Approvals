@@ -1,7 +1,6 @@
 package com.omnissa.access.approval.controller;
 
 import com.omnissa.access.approval.interfaces.ApprovalsInterface;
-import com.omnissa.access.approval.interfaces.EntitlementsInterface;
 import com.omnissa.access.approval.model.AutoRule;
 import com.omnissa.access.approval.model.CalloutOperation;
 import com.omnissa.access.approval.model.CalloutRequest;
@@ -29,8 +28,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +42,7 @@ public class ApprovalController {
     ApprovalsInterface approvalsInterface;
 
     @Autowired
-    EntitlementsInterface entitlementsInterface;
+    com.omnissa.access.approval.service.DecisionService decisionService;
 
     @Autowired
     ApprovalsRepository approvalsRepository;
@@ -230,8 +227,9 @@ public class ApprovalController {
             switch (outcome) {
                 case DELIVERED -> {
                     // Rule-driven JIT grants default to re-requestable (Option 2).
-                    String ttlNote = applyGrant(calloutRequest.getRequestId(),
-                            approve, rule.getGrantTtlMinutes(), null);
+                    // decider=null → keep the decidedBy set during delivery (not a human).
+                    String ttlNote = decisionService.applyGrant(calloutRequest.getRequestId(),
+                            approve, rule.getGrantTtlMinutes(), null, null);
                     auditService.record(approve ? "auto-approved" : "auto-rejected",
                             calloutRequest.getRequestId(), calloutRequest.getResourceName(), message + ttlNote);
                     webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
@@ -260,35 +258,11 @@ public class ApprovalController {
         logger.info("Processing approval response: requestId={} approved={} ttlMinutes={}",
                 decision.getRequestId(), decision.isApproved(), decision.getTtlMinutes());
         try {
-            CalloutRequest request = approvalsRepository.findByRequestId(decision.getRequestId());
-            DecisionOutcome outcome = approvalsInterface.requestResponse(decision.toCalloutResponse());
-            String admin = auditService.currentAdmin();
-            switch (outcome) {
-                case DELIVERED -> {
-                    String ttlNote = applyGrant(decision.getRequestId(),
-                            decision.isApproved(), decision.getTtlMinutes(), decision.getReRequestable());
-                    String note = decision.getMessage();
-                    String message = (decision.isApproved() ? "Approved by " : "Rejected by ") + admin
-                            + (note != null && !note.isBlank() ? " — " + note : "") + ttlNote;
-                    auditService.record(decision.isApproved() ? "approved" : "rejected",
-                            decision.getRequestId(),
-                            request != null ? request.getResourceName() : null,
-                            message);
-                    webhookNotifier.notifyDecision(request, decision.isApproved(), admin, null);
-                    mailNotification.sendEmailNotification(decision.getRequestId(), decision.isApproved());
-                    sseController.publishQueueUpdate("queue-updated");
-                }
-                case EXPIRED -> {
-                    auditService.record("decision-undeliverable",
-                            decision.getRequestId(),
-                            request != null ? request.getResourceName() : null,
-                            (decision.isApproved() ? "Approval by " : "Rejection by ") + admin
-                                    + " could not be delivered — request no longer exists in Omnissa Access");
-                    webhookNotifier.notifyExpired(request);
-                    sseController.publishQueueUpdate("queue-updated");
-                }
-                case UNREACHABLE -> logger.warn(
-                        "Decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
+            DecisionOutcome outcome = decisionService.decide(decision.getRequestId(), decision.isApproved(),
+                    decision.getMessage(), decision.getTtlMinutes(), decision.getReRequestable(),
+                    auditService.currentAdmin());
+            if (outcome == DecisionOutcome.UNREACHABLE) {
+                logger.warn("Decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
                         decision.getRequestId());
             }
             // HTTP 200 for every outcome — the SPA branches on the JSON body.
@@ -374,30 +348,6 @@ public class ApprovalController {
      * the entity (decision delivery saved state='approved' on a separate
      * instance). No-op when not approved. Returns an audit-note suffix.
      */
-    private String applyGrant(String requestId, boolean approved, Integer ttlMinutes, Boolean reRequestable) {
-        if (!approved) {
-            return "";
-        }
-        CalloutRequest fresh = approvalsRepository.findByRequestId(requestId);
-        if (fresh == null) {
-            return "";
-        }
-        // grantAccess resolves + records scimUserId and assignmentType on the entity.
-        entitlementsInterface.grantAccess(fresh);
-        String note = "";
-        if (ttlMinutes != null && ttlMinutes > 0) {
-            fresh.setAccessTtlMinutes(ttlMinutes);
-            fresh.setAccessExpiresAt(Date.from(Instant.now().plus(ttlMinutes, ChronoUnit.MINUTES)));
-            // Default to re-requestable (Option 2) unless explicitly turned off.
-            boolean canReRequest = !Boolean.FALSE.equals(reRequestable);
-            fresh.setReRequestable(canReRequest);
-            note = " (time-bound: access expires in " + ttlMinutes + " min"
-                    + (canReRequest ? ", re-requestable after" : ", permanent revoke") + ")";
-        }
-        approvalsRepository.save(fresh);
-        return note;
-    }
-
     private String isoDate(Date date) {
         return date != null ? date.toInstant().toString() : null;
     }

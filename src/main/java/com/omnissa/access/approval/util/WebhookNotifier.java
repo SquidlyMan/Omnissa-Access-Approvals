@@ -1,5 +1,8 @@
 package com.omnissa.access.approval.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.omnissa.access.approval.model.CalloutRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +37,18 @@ public class WebhookNotifier {
     @Value("${webhook.format:generic}")
     private String webhookFormat;
 
+    /** When true and format=slack, post an interactive (Approve/Reject + duration) message. */
+    @Value("${slack.actionable:false}")
+    private boolean slackActionable;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** JIT duration menu offered in the Slack message. value = minutes ("0" = permanent). */
+    private static final String[][] SLACK_TTL_OPTIONS = {
+            {"Permanent", "0"}, {"5 minutes", "5"}, {"15 minutes", "15"}, {"1 hour", "60"},
+            {"8 hours", "480"}, {"24 hours", "1440"}, {"7 days", "10080"}, {"30 days", "43200"}
+    };
+
     private final RestTemplate restTemplate;
 
     public WebhookNotifier() {
@@ -47,7 +62,83 @@ public class WebhookNotifier {
         if (request == null || webhookUrl == null || webhookUrl.isBlank()) {
             return;
         }
-        postAsync(buildNewRequestPayload(request), request.getRequestId());
+        Object payload = ("slack".equals(resolvedFormat()) && slackActionable)
+                ? buildSlackActionableMessage(request)
+                : buildNewRequestPayload(request);
+        postAsync(payload, request.getRequestId());
+    }
+
+    /**
+     * Interactive Slack message (#50): request summary, a JIT duration menu, and
+     * Approve/Reject buttons. Button {@code value} carries the requestId; the
+     * duration select's current value is read from the interaction's
+     * {@code state} when a button is clicked (see SlackController).
+     */
+    ObjectNode buildSlackActionableMessage(CalloutRequest request) {
+        String requester = requesterLabel(request);
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("text", "New access request: " + request.getResourceName() + " (" + requester + ")");
+        ArrayNode blocks = root.putArray("blocks");
+
+        ObjectNode section = blocks.addObject();
+        section.put("type", "section");
+        section.putObject("text").put("type", "mrkdwn")
+                .put("text", "*New access request*\n*App:* " + request.getResourceName()
+                        + "\n*Requested by:* " + requester);
+
+        ObjectNode durationBlock = blocks.addObject();
+        durationBlock.put("type", "actions");
+        durationBlock.put("block_id", "jit_duration");
+        ObjectNode select = durationBlock.putArray("elements").addObject();
+        select.put("type", "static_select");
+        select.put("action_id", "duration");
+        select.putObject("placeholder").put("type", "plain_text").put("text", "Access duration");
+        ArrayNode options = select.putArray("options");
+        for (String[] opt : SLACK_TTL_OPTIONS) {
+            ObjectNode o = options.addObject();
+            o.putObject("text").put("type", "plain_text").put("text", opt[0]);
+            o.put("value", opt[1]);
+        }
+        // initial_option must be one of options (Permanent).
+        ObjectNode initial = select.putObject("initial_option");
+        initial.putObject("text").put("type", "plain_text").put("text", SLACK_TTL_OPTIONS[0][0]);
+        initial.put("value", SLACK_TTL_OPTIONS[0][1]);
+
+        ObjectNode decideBlock = blocks.addObject();
+        decideBlock.put("type", "actions");
+        decideBlock.put("block_id", "decision");
+        ArrayNode buttons = decideBlock.putArray("elements");
+        ObjectNode approve = buttons.addObject();
+        approve.put("type", "button");
+        approve.put("action_id", "approve");
+        approve.put("style", "primary");
+        approve.putObject("text").put("type", "plain_text").put("text", "✓ Approve");
+        approve.put("value", request.getRequestId());
+        ObjectNode reject = buttons.addObject();
+        reject.put("type", "button");
+        reject.put("action_id", "reject");
+        reject.put("style", "danger");
+        reject.putObject("text").put("type", "plain_text").put("text", "✗ Reject");
+        reject.put("value", request.getRequestId());
+        return root;
+    }
+
+    /** Human label for the requester: prefer real name/email from callout attributes, else userId. */
+    private static String requesterLabel(CalloutRequest request) {
+        var attrs = request.getUserAttributes();
+        if (attrs != null) {
+            String first = firstAttr(attrs.get("firstName"));
+            String last = firstAttr(attrs.get("lastName"));
+            String name = ((first == null ? "" : first) + " " + (last == null ? "" : last)).trim();
+            if (!name.isBlank()) return name;
+            String email = firstAttr(attrs.get("email"));
+            if (email != null) return email;
+        }
+        return "user " + request.getUserId();
+    }
+
+    private static String firstAttr(java.util.List<String> vals) {
+        return (vals != null && !vals.isEmpty() && vals.get(0) != null && !vals.get(0).isBlank()) ? vals.get(0) : null;
     }
 
     /**
@@ -75,7 +166,7 @@ public class WebhookNotifier {
         postAsync(buildExpiredPayload(request), request.getRequestId());
     }
 
-    private void postAsync(Map<String, Object> payload, String requestId) {
+    private void postAsync(Object payload, String requestId) {
         CompletableFuture.runAsync(() -> {
             try {
                 HttpHeaders headers = new HttpHeaders();
