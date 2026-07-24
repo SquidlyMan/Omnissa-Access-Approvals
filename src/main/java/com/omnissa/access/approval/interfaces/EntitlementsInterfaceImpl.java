@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -28,21 +27,25 @@ import java.util.List;
  * works when the grant is user-level; group-provisioned access has no per-user
  * entitlement to remove. Instead we toggle a per-user <b>exclusion</b> (a
  * {@code negative} entitlement), which overrides group access for that one user
- * without disturbing the group:
+ * without disturbing the group.
+ *
  * <ul>
- *   <li><b>grant</b> (approval) → DELETE the exclusion so access applies;</li>
- *   <li><b>revoke</b> (expiry) → PUT the exclusion so access is blocked.</li>
+ *   <li><b>grant</b> (approval): record the SCIM id + assignment type; lift any
+ *       existing exclusion so access applies.</li>
+ *   <li><b>revoke</b> (expiry): PUT a negative entitlement — for a group user
+ *       this creates an exclusion; for a directly-assigned user it flips their
+ *       entitlement to excluded. Access then deprovisions the app.</li>
+ *   <li><b>restore</b> (re-requestable grants, after a short hold): lift the
+ *       exclusion — DELETE it for a group user (group reapplies) or flip the
+ *       direct user back to "User Provisioned" — so the app is requestable
+ *       again.</li>
  * </ul>
- * The requester's SCIM id is resolved from the app's entitlement listing (or the
- * SCIM directory as a fallback) at grant time and persisted, because the inbound
- * callout's numeric userId cannot be mapped back to a SCIM id afterward.
  */
 @Service
 public class EntitlementsInterfaceImpl implements EntitlementsInterface {
 
     private static final Logger logger = LoggerFactory.getLogger(EntitlementsInterfaceImpl.class);
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Override
     public String grantAccess(CalloutRequest request) {
@@ -53,9 +56,13 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
         OmnissaRestClient restClient = client();
         String base = RestPreconditions.omnissaServerBaseUrl();
 
+        JsonNode items = readListing(restClient, base, catalogItemId);
         String subjectId = request.getScimUserId();
         if (subjectId == null) {
-            subjectId = resolveSubjectId(request, restClient, base);
+            subjectId = (items != null) ? matchSubjectId(items, requesterEmail(request), requesterUserName(request)) : null;
+        }
+        if (subjectId == null) {
+            subjectId = scimLookup(request, restClient, base);
         }
         if (subjectId == null) {
             logger.warn("Grant requestId={}: could not resolve requester SCIM id — cannot lift exclusion; "
@@ -63,17 +70,16 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
                     request.getUserAttributes() != null ? request.getUserAttributes().keySet() : "none");
             return null;
         }
-        try {
-            restClient.exchange(base + Paths.ENTITLEMENTS_USER, HttpMethod.DELETE,
-                    null, String.class, catalogItemId, subjectId);
-            logger.info("Grant requestId={}: removed exclusion (app={}, subjectId={})",
-                    request.getRequestId(), catalogItemId, subjectId);
-        } catch (HttpClientErrorException e) {
-            // 403/404 = there was no exclusion to remove — fine, access already applies.
-            logger.info("Grant requestId={}: no exclusion to remove ({})", request.getRequestId(), e.getStatusCode());
-        } catch (Exception e) {
-            logger.warn("Grant requestId={}: exclusion removal failed (non-fatal): {}",
-                    request.getRequestId(), e.getMessage());
+
+        // Record how the user gets the app so the later restore picks the right path.
+        String assignment = (items != null && hasPositiveUserEntry(items, subjectId)) ? "USER" : "GROUP";
+        request.setScimUserId(subjectId);
+        request.setAssignmentType(assignment);
+
+        // Only lift an actual exclusion — never delete a directly-assigned user's
+        // real (positive) entitlement. Normally a no-op at grant time.
+        if (items != null && hasNegativeUserEntry(items, subjectId)) {
+            liftExclusion(request, restClient, base, catalogItemId, subjectId, assignment);
         }
         return subjectId;
     }
@@ -98,15 +104,12 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
             return RevokeOutcome.ERROR;
         }
 
-        // PUT (upsert) a negative entitlement — a plain POST 409s when the user is
-        // already entitled via a group.
-        String body = "{\"catalogItemId\":\"" + catalogItemId + "\",\"subjectType\":\"USERS\",\"subjectId\":\""
-                + subjectId + "\",\"activationPolicy\":\"USER_ACTIVATED\",\"negative\":true}";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        // PUT (upsert) a negative entitlement: creates an exclusion for a group
+        // user, or flips a directly-assigned user to excluded. A plain POST 409s
+        // when the user is already entitled via a group.
+        String body = userEntitlementJson(catalogItemId, subjectId, true);
         try {
-            restClient.exchange(base + Paths.ENTITLEMENTS_USER, HttpMethod.PUT,
-                    new HttpEntity<>(body, headers), String.class, catalogItemId, subjectId);
+            put(restClient, base, catalogItemId, subjectId, body);
             logger.info("Revoke requestId={}: added exclusion (app={}, subjectId={})",
                     request.getRequestId(), catalogItemId, subjectId);
             return RevokeOutcome.REVOKED;
@@ -120,33 +123,87 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
         }
     }
 
+    @Override
+    public RevokeOutcome restoreAccess(CalloutRequest request) {
+        String catalogItemId = request.getResourceUuid();
+        String subjectId = request.getScimUserId();
+        if (catalogItemId == null || subjectId == null) {
+            logger.warn("Cannot restore requestId={} — missing resourceUuid/scimUserId", request.getRequestId());
+            return RevokeOutcome.ERROR;
+        }
+        OmnissaRestClient restClient = client();
+        String base = RestPreconditions.omnissaServerBaseUrl();
+        try {
+            liftExclusion(request, restClient, base, catalogItemId, subjectId, request.getAssignmentType());
+            return RevokeOutcome.REVOKED;
+        } catch (ResourceAccessException e) {
+            logger.warn("Restore requestId={}: Access unreachable — retry next sweep: {}",
+                    request.getRequestId(), e.getMessage());
+            return RevokeOutcome.UNREACHABLE;
+        } catch (Exception e) {
+            logger.error("Restore requestId={}: failed", request.getRequestId(), e);
+            return RevokeOutcome.ERROR;
+        }
+    }
+
+    /**
+     * Lift a user's exclusion so access applies again. For a directly-assigned
+     * user, flip their entitlement back to positive ("User Provisioned"); for a
+     * group user, delete the exclusion so the group entitlement reapplies.
+     */
+    private void liftExclusion(CalloutRequest request, OmnissaRestClient restClient, String base,
+                               String catalogItemId, String subjectId, String assignmentType) {
+        if ("USER".equals(assignmentType)) {
+            put(restClient, base, catalogItemId, subjectId, userEntitlementJson(catalogItemId, subjectId, false));
+            logger.info("Restore requestId={}: re-provisioned direct user (app={}, subjectId={})",
+                    request.getRequestId(), catalogItemId, subjectId);
+        } else {
+            try {
+                restClient.exchange(base + Paths.ENTITLEMENTS_USER, HttpMethod.DELETE,
+                        null, String.class, catalogItemId, subjectId);
+                logger.info("Restore requestId={}: removed exclusion (app={}, subjectId={})",
+                        request.getRequestId(), catalogItemId, subjectId);
+            } catch (HttpClientErrorException e) {
+                // No exclusion present — access already applies.
+                logger.info("Restore requestId={}: no exclusion to remove ({})", request.getRequestId(), e.getStatusCode());
+            }
+        }
+    }
+
+    private void put(OmnissaRestClient restClient, String base, String catalogItemId, String subjectId, String body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        restClient.exchange(base + Paths.ENTITLEMENTS_USER, HttpMethod.PUT,
+                new HttpEntity<>(body, headers), String.class, catalogItemId, subjectId);
+    }
+
+    private static String userEntitlementJson(String catalogItemId, String subjectId, boolean negative) {
+        return "{\"catalogItemId\":\"" + catalogItemId + "\",\"subjectType\":\"USERS\",\"subjectId\":\""
+                + subjectId + "\",\"activationPolicy\":\"USER_ACTIVATED\",\"negative\":" + negative + "}";
+    }
+
     private OmnissaRestClient client() {
         OmnissaServer server = RestPreconditions.omnissaServerConfig();
         return new OmnissaRestClient(server);
     }
 
-    /**
-     * Resolve the requester's SCIM id. Primary: the app's entitlement listing —
-     * if the user has an entry (e.g. a default exclusion), it carries subjectId.
-     * Fallback: the SCIM directory, filtered by userName candidates.
-     */
-    private String resolveSubjectId(CalloutRequest request, OmnissaRestClient restClient, String base) {
-        String catalogItemId = request.getResourceUuid();
+    private JsonNode readListing(OmnissaRestClient restClient, String base, String catalogItemId) {
         try {
             HttpHeaders accept = new HttpHeaders();
             accept.setAccept(List.of(MediaType.APPLICATION_JSON));
             String listing = restClient.exchange(base + Paths.ENTITLEMENTS_CATALOGITEM, HttpMethod.GET,
                     new HttpEntity<>(accept), String.class, catalogItemId).getBody();
-            JsonNode items = objectMapper.readTree(listing == null ? "{}" : listing).path("items");
-            String sid = matchSubjectId(items, requesterEmail(request), requesterUserName(request));
-            if (sid != null) {
-                return sid;
-            }
+            return MAPPER.readTree(listing == null ? "{}" : listing).path("items");
         } catch (Exception e) {
-            logger.warn("Resolve requestId={}: entitlement-listing lookup failed: {}",
-                    request.getRequestId(), e.getMessage());
+            logger.warn("Entitlement-listing read failed for {}: {}", catalogItemId, e.getMessage());
+            return null;
         }
-        return scimLookup(request, restClient, base);
+    }
+
+    private String resolveSubjectId(CalloutRequest request, OmnissaRestClient restClient, String base) {
+        JsonNode items = readListing(restClient, base, request.getResourceUuid());
+        String sid = (items != null) ? matchSubjectId(items, requesterEmail(request), requesterUserName(request)) : null;
+        return sid != null ? sid : scimLookup(request, restClient, base);
     }
 
     /** SCIM directory fallback: try userName candidates derived from the callout attributes. */
@@ -162,12 +219,12 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
             }
             try {
                 // Pass the filter as a URI template variable so RestTemplate encodes
-                // it exactly once — pre-encoding here yields a double-encoded filter
-                // that Access silently matches zero users against.
+                // it exactly once — pre-encoding yields a double-encoded filter that
+                // Access silently matches zero users against.
                 String resp = restClient.exchange(base + Paths.SCIM_USERS + "?filter={f}",
                         HttpMethod.GET, new HttpEntity<>(accept), String.class,
                         "userName eq \"" + candidate + "\"").getBody();
-                JsonNode resources = objectMapper.readTree(resp == null ? "{}" : resp).path("Resources");
+                JsonNode resources = MAPPER.readTree(resp == null ? "{}" : resp).path("Resources");
                 if (resources.isArray() && !resources.isEmpty()) {
                     String id = text(resources.get(0), "id");
                     if (id != null) {
@@ -212,8 +269,31 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
                 return subjectId;
             }
         }
-        // Exactly one USERS subject (groups ignored): unambiguous even without an attribute match.
         return userCount == 1 ? text(soleUser, "subjectId") : null;
+    }
+
+    /** True if the listing has a positive (non-excluded) USERS entry for this subject → directly assigned. */
+    static boolean hasPositiveUserEntry(JsonNode items, String subjectId) {
+        return hasUserEntry(items, subjectId, false);
+    }
+
+    /** True if the listing has an excluded (negative) USERS entry for this subject. */
+    static boolean hasNegativeUserEntry(JsonNode items, String subjectId) {
+        return hasUserEntry(items, subjectId, true);
+    }
+
+    private static boolean hasUserEntry(JsonNode items, String subjectId, boolean negative) {
+        if (items == null || !items.isArray() || subjectId == null) {
+            return false;
+        }
+        for (JsonNode item : items) {
+            if ("USERS".equalsIgnoreCase(text(item, "subjectType"))
+                    && subjectId.equals(text(item, "subjectId"))
+                    && item.path("negative").asBoolean(false) == negative) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean matches(String candidate, String name, String displayName) {

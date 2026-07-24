@@ -24,6 +24,7 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
   const [approved, setApproved] = useState<boolean | null>(null)
   const [message, setMessage] = useState('')
   const [ttlMinutes, setTtlMinutes] = useState<number | null>(null)
+  const [reRequestable, setReRequestable] = useState(true) // Option 2 default
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [expired, setExpired] = useState(false)
@@ -37,8 +38,12 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
-        // ttlMinutes only applies to approvals; ignored by the server on reject.
-        body: JSON.stringify({ requestId, approved, message, ttlMinutes: approved ? ttlMinutes : null }),
+        // ttlMinutes/reRequestable only apply to timed approvals.
+        body: JSON.stringify({
+          requestId, approved, message,
+          ttlMinutes: approved ? ttlMinutes : null,
+          reRequestable: approved && ttlMinutes != null ? reRequestable : null,
+        }),
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const data: { outcome?: string } | null = await res.json().catch(() => null)
@@ -106,6 +111,37 @@ export default function ApprovalDialog({ requestId, resourceName, onClose, onCom
                 ? 'Access stays until manually removed.'
                 : 'Access is automatically revoked in Omnissa Access when the time expires.'}
             </p>
+
+            {ttlMinutes != null && (
+              <label className="mt-3 flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={reRequestable}
+                  onChange={e => setReRequestable(e.target.checked)}
+                  className="mt-0.5 accent-omnissa"
+                />
+                <span>
+                  Allow the user to re-request after expiration
+                  <span
+                    className="ml-1 text-gray-400 cursor-help"
+                    title={
+                      'On: when the time expires the user is excluded (access removed and the app '
+                      + 'deprovisioned), then after a short hold the exclusion is lifted so the app '
+                      + 'returns to a requestable state.\n\n'
+                      + 'Off: one-time access — after expiry the user stays excluded and the app '
+                      + 'does not reappear (permanent revoke).'
+                    }
+                  >
+                    ⓘ
+                  </span>
+                  <span className="block text-xs text-gray-400 mt-0.5">
+                    {reRequestable
+                      ? 'One-time now; app becomes requestable again shortly after expiry.'
+                      : 'One-time only; app is permanently removed after expiry.'}
+                  </span>
+                </span>
+              </label>
+            )}
           </div>
         )}
 

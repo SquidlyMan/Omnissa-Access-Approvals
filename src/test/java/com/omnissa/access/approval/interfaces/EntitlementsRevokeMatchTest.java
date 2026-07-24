@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit tests for the JIT revocation subjectId matcher (#49). This decides which
@@ -70,6 +72,31 @@ class EntitlementsRevokeMatchTest {
             ]}""";
         assertEquals("scim-dean",
                 EntitlementsInterfaceImpl.matchSubjectId(items(groupPlusExcludedUser), null, null));
+    }
+
+    @Test
+    void detectsDirectVsGroupAssignment() throws Exception {
+        // Positive USERS entry → directly assigned (USER); its absence → GROUP.
+        String direct = """
+            {"items":[{"subjectType":"USERS","subjectId":"scim-dean","name":"dean","displayName":"dean@flaming.ws"}]}""";
+        assertTrue(EntitlementsInterfaceImpl.hasPositiveUserEntry(items(direct), "scim-dean"));
+        assertFalse(EntitlementsInterfaceImpl.hasNegativeUserEntry(items(direct), "scim-dean"));
+
+        String groupOnly = """
+            {"items":[{"subjectType":"GROUPS","subjectId":"grp","name":"g","displayName":"g"}]}""";
+        assertFalse(EntitlementsInterfaceImpl.hasPositiveUserEntry(items(groupOnly), "scim-dean"));
+    }
+
+    @Test
+    void detectsExclusion() throws Exception {
+        // A negative USERS entry is an exclusion, not a positive assignment.
+        String excluded = """
+            {"items":[
+              {"subjectType":"GROUPS","subjectId":"grp","name":"g","displayName":"g"},
+              {"subjectType":"USERS","subjectId":"scim-dean","name":"dean","displayName":"dean@flaming.ws","negative":true}
+            ]}""";
+        assertTrue(EntitlementsInterfaceImpl.hasNegativeUserEntry(items(excluded), "scim-dean"));
+        assertFalse(EntitlementsInterfaceImpl.hasPositiveUserEntry(items(excluded), "scim-dean"));
     }
 
     @Test

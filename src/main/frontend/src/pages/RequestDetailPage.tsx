@@ -59,10 +59,16 @@ export default function RequestDetailPage() {
         {req.accessTtlMinutes != null && (
           <Row label="Access duration">{formatDuration(req.accessTtlMinutes)}</Row>
         )}
+        {req.accessTtlMinutes != null && (
+          <Row label="After expiry">
+            {req.reRequestable ? 'Re-requestable (app re-opens after a short hold)' : 'One-time — permanent revoke'}
+          </Row>
+        )}
         {req.accessExpiresAt && req.state !== 'revoked' && (
           <Row label="Access expires">{formatDate(req.accessExpiresAt)}</Row>
         )}
         {req.revokedAt && <Row label="Access revoked">{formatDate(req.revokedAt)}</Row>}
+        {req.restoredAt && <Row label="App re-opened">{formatDate(req.restoredAt)}</Row>}
         {req.responseMessage && <Row label="Message">{req.responseMessage}</Row>}
         {req.notes && <Row label="Notes">{req.notes}</Row>}
       </div>

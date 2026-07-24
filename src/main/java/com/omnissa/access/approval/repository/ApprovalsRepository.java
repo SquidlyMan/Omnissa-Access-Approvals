@@ -20,6 +20,14 @@ public interface ApprovalsRepository extends JpaRepository<CalloutRequest, Long>
      * (null expiry) never match, so only time-bound grants are returned.
      */
     List<CalloutRequest> findByStateAndAccessExpiresAtBefore(String state, java.util.Date when);
+
+    /**
+     * JIT re-request restore sweep (#49, Option 2): revoked grants whose hold has
+     * elapsed and are due to have the exclusion lifted. {@code restoreAt} is set
+     * only for re-requestable grants and cleared once restored, so this returns
+     * only requests still awaiting restore.
+     */
+    List<CalloutRequest> findByStateAndRestoreAtBefore(String state, java.util.Date when);
     Page<CalloutRequest> findByStateOrderByIdDesc(String state, Pageable pageable);
     Page<CalloutRequest> findByStateInOrderByIdDesc(List<String> states, Pageable pageable);
     Page<CalloutRequest> findByStateAndResourceName(String state, String resourceName, Pageable pageable);

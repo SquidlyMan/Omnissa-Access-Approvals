@@ -101,14 +101,18 @@ public class RuleScheduler {
         }
     }
 
+    /** Hold between excluding a re-requestable grant and lifting the exclusion, so
+     *  Access finishes deprovisioning the app before it is re-opened for request. */
+    private static final long RESTORE_HOLD_MINUTES = 1;
+
     /**
-     * JIT / time-bound access expiry (#49). Every few minutes, find approved
-     * grants whose TTL has elapsed and revoke the entitlement in Access. Runs
-     * more frequently than the daily-granularity expiry rules so a short TTL is
-     * honored promptly. UNREACHABLE/ERROR outcomes leave the request 'approved'
-     * so the next sweep retries; terminal outcomes mark it 'revoked'.
+     * JIT / time-bound access expiry (#49). Runs every minute so short TTLs are
+     * honored promptly. Finds approved grants whose TTL has elapsed and excludes
+     * the user in Access. For re-requestable grants (Option 2) it also schedules
+     * the exclusion to be lifted after a short hold (see {@link #applyJitRestore}).
+     * UNREACHABLE/ERROR leave the request 'approved' so the next sweep retries.
      */
-    @Scheduled(fixedDelayString = "PT5M", initialDelayString = "PT2M")
+    @Scheduled(fixedDelayString = "PT1M", initialDelayString = "PT1M")
     public void applyJitExpiry() {
         List<CalloutRequest> expired =
                 approvalsRepository.findByStateAndAccessExpiresAtBefore("approved", new Date());
@@ -126,15 +130,19 @@ public class RuleScheduler {
                         if (fresh == null) {
                             break;
                         }
+                        Date now = new Date();
                         fresh.setState("revoked");
-                        fresh.setRevokedAt(new Date());
-                        approvalsRepository.save(fresh);
-                        String detail = outcome == RevokeOutcome.REVOKED
-                                ? "JIT access expired — user excluded from the app in Omnissa Access"
-                                : "JIT access expired — user was already excluded in Omnissa Access";
-                        if (request.getAccessTtlMinutes() != null) {
-                            detail += " (TTL " + request.getAccessTtlMinutes() + " min)";
+                        fresh.setRevokedAt(now);
+                        boolean reRequestable = Boolean.TRUE.equals(fresh.getReRequestable());
+                        if (reRequestable) {
+                            fresh.setRestoreAt(Date.from(now.toInstant().plusSeconds(RESTORE_HOLD_MINUTES * 60)));
                         }
+                        approvalsRepository.save(fresh);
+                        String detail = (outcome == RevokeOutcome.REVOKED
+                                ? "JIT access expired — user excluded from the app in Omnissa Access"
+                                : "JIT access expired — user was already excluded in Omnissa Access")
+                                + (request.getAccessTtlMinutes() != null ? " (TTL " + request.getAccessTtlMinutes() + " min)" : "")
+                                + (reRequestable ? "; app will re-open for request shortly" : "; permanent (not re-requestable)");
                         auditService.record("access-revoked", request.getRequestId(),
                                 request.getResourceName(), detail);
                         anyRevoked = true;
@@ -151,6 +159,48 @@ public class RuleScheduler {
             }
         }
         if (anyRevoked) {
+            sseController.publishQueueUpdate("queue-updated");
+        }
+    }
+
+    /**
+     * JIT re-request restore (#49, Option 2). Lifts the exclusion on revoked,
+     * re-requestable grants once their hold has elapsed, returning the app to a
+     * requestable state. Clears {@code restoreAt} and stamps {@code restoredAt}
+     * so it runs once; UNREACHABLE/ERROR leave it to retry next minute.
+     */
+    @Scheduled(fixedDelayString = "PT1M", initialDelayString = "PT1M")
+    public void applyJitRestore() {
+        List<CalloutRequest> due =
+                approvalsRepository.findByStateAndRestoreAtBefore("revoked", new Date());
+        if (due.isEmpty()) {
+            return;
+        }
+        boolean anyRestored = false;
+        for (CalloutRequest request : due) {
+            try {
+                RevokeOutcome outcome = entitlementsInterface.restoreAccess(request);
+                if (outcome == RevokeOutcome.REVOKED) {
+                    CalloutRequest fresh = approvalsRepository.findByRequestId(request.getRequestId());
+                    if (fresh == null) {
+                        continue;
+                    }
+                    fresh.setRestoreAt(null);
+                    fresh.setRestoredAt(new Date());
+                    approvalsRepository.save(fresh);
+                    auditService.record("access-reopened", request.getRequestId(), request.getResourceName(),
+                            "JIT hold elapsed — exclusion lifted; app is requestable again ("
+                            + ("USER".equals(request.getAssignmentType()) ? "re-provisioned direct user" : "group entitlement reapplies") + ")");
+                    anyRestored = true;
+                } else {
+                    logger.warn("JIT restore for requestId={} not completed ({}); will retry next sweep",
+                            request.getRequestId(), outcome);
+                }
+            } catch (Exception e) {
+                logger.error("JIT restore failed for requestId={}", request.getRequestId(), e);
+            }
+        }
+        if (anyRestored) {
             sseController.publishQueueUpdate("queue-updated");
         }
     }
