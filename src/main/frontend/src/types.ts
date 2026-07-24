@@ -49,6 +49,7 @@ export type AuditAction =
   | 'auto-rejected'
   | 'decision-undeliverable'
   | 'access-revoked'
+  | 'request-deleted'
 
 export interface AuditEvent {
   id: number

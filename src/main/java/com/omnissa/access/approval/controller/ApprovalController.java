@@ -129,6 +129,36 @@ public class ApprovalController {
         return ResponseEntity.ok(request);
     }
 
+    /**
+     * Permanently delete a request's LOCAL record from the approval tool. This
+     * is an administrative cleanup for stale/orphaned entries (e.g. a request
+     * Omnissa Access has already closed but the tool still shows) — it does NOT
+     * call Omnissa Access or change any entitlement. Authenticated; every
+     * deletion is fully audited (who, what, prior state) before the row is
+     * removed. The UI gates this behind explicit multi-step confirmation.
+     */
+    @DeleteMapping("/requests/{requestId}")
+    public ResponseEntity<?> deleteLocalRequest(@PathVariable String requestId) {
+        CalloutRequest request = approvalsRepository.findByRequestId(requestId);
+        if (request == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String admin = auditService.currentAdmin();
+        String detail = "Local request record permanently deleted by " + admin
+                + " — does NOT affect Omnissa Access. [state=" + request.getState()
+                + ", operation=" + request.getOperation()
+                + ", userId=" + request.getUserId()
+                + ", received=" + isoDate(request.getReceivedDate())
+                + ", decidedBy=" + request.getDecidedBy() + "]";
+        // Audit BEFORE deletion so the record survives even if the delete races.
+        auditService.record("request-deleted", requestId, request.getResourceName(), detail);
+        logger.warn("LOCAL REQUEST DELETED by {}: requestId={} resourceName={} state={} operation={}",
+                admin, requestId, request.getResourceName(), request.getState(), request.getOperation());
+        approvalsRepository.delete(request);
+        sseController.publishQueueUpdate("queue-updated");
+        return ResponseEntity.ok(Map.of("deleted", true, "requestId", requestId));
+    }
+
     @PostMapping(value = "/new",
             consumes = {CustomContentTypes.APPROVAL_MESSAGE_REQUEST, CustomContentTypes.MESSAGING_MESSAGE})
     public ResponseEntity<?> saveCalloutRequest(@RequestBody(required = false) String rawBody) {
