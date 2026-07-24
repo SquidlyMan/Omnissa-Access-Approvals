@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import AppIcon from '../components/AppIcon'
 import StatusBadge from '../components/StatusBadge'
 import ApprovalDialog from '../components/ApprovalDialog'
+import DeleteRequestDialog from '../components/DeleteRequestDialog'
 import type { CalloutRequest } from '../types'
 import { requesterLabel } from '../utils/requester'
 
@@ -12,6 +13,7 @@ export default function RequestDetailPage() {
   const [req, setReq] = useState<CalloutRequest | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
 
   useEffect(() => {
     fetch(`/api/approvals/requests/${requestId}`, { credentials: 'include' })
@@ -87,6 +89,19 @@ export default function RequestDetailPage() {
         </button>
       )}
 
+      {/* Destructive: remove a stale/orphaned local record. Does not touch Access. */}
+      <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+        <span className="text-xs text-gray-400">
+          Remove this request from the tool. Local only — does not affect Omnissa Access.
+        </span>
+        <button
+          onClick={() => setShowDelete(true)}
+          className="shrink-0 text-sm px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+        >
+          Delete request
+        </button>
+      </div>
+
       {showDialog && (
         <ApprovalDialog
           requestId={req.requestId}
@@ -94,6 +109,18 @@ export default function RequestDetailPage() {
           onClose={() => setShowDialog(false)}
           onComplete={() => {
             setShowDialog(false)
+            navigate('/queue?state=pending')
+          }}
+        />
+      )}
+
+      {showDelete && (
+        <DeleteRequestDialog
+          requestId={req.requestId}
+          resourceName={req.resourceName}
+          onClose={() => setShowDelete(false)}
+          onDeleted={() => {
+            setShowDelete(false)
             navigate('/queue?state=pending')
           }}
         />
