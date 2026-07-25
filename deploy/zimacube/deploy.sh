@@ -77,7 +77,14 @@ echo "==> Starting container"
 # To disable again:
 #   docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" --profile autoupdate down watchtower
 # then the normal `up -d` below. See docs/deployment.md "Automatic Updates".
-printf 'LAN_IP=%s\n' "$LAN_IP" > "$SRC_DIR/deploy/zimacube/.env"
+# Refresh LAN_IP in the compose .env WITHOUT discarding anything else in it —
+# OMNISSA_IMAGE_TAG and the WEBUI_* tile settings live here too, and a plain
+# `>` redirect silently reverted them on every run.
+COMPOSE_ENV="$SRC_DIR/deploy/zimacube/.env"
+touch "$COMPOSE_ENV"
+grep -v '^LAN_IP=' "$COMPOSE_ENV" > "$COMPOSE_ENV.tmp" 2>/dev/null || :
+printf 'LAN_IP=%s\n' "$LAN_IP" >> "$COMPOSE_ENV.tmp"
+mv "$COMPOSE_ENV.tmp" "$COMPOSE_ENV"
 docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" up -d
 
 echo "==> Firewall persistence (LAN-only on 8081)"

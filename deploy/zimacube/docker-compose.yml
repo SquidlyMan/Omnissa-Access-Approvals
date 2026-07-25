@@ -33,13 +33,15 @@ services:
       # the DOCKER-USER iptables rule (omnissa-approvals-fw.service) is what
       # actually keeps the port LAN-only.
       - "${LAN_IP:-0.0.0.0}:8081:8081"
-      # Loopback publish, REQUIRED on ZimaOS/CasaOS. Before opening an app
-      # CasaOS probes it at http://127.0.0.1:<port_map>/ ("checking compose app
-      # health at the specified web port", ComposeApp.HealthCheck). With the
-      # port bound only to the LAN IP that probe is refused, CasaOS concludes
-      # the app is down, and clicking its tile silently runs a pull + recreate
-      # instead of opening the UI. Loopback is host-only, so this does not
-      # widen network exposure.
+      # Loopback publish, REQUIRED on ZimaOS/CasaOS with the default x-casaos
+      # settings below. Before opening an app CasaOS probes it at
+      # <scheme>://<hostname>:<port_map>/ ("checking compose app health at the
+      # specified web port", ComposeApp.HealthCheck) — and with x-casaos
+      # hostname unset that resolves to http://127.0.0.1:<port_map>/. Bound
+      # only to the LAN IP, that probe is refused, CasaOS concludes the app is
+      # down, and clicking its tile silently runs a pull + recreate instead of
+      # opening the UI. Loopback is host-only, so this does not widen network
+      # exposure.
       - "127.0.0.1:8081:8081"
     env_file:
       - /media/ZIMARAID/omnissa-approvals/omnissa-approvals.env
