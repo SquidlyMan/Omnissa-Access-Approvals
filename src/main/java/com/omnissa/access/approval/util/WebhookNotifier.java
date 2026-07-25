@@ -48,6 +48,19 @@ public class WebhookNotifier {
     @Value("${webhook.notify-lifecycle:true}")
     private boolean notifyLifecycle;
 
+    /** When true and format=teams, post an Adaptive Card with review/decision buttons (#55). */
+    @Value("${teams.actionable:false}")
+    private boolean teamsActionable;
+
+    /**
+     * Public base URL of this tool (e.g. https://approvals.example.com), used to
+     * build deep links in Teams cards. Required for actionable Teams cards: the
+     * notification is sent from a background thread with no HTTP request, so the
+     * public URL cannot be derived from forwarded headers.
+     */
+    @Value("${app.base-url:}")
+    private String appBaseUrl;
+
     /** JIT duration menu offered in the Slack message. value = minutes ("0" = permanent). */
     private static final String[][] SLACK_TTL_OPTIONS = {
             {"Permanent", "0"}, {"5 minutes", "5"}, {"15 minutes", "15"}, {"1 hour", "60"},
@@ -67,10 +80,68 @@ public class WebhookNotifier {
         if (request == null || webhookUrl == null || webhookUrl.isBlank()) {
             return;
         }
-        Object payload = ("slack".equals(resolvedFormat()) && slackActionable)
-                ? buildSlackActionableMessage(request)
-                : buildNewRequestPayload(request);
+        String format = resolvedFormat();
+        Object payload;
+        if ("slack".equals(format) && slackActionable) {
+            payload = buildSlackActionableMessage(request);
+        } else if ("teams".equals(format) && teamsActionable && !appBaseUrl.isBlank()) {
+            payload = buildTeamsActionableCard(request);
+        } else {
+            payload = buildNewRequestPayload(request);
+        }
         postAsync(payload, request.getRequestId());
+    }
+
+    /**
+     * Adaptive Card for Microsoft Teams (#55) with deep-link buttons into this
+     * tool.
+     *
+     * <p>Buttons are {@code Action.OpenUrl}, not a callback: Office 365
+     * connectors (which supported {@code Action.Http}) are retired, and having a
+     * Power Automate flow call back would require the premium HTTP connector.
+     * Opening the tool instead keeps the flow to a single "post the payload"
+     * step, adds no inbound endpoint or shared secret, and authenticates the
+     * approver with the tool's own OIDC login — stronger than trusting whoever
+     * can see the message.
+     *
+     * <p>Wrapped in the {@code type: message / attachments} envelope that a
+     * Power Automate "webhook → post card" workflow expects.
+     */
+    Map<String, Object> buildTeamsActionableCard(CalloutRequest request) {
+        String requester = requesterLabel(request);
+        String base = appBaseUrl.endsWith("/") ? appBaseUrl.substring(0, appBaseUrl.length() - 1) : appBaseUrl;
+        String link = base + "/requests/" + request.getRequestId();
+
+        List<Object> body = List.of(
+                Map.of("type", "TextBlock", "text", "New access request",
+                        "weight", "Bolder", "size", "Medium", "wrap", true),
+                Map.of("type", "FactSet", "facts", List.of(
+                        Map.of("title", "App", "value", String.valueOf(request.getResourceName())),
+                        Map.of("title", "Requested by", "value", requester))),
+                Map.of("type", "TextBlock", "wrap", true, "isSubtle", true, "spacing", "Small",
+                        "text", "Choose an action to review it in the Access Approval Tool. "
+                                + "You will be asked to sign in."));
+
+        List<Object> actions = List.of(
+                Map.of("type", "Action.OpenUrl", "title", "✓ Approve…",
+                        "url", link + "?action=approve"),
+                Map.of("type", "Action.OpenUrl", "title", "✗ Reject…",
+                        "url", link + "?action=reject"),
+                Map.of("type", "Action.OpenUrl", "title", "Open request", "url", link));
+
+        Map<String, Object> card = new LinkedHashMap<>();
+        card.put("type", "AdaptiveCard");
+        card.put("$schema", "http://adaptivecards.io/schemas/adaptive-card.json");
+        card.put("version", "1.4");
+        card.put("body", body);
+        card.put("actions", actions);
+
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("type", "message");
+        envelope.put("attachments", List.of(Map.of(
+                "contentType", "application/vnd.microsoft.card.adaptive",
+                "content", card)));
+        return envelope;
     }
 
     /**

@@ -143,6 +143,23 @@ The three formats:
   ("Post to a channel when a webhook request is received"; URL on
   `webhook.office.com`).
 
+### Actionable Teams approvals
+
+With `WEBHOOK_FORMAT=teams`, the new-request notification can be an **Adaptive
+Card** whose Approve/Reject buttons open the request in this tool with that
+decision pre-selected. Full walkthrough:
+[Actionable Teams Approvals](teams-approvals.md).
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TEAMS_ACTIONABLE` | `false` | `true` posts the Adaptive Card instead of plain text (requires `WEBHOOK_FORMAT=teams` **and** `APP_BASE_URL`) |
+| `APP_BASE_URL` | — | Public URL of this tool, e.g. `https://approvals.example.com`. Required to build the card's deep links — notifications are sent from a background thread, so the public URL cannot be read from forwarded headers. Blank = fall back to plain text rather than emit broken links |
+
+The buttons are deep links, not callbacks: Office 365 connectors (which
+supported `Action.Http`) are retired, and a Power Automate callback would need
+the **premium** HTTP connector. Approvers authenticate with this tool's own
+login, so no inbound endpoint, shared secret, or approver map is needed.
+
 ### Actionable Slack approvals
 
 With `WEBHOOK_FORMAT=slack`, the new-request notification can be an
