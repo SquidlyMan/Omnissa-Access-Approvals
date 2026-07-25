@@ -4,6 +4,8 @@ import { getCsrfToken } from '../utils/csrf'
 interface Props {
   requestId: string
   resourceName: string
+  /** Pre-select approve/reject — used by Teams deep links (#55). */
+  initialDecision?: boolean | null
   onClose: () => void
   onComplete: () => void
 }
@@ -20,8 +22,8 @@ const TTL_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: '30 days', minutes: 43200 },
 ]
 
-export default function ApprovalDialog({ requestId, resourceName, onClose, onComplete }: Props) {
-  const [approved, setApproved] = useState<boolean | null>(null)
+export default function ApprovalDialog({ requestId, resourceName, initialDecision = null, onClose, onComplete }: Props) {
+  const [approved, setApproved] = useState<boolean | null>(initialDecision)
   const [message, setMessage] = useState('')
   const [ttlMinutes, setTtlMinutes] = useState<number | null>(null)
   const [reRequestable, setReRequestable] = useState(true) // Option 2 default

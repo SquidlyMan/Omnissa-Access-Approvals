@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import AppIcon from '../components/AppIcon'
 import StatusBadge from '../components/StatusBadge'
 import ApprovalDialog from '../components/ApprovalDialog'
@@ -19,6 +19,21 @@ export default function RequestDetailPage() {
   const [unblocking, setUnblocking] = useState(false)
   const [unblockMsg, setUnblockMsg] = useState('')
   const [revokeMode, setRevokeMode] = useState<null | 'temporary' | 'permanent'>(null)
+
+  // Teams deep links (#55) arrive as /requests/{id}?action=approve|reject —
+  // open the review dialog with that choice pre-selected.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const deepLinkAction = searchParams.get('action')
+  const initialDecision =
+    deepLinkAction === 'approve' ? true : deepLinkAction === 'reject' ? false : null
+
+  useEffect(() => {
+    if (!req || req.state !== 'pending' || !deepLinkAction) return
+    setShowDialog(true)
+    // Drop the param so a refresh or back-navigation doesn't reopen the dialog.
+    searchParams.delete('action')
+    setSearchParams(searchParams, { replace: true })
+  }, [req, deepLinkAction, searchParams, setSearchParams])
 
   /** Lift a permanent decline: remove the user's exclusion in Omnissa Access. */
   async function allowReRequest() {
@@ -204,6 +219,7 @@ export default function RequestDetailPage() {
         <ApprovalDialog
           requestId={req.requestId}
           resourceName={req.resourceName}
+          initialDecision={initialDecision}
           onClose={() => setShowDialog(false)}
           onComplete={() => {
             setShowDialog(false)
