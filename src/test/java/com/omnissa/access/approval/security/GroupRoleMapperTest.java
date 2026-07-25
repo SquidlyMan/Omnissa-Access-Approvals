@@ -65,23 +65,45 @@ class GroupRoleMapperTest {
     }
 
     @Test
-    void adminMembershipGrantsAdminOnTopOfViewer() {
+    void adminMembershipGrantsAdminOnly() {
         Set<AuthorityName> roles = GroupRoleMapper.rolesFor(
                 GroupRoleMapper.parse(MAP), List.of(ALL_USERS, ADMINS));
 
-        assertTrue(roles.contains(AuthorityName.ROLE_ADMIN));
-        assertTrue(roles.contains(AuthorityName.ROLE_VIEWER));
-        assertFalse(roles.contains(AuthorityName.ROLE_APPROVER));
+        assertEquals(Set.of(AuthorityName.ROLE_ADMIN), roles);
+    }
+
+    /**
+     * The reason DEFAULT_ROLE is a fallback and not a floor. Viewer already
+     * includes reading the audit trail, so granting it unconditionally would
+     * leave an auditor with Viewer's access to the live queue plus nothing
+     * extra — the opposite of what the role is for. A role that grants LESS
+     * cannot exist in a model where everyone starts as a Viewer.
+     */
+    @Test
+    void auditorDoesNotAlsoBecomeAViewer() {
+        Set<AuthorityName> roles =
+                GroupRoleMapper.rolesFor(GroupRoleMapper.parse(MAP), List.of(ALL_USERS, AUDITORS));
+
+        assertEquals(Set.of(AuthorityName.ROLE_AUDITOR), roles);
+        assertFalse(roles.contains(AuthorityName.ROLE_VIEWER),
+                "an auditor granted VIEWER would regain the live queue the role exists to withhold");
     }
 
     @Test
-    void multipleMatchesAreAdditive() {
+    void approverDoesNotAlsoBecomeAViewer() {
+        assertEquals(Set.of(AuthorityName.ROLE_APPROVER),
+                GroupRoleMapper.rolesFor(GroupRoleMapper.parse(MAP), List.of(APPROVERS)));
+    }
+
+    @Test
+    void multipleMatchesAreStillAdditiveAmongThemselves() {
         Set<AuthorityName> roles = GroupRoleMapper.rolesFor(
                 GroupRoleMapper.parse(MAP), List.of(APPROVERS, AUDITORS));
 
         assertTrue(roles.contains(AuthorityName.ROLE_APPROVER));
         assertTrue(roles.contains(AuthorityName.ROLE_AUDITOR));
         assertFalse(roles.contains(AuthorityName.ROLE_ADMIN));
+        assertFalse(roles.contains(AuthorityName.ROLE_VIEWER));
     }
 
     @Test
