@@ -37,6 +37,20 @@ The **only intentionally unauthenticated endpoints** are:
   can additionally require HTTP Basic auth (see hardening below). The
   `OPTIONS` probe always remains unauthenticated so the Omnissa Access
   console can validate the URI.
+- `POST /api/slack/interactions` — the Slack interactivity callback, present
+  only when actionable Slack approvals are configured. Unauthenticated at the
+  *session* layer (Slack has no login), but the caller is authenticated
+  **cryptographically**: every request must carry a valid `X-Slack-Signature`
+  (HMAC-SHA256 over `v0:{timestamp}:{body}` using the app's signing secret),
+  and requests older than 5 minutes are rejected as replays. Verification
+  happens **before any state change**; an invalid or absent signature gets
+  `401`. The path is per-IP rate-limited like the callout endpoint.
+  A valid signature only proves the request came from your Slack workspace —
+  **not** that the clicking user may approve. Authorization is separate and
+  explicit: the Slack user id must appear in `SLACK_APPROVER_MAP`, and
+  unmapped users are rejected and audited. Channel membership never grants
+  decision rights. Leaving `SLACK_SIGNING_SECRET` unset disables the endpoint
+  in practice (every request fails verification).
 - `/actuator/health` — health probe.
 - `/api/config/auth` — advertises which login methods are enabled (needed to
   render the login page).
@@ -55,8 +69,27 @@ vulnerability — please report it.
   endpoint (default 60; `0` disables).
 - `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=true` — disable local
   username/password login entirely (OAuth2-only admin login).
+- `SLACK_APPROVER_MAP` — the authorization list for chat decisions. Keep it to
+  users who should genuinely hold approval rights; everyone else in the channel
+  can see the buttons but cannot act on them.
 - Terminate TLS at a reverse proxy (Caddy/nginx) and keep the plain-HTTP
-  port 8081 off the public internet; only `POST /api/approvals/new` needs to
-  be internet-reachable. See [docs/deployment.md](docs/deployment.md).
+  port 8081 off the public internet. Only `POST /api/approvals/new` needs to
+  be internet-reachable — plus `POST /api/slack/interactions` if actionable
+  Slack approvals are enabled. Actionable **Teams** approvals need no inbound
+  endpoint at all: the card's buttons are deep links, so only the approver's
+  browser reaches the tool. See [docs/deployment.md](docs/deployment.md).
+
+### Privileged operations
+
+Some admin actions change entitlements in your Omnissa Access tenant, not just
+local state — a permanent decline, *Revoke and block*, and *Allow re-request*
+add or remove a per-user exclusion on the app. They require an authenticated
+admin session, are confirmation-gated in the UI, and are recorded in the audit
+trail with the acting identity. See
+[docs/access-lifecycle.md](docs/access-lifecycle.md).
+
+**Backup archives contain secrets** (OAuth client secret, Slack signing secret,
+SMTP credentials). They are written `0600` inside a `0700` directory; treat a
+copy of one as equivalent to the env file.
 
 Also see the non-production disclaimer in [NOTICE.md](NOTICE.md).

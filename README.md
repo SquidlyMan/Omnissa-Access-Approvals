@@ -17,11 +17,12 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Native Omnissa Access callout integration** — messaging-envelope parsing, decision posting, connectivity status tile
 - **Admin login**: local account and/or "Sign in with Omnissa Access" (OIDC + PKCE), optional OAuth-only mode, automatic consent-screen disable
 - **Access lifecycle** — time-bound (JIT) grants that auto-expire, permanent vs temporary decline, on-demand revoke, and a reversible block ([details](docs/access-lifecycle.md))
-- **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence
-- **Audit trail** with admin identity, plus **CSV export**
-- **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats for new requests **and** decisions, with attribution (which admin decided, or which auto-approval rule)
-- **Ops** — log bundle download, syslog export (UDP/TCP/TLS with client certs), health endpoint
-- **API hardening** — optional Basic auth and per-IP rate limiting on the callout endpoint
+- **Approve from chat** — [Slack](docs/slack-approvals.md) interactive messages (duration menu + Approve/Reject/Reject-and-Block, signature-verified, explicit approver allow-list) and [Teams](docs/teams-approvals.md) Adaptive Cards with deep-link decision buttons
+- **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence; approve rules can grant time-bound access
+- **Audit trail** with the acting identity — including chat approvers — plus **CSV export**
+- **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats for new requests, decisions, and access-revoked / app-reopened lifecycle events
+- **Ops** — [backup & restore](docs/deployment.md#backup-and-restore) for the database and secrets, log bundle download, syslog export (UDP/TCP/TLS with client certs), health endpoint
+- **API hardening** — optional Basic auth and per-IP rate limiting on the callout endpoint; the Slack callback is HMAC-verified with a replay window
 
 ## Screenshots
 
