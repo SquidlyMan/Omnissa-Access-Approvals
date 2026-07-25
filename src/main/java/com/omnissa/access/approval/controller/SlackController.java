@@ -2,6 +2,7 @@ package com.omnissa.access.approval.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.DecisionOutcome;
 import com.omnissa.access.approval.service.DecisionService;
 import com.omnissa.access.approval.util.AuditService;
@@ -53,6 +54,7 @@ public class SlackController {
     private String approverMapRaw;
 
     @Autowired private DecisionService decisionService;
+    @Autowired private com.omnissa.access.approval.repository.ApprovalsRepository approvalsRepository;
     @Autowired private AuditService auditService;
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -93,7 +95,9 @@ public class SlackController {
 
         // The duration select fires its own interaction on change — just ack it;
         // we read the chosen value from `state` when a button is clicked.
-        if (!"approve".equals(actionId) && !"reject".equals(actionId)) {
+        boolean isDecision = "approve".equals(actionId)
+                || "reject".equals(actionId) || "reject_block".equals(actionId);
+        if (!isDecision) {
             return ResponseEntity.ok().build();
         }
 
@@ -107,33 +111,52 @@ public class SlackController {
             return ResponseEntity.ok().build();
         }
 
+        // Stale card: the request was already decided (e.g. in the web UI), so
+        // Access no longer holds it. Say so plainly instead of letting the
+        // delivery failure surface as a misleading "Access unreachable".
+        CalloutRequest existing = approvalsRepository.findByRequestId(requestId);
+        if (existing != null && !"pending".equalsIgnoreCase(existing.getState())) {
+            replaceMessage(responseUrl, ":information_source: Already handled — this request was *"
+                    + existing.getState() + "*"
+                    + (existing.getDecidedBy() != null ? " by " + existing.getDecidedBy() : "")
+                    + ". This message was out of date.");
+            return ResponseEntity.ok().build();
+        }
+
         boolean approved = "approve".equals(actionId);
+        boolean permanentDecline = "reject_block".equals(actionId);
         Integer ttlMinutes = null;
         if (approved) {
             int minutes = parseInt(payload.path("state").path("values")
                     .path("jit_duration").path("duration").path("selected_option").path("value").asText("0"));
             ttlMinutes = minutes > 0 ? minutes : null;
         }
+        // On reject, reRequestable=false means a permanent decline (user excluded).
+        Boolean reRequestable = approved ? null : !permanentDecline;
 
         String decider = approver + " (via Slack)";
         DecisionOutcome outcome;
         try {
-            outcome = decisionService.decide(requestId, approved, "Decided from Slack", ttlMinutes, null, decider);
+            outcome = decisionService.decide(requestId, approved, "Decided from Slack",
+                    ttlMinutes, reRequestable, decider);
         } catch (Exception e) {
             logger.error("Slack decision failed for requestId={}", requestId, e);
             replaceMessage(responseUrl, ":warning: Something went wrong applying the decision. Check the tool.");
             return ResponseEntity.ok().build();
         }
 
-        replaceMessage(responseUrl, slackResultText(outcome, approved, approver, ttlMinutes));
+        replaceMessage(responseUrl, slackResultText(outcome, approved, approver, ttlMinutes, permanentDecline));
         return ResponseEntity.ok().build();
     }
 
-    private String slackResultText(DecisionOutcome outcome, boolean approved, String approver, Integer ttlMinutes) {
+    private String slackResultText(DecisionOutcome outcome, boolean approved, String approver,
+                                   Integer ttlMinutes, boolean permanentDecline) {
         return switch (outcome) {
-            case DELIVERED -> (approved ? ":white_check_mark: *Approved*" : ":x: *Rejected*")
+            case DELIVERED -> (approved ? ":white_check_mark: *Approved*"
+                        : (permanentDecline ? ":no_entry: *Rejected — permanently blocked*" : ":x: *Rejected*"))
                     + " by " + approver
-                    + (approved && ttlMinutes != null ? "  ·  time-bound " + ttlMinutes + " min" : "");
+                    + (approved && ttlMinutes != null ? "  ·  time-bound " + ttlMinutes + " min" : "")
+                    + (!approved && permanentDecline ? "  ·  user excluded; cannot re-request" : "");
             case EXPIRED -> ":warning: Could not deliver — the request no longer exists in Omnissa Access.";
             case UNREACHABLE -> ":warning: Omnissa Access is unreachable — decision not delivered. Try again from the tool.";
         };

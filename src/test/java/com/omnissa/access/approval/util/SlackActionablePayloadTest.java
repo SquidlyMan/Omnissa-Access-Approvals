@@ -72,6 +72,18 @@ class SlackActionablePayloadTest {
     }
 
     @Test
+    void offersBothTemporaryAndPermanentReject() throws Exception {
+        String json = serialized(notifier().buildSlackActionableMessage(request()));
+
+        // Plain reject (temporary) and reject_block (permanent decline, #57).
+        assertTrue(json.contains("\"reject\""), json);
+        assertTrue(json.contains("\"reject_block\""), json);
+        // The destructive one must be confirmation-gated so it can't be mis-clicked.
+        assertTrue(json.contains("\"confirm\""), "reject_block needs a confirm dialog: " + json);
+        assertTrue(json.contains("excludes the user"), json);
+    }
+
+    @Test
     void durationMenuOffersPermanentAndTimedOptions() throws Exception {
         Map<String, Object> payload = notifier().buildSlackActionableMessage(request());
         String json = serialized(payload);

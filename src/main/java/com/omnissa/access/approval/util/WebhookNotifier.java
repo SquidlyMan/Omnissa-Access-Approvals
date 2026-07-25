@@ -119,7 +119,21 @@ public class WebhookNotifier {
                         "value", request.getRequestId()),
                 Map.of("type", "button", "action_id", "reject", "style", "danger",
                         "text", Map.of("type", "plain_text", "text", "✗ Reject"),
-                        "value", request.getRequestId()))));
+                        "value", request.getRequestId()),
+                // Permanent decline (#57): rejects AND excludes the user, so the
+                // app will not reappear for them. Confirmed to avoid a mis-click.
+                Map.of("type", "button", "action_id", "reject_block",
+                        "text", Map.of("type", "plain_text", "text", "⛔ Reject & Block"),
+                        "value", request.getRequestId(),
+                        "confirm", Map.of(
+                                "title", Map.of("type", "plain_text", "text", "Block re-requests?"),
+                                "text", Map.of("type", "mrkdwn",
+                                        "text", "This rejects the request *and excludes the user* from "
+                                                + request.getResourceName()
+                                                + " in Omnissa Access. The app will not reappear for them. "
+                                                + "You can undo this later from the request details."),
+                                "confirm", Map.of("type", "plain_text", "text", "Reject & Block"),
+                                "deny", Map.of("type", "plain_text", "text", "Cancel"))))));
 
         root.put("blocks", blocks);
         return root;
