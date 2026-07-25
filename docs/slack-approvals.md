@@ -159,6 +159,9 @@ minutes, 15 minutes, 1 hour, 8 hours, 24 hours, 7 days, 30 days) and
   [`docs/design/iga-foundations.md`](design/iga-foundations.md) §1.2.
 - Slack-initiated timed grants use the default re-request policy
   (re-requestable after expiry).
+- **⛔ Reject and Block** performs a permanent decline (the user is excluded and
+  cannot re-request); plain **✗ Reject** is temporary. See
+  [Access Lifecycle](access-lifecycle.md).
 - The message is replaced with the outcome and the deciding identity.
 
 ## Troubleshooting

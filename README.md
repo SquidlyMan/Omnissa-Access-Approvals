@@ -16,6 +16,7 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Approval queue** with live updates (Server-Sent Events) and a Deactivated list
 - **Native Omnissa Access callout integration** — messaging-envelope parsing, decision posting, connectivity status tile
 - **Admin login**: local account and/or "Sign in with Omnissa Access" (OIDC + PKCE), optional OAuth-only mode, automatic consent-screen disable
+- **Access lifecycle** — time-bound (JIT) grants that auto-expire, permanent vs temporary decline, on-demand revoke, and a reversible block ([details](docs/access-lifecycle.md))
 - **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence
 - **Audit trail** with admin identity, plus **CSV export**
 - **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats for new requests **and** decisions, with attribution (which admin decided, or which auto-approval rule)
@@ -65,6 +66,7 @@ Use [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-ap
 
 - [Deployment](docs/deployment.md) — Docker/Compose, reverse-proxy requirements, inbound connectivity, ZimaCube
 - [Configuration reference](docs/configuration.md) — every environment variable
+- [Access lifecycle](docs/access-lifecycle.md) — JIT/time-bound grants, decline modes, revoke, allow re-request
 - [Omnissa Access setup](docs/omnissa-access-setup.md) — OAuth clients, Settings > Approvals, per-app approval
 - [Actionable Slack approvals](docs/slack-approvals.md) — Slack app setup, signature verification, approver mapping
 - [Troubleshooting](docs/troubleshooting.md) — real failure modes and fixes
