@@ -4,6 +4,7 @@ import AppIcon from '../components/AppIcon'
 import StatusBadge from '../components/StatusBadge'
 import ApprovalDialog from '../components/ApprovalDialog'
 import DeleteRequestDialog from '../components/DeleteRequestDialog'
+import RevokeAccessDialog from '../components/RevokeAccessDialog'
 import type { CalloutRequest } from '../types'
 import { requesterLabel } from '../utils/requester'
 import { getCsrfToken } from '../utils/csrf'
@@ -17,6 +18,7 @@ export default function RequestDetailPage() {
   const [showDelete, setShowDelete] = useState(false)
   const [unblocking, setUnblocking] = useState(false)
   const [unblockMsg, setUnblockMsg] = useState('')
+  const [revokeMode, setRevokeMode] = useState<null | 'temporary' | 'permanent'>(null)
 
   /** Lift a permanent decline: remove the user's exclusion in Omnissa Access. */
   async function allowReRequest() {
@@ -136,8 +138,38 @@ export default function RequestDetailPage() {
         </button>
       )}
 
-      {/* Undo a permanent decline — the recovery path for a block applied in error. */}
-      {req.state === 'rejected' && req.reRequestable === false && (
+      {/* Revoke an active grant on demand, without waiting for a TTL. */}
+      {req.state === 'approved' && (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-sm font-medium text-gray-800 mb-1">Revoke this access</p>
+          <p className="text-xs text-gray-500 mb-3">
+            Excludes the user in Omnissa Access, which removes the app they currently have.
+            Choose whether the app may come back.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setRevokeMode('temporary')}
+              className="text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Revoke access
+            </button>
+            <button
+              onClick={() => setRevokeMode('permanent')}
+              className="text-sm px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+            >
+              Revoke and block
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            <span className="font-medium">Revoke access</span> returns the app to a requestable
+            state after about a minute. <span className="font-medium">Revoke and block</span> keeps
+            the user excluded until an admin lifts it.
+          </p>
+        </div>
+      )}
+
+      {/* Undo a permanent block — the recovery path for one applied in error. */}
+      {(req.state === 'rejected' || req.state === 'revoked') && req.reRequestable === false && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-900 font-medium mb-1">This user is blocked from re-requesting</p>
           <p className="text-xs text-amber-800 mb-3">
@@ -176,6 +208,21 @@ export default function RequestDetailPage() {
           onComplete={() => {
             setShowDialog(false)
             navigate('/queue?state=pending')
+          }}
+        />
+      )}
+
+      {revokeMode && (
+        <RevokeAccessDialog
+          requestId={req.requestId}
+          resourceName={req.resourceName}
+          permanent={revokeMode === 'permanent'}
+          onClose={() => setRevokeMode(null)}
+          onDone={() => {
+            setRevokeMode(null)
+            fetch(`/api/approvals/requests/${requestId}`, { credentials: 'include' })
+              .then(r => (r.ok ? r.json() : null))
+              .then(fresh => { if (fresh) setReq(fresh) })
           }}
         />
       )}

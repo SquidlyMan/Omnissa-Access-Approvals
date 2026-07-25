@@ -99,6 +99,49 @@ class DeclineModeTest {
         verify(audit).record(eq("access-block-failed"), eq("req-1"), anyString(), anyString(), eq("dean"));
     }
 
+    // ---- manual revoke of an active grant (no TTL wait) ----
+
+    @Test
+    void revokeNowTemporarySchedulesTheAppToReturn() {
+        request.setState("approved");
+        when(entitlements.revokeAccess(request)).thenReturn(RevokeOutcome.REVOKED);
+
+        service.revokeNow(request, false, "dean");
+
+        assertThat(request.getState()).isEqualTo("revoked");
+        assertThat(request.getRevokedAt()).isNotNull();
+        assertThat(request.getReRequestable()).isTrue();
+        // restoreAt drives the sweep that lifts the exclusion.
+        assertThat(request.getRestoreAt()).isNotNull();
+        verify(webhooks).notifyRevoked(request);
+    }
+
+    @Test
+    void revokeNowPermanentLeavesTheUserExcluded() {
+        request.setState("approved");
+        when(entitlements.revokeAccess(request)).thenReturn(RevokeOutcome.REVOKED);
+
+        service.revokeNow(request, true, "dean");
+
+        assertThat(request.getState()).isEqualTo("revoked");
+        assertThat(request.getReRequestable()).isFalse();
+        // No restore scheduled — the block stays until an admin lifts it.
+        assertThat(request.getRestoreAt()).isNull();
+    }
+
+    @Test
+    void revokeNowDoesNotRecordAFailedRevocation() {
+        request.setState("approved");
+        when(entitlements.revokeAccess(request)).thenReturn(RevokeOutcome.UNREACHABLE);
+
+        RevokeOutcome outcome = service.revokeNow(request, false, "dean");
+
+        assertThat(outcome).isEqualTo(RevokeOutcome.UNREACHABLE);
+        assertThat(request.getState()).isEqualTo("approved"); // unchanged
+        assertThat(request.getRevokedAt()).isNull();
+        verify(webhooks, never()).notifyRevoked(any());
+    }
+
     @Test
     void liftingAPermanentDeclineRestoresAccessAndNotifies() {
         request.setReRequestable(false);

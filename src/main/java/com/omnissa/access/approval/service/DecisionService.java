@@ -118,6 +118,46 @@ public class DecisionService {
         return note;
     }
 
+    /** Hold before lifting the exclusion, so Access finishes deprovisioning first. */
+    private static final long REVOKE_RESTORE_HOLD_MINUTES = 1;
+
+    /**
+     * Revoke an already-granted app on demand, without waiting for a TTL.
+     *
+     * <p>Both modes exclude the user in Access (a directly-assigned user is
+     * flipped to excluded; a group-assigned user gains an exclusion), which is
+     * what actually deprovisions the running app.
+     *
+     * @param permanent {@code false} = the exclusion is lifted after a short hold
+     *                  so the app returns to a requestable state;
+     *                  {@code true} = the exclusion stays and the app does not
+     *                  reappear until an admin lifts it.
+     */
+    public RevokeOutcome revokeNow(CalloutRequest request, boolean permanent, String actor) {
+        RevokeOutcome outcome = entitlementsInterface.revokeAccess(request);
+        if (outcome != RevokeOutcome.REVOKED && outcome != RevokeOutcome.ALREADY_ABSENT) {
+            return outcome; // nothing changed — don't record a revocation that didn't happen
+        }
+        Date now = new Date();
+        request.setState("revoked");
+        request.setRevokedAt(now);
+        request.setReRequestable(!permanent);
+        if (!permanent) {
+            request.setRestoreAt(Date.from(now.toInstant().plusSeconds(REVOKE_RESTORE_HOLD_MINUTES * 60)));
+        } else {
+            request.setRestoreAt(null);
+        }
+        approvalsRepository.save(request);
+        auditService.record("access-revoked", request.getRequestId(), request.getResourceName(),
+                "Access revoked by " + actor + " — user excluded in Omnissa Access"
+                        + (permanent
+                            ? "; permanent — the app will not reappear until an admin lifts the block"
+                            : "; the app will return to a requestable state shortly"), actor);
+        webhookNotifier.notifyRevoked(request);
+        sseController.publishQueueUpdate("queue-updated");
+        return outcome;
+    }
+
     /**
      * Lift a permanent decline (#57): remove the exclusion so the user may
      * request the app again. Returns the outcome so the caller can report it.

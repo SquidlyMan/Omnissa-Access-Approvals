@@ -111,6 +111,15 @@ public class CalloutRequest implements Serializable {
     @Nullable
     private String assignmentType;
 
+    /**
+     * The user's Deployment Type in Access ("USER_ACTIVATED" or "AUTOMATIC"),
+     * captured when access is granted so a later restore re-creates the original
+     * assignment instead of silently converting an Automatic user to
+     * User-Activated. Null = unknown; restore falls back to USER_ACTIVATED.
+     */
+    @Nullable
+    private String activationPolicy;
+
     /** When to lift the exclusion for a re-requestable grant (= revoke time + hold). */
     @Nullable
     @Temporal(value = TemporalType.TIMESTAMP)
@@ -200,6 +209,9 @@ public class CalloutRequest implements Serializable {
 
     @Nullable public String getAssignmentType() { return assignmentType; }
     public void setAssignmentType(@Nullable String assignmentType) { this.assignmentType = assignmentType; }
+
+    @Nullable public String getActivationPolicy() { return activationPolicy; }
+    public void setActivationPolicy(@Nullable String activationPolicy) { this.activationPolicy = activationPolicy; }
 
     @Nullable public Date getRestoreAt() { return restoreAt; }
     public void setRestoreAt(@Nullable Date restoreAt) { this.restoreAt = restoreAt; }

@@ -73,6 +73,11 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
 
         // Record how the user gets the app so the later restore picks the right path.
         String assignment = (items != null && hasPositiveUserEntry(items, subjectId)) ? "USER" : "GROUP";
+        // Remember the user's Deployment Type so a later restore re-creates the
+        // original assignment rather than forcing USER_ACTIVATED.
+        if (request.getActivationPolicy() == null && items != null) {
+            request.setActivationPolicy(userActivationPolicy(items, subjectId));
+        }
         request.setScimUserId(subjectId);
         request.setAssignmentType(assignment);
 
@@ -168,7 +173,8 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
     private void liftExclusion(CalloutRequest request, OmnissaRestClient restClient, String base,
                                String catalogItemId, String subjectId, String assignmentType) {
         if ("USER".equals(assignmentType)) {
-            put(restClient, base, catalogItemId, subjectId, userEntitlementJson(catalogItemId, subjectId, false));
+            put(restClient, base, catalogItemId, subjectId,
+                    userEntitlementJson(catalogItemId, subjectId, false, request.getActivationPolicy()));
             logger.info("Restore requestId={}: re-provisioned direct user (app={}, subjectId={})",
                     request.getRequestId(), catalogItemId, subjectId);
         } else {
@@ -192,8 +198,34 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
     }
 
     private static String userEntitlementJson(String catalogItemId, String subjectId, boolean negative) {
+        return userEntitlementJson(catalogItemId, subjectId, negative, null);
+    }
+
+    /**
+     * @param activationPolicy the user's Deployment Type to write; null falls back
+     *                         to USER_ACTIVATED (the request-driven default).
+     */
+    private static String userEntitlementJson(String catalogItemId, String subjectId,
+                                              boolean negative, String activationPolicy) {
+        String policy = (activationPolicy != null && !activationPolicy.isBlank())
+                ? activationPolicy : "USER_ACTIVATED";
         return "{\"catalogItemId\":\"" + catalogItemId + "\",\"subjectType\":\"USERS\",\"subjectId\":\""
-                + subjectId + "\",\"activationPolicy\":\"USER_ACTIVATED\",\"negative\":" + negative + "}";
+                + subjectId + "\",\"activationPolicy\":\"" + policy + "\",\"negative\":" + negative + "}";
+    }
+
+    /** The activationPolicy recorded on this subject's USERS entry, if present. */
+    static String userActivationPolicy(JsonNode items, String subjectId) {
+        if (items == null || !items.isArray() || subjectId == null) {
+            return null;
+        }
+        for (JsonNode item : items) {
+            if ("USERS".equalsIgnoreCase(text(item, "subjectType"))
+                    && subjectId.equals(text(item, "subjectId"))
+                    && !item.path("negative").asBoolean(false)) {
+                return text(item, "activationPolicy");
+            }
+        }
+        return null;
     }
 
     private OmnissaRestClient client() {

@@ -157,6 +157,28 @@ public class ApprovalController {
     }
 
     /**
+     * Revoke an already-granted app on demand (no TTL wait). {@code permanent=false}
+     * removes access and lets the app return to a requestable state after a short
+     * hold; {@code permanent=true} leaves the user excluded until an admin lifts
+     * the block. Authenticated and audited.
+     */
+    @PostMapping("/requests/{requestId}/revoke")
+    public ResponseEntity<?> revokeAccess(@PathVariable String requestId,
+                                          @RequestParam(defaultValue = "false") boolean permanent) {
+        CalloutRequest request = approvalsRepository.findByRequestId(requestId);
+        if (request == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!"approved".equalsIgnoreCase(request.getState())) {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "Only an approved request can have its access revoked (this one is "
+                            + request.getState() + ")."));
+        }
+        var outcome = decisionService.revokeNow(request, permanent, auditService.currentAdmin());
+        return ResponseEntity.ok(Map.of("outcome", outcome.name().toLowerCase()));
+    }
+
+    /**
      * Lift a permanent decline (#57): remove the user's exclusion in Omnissa
      * Access so they may request the app again. Recovery path for a decline
      * applied in error — without it, un-blocking would require direct API/console
