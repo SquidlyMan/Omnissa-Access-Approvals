@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-07-25
+
+### Fixed
+- Webhook posts rejected with **401 Unauthorized**, so Teams notifications silently never arrived. `RestTemplate` was given the URL as a `String`, which it treats as a URI *template* and re-encodes — a Power Automate workflow URL carries an already-encoded, signature-protected query (`sp=%2Ftriggers%2Fmanual%2Frun&sig=…`), so `%2F` became `%252F` and the signature no longer matched. The URL is now passed as a `URI`. Applied to the Slack `response_url` post as well.
+
+## [1.9.0] - 2026-07-25
+
+### Added
+- **Actionable Microsoft Teams approvals** (`TEAMS_ACTIONABLE`) — new requests post an **Adaptive Card** through a Power Automate workflow, with buttons that open the request in the tool with the decision pre-selected. Buttons are deep links rather than callbacks: Office 365 connectors (which supported `Action.Http`) are retired, and a Power Automate callback requires the **premium** HTTP connector. This also means no inbound endpoint, no shared secret, and approvers authenticate with the tool's own OIDC login. Requires `APP_BASE_URL`. See [docs/teams-approvals.md](docs/teams-approvals.md).
+
+## [1.8.0] - 2026-07-25
+
+### Added
+- **Revoke an active grant on demand**, without waiting for a TTL: *Revoke access* (the app returns to a requestable state after a short hold) or *Revoke and block* (the user stays excluded until an admin lifts it). Both confirmation-gated.
+- **Allow re-request** now also covers revoked-and-blocked requests, so a permanent revoke has a recovery path in the UI.
+
+### Changed
+- The user's **Deployment Type** (`activationPolicy`) is captured at grant time and written back on restore — previously a restore always forced `USER_ACTIVATED`, silently converting an *Automatic* assignment.
+
+## [1.7.2] - 2026-07-24
+
+### Fixed
+- Slack block button rendered as `Reject &amp; Block` (Slack HTML-escapes `&`) and the confirm dialog showed literal `*asterisks*` (a confirm object does not render mrkdwn).
+
+## [1.7.1] - 2026-07-24
+
+### Added
+- Slack **⛔ Reject and Block** button — a confirmation-gated permanent decline.
+
+### Fixed
+- Clicking a Slack button after the request was already decided reported *"Omnissa Access is unreachable"*. The card is simply stale; it now says so plainly.
+
+## [1.7.0] - 2026-07-24
+
+### Added
+- **Permanent vs temporary decline.** A temporary decline (default) rejects only that request; a permanent decline excludes the user so the app does not reappear. A permanent decline that cannot be enforced is **not** recorded as permanent (`access-block-failed` is audited instead). New **Allow re-request** action reverses a block.
+
+## [1.6.0] - 2026-07-24
+
+### Added
+- **JIT lifecycle notifications** — `access.revoked` when a timed grant expires and `access.reopened` when the app becomes requestable again, so an approver who granted from chat learns that it ended. Toggle with `WEBHOOK_NOTIFY_LIFECYCLE`.
+
+## [1.5.7] - 2026-07-23
+
+### Added
+- **Actionable Slack approvals** (`SLACK_ACTIONABLE`) — an interactive message with an access-duration menu and Approve/Reject buttons; the message updates in place with the outcome. The inbound endpoint `POST /api/slack/interactions` verifies the **Slack signature** (HMAC-SHA256, 5-minute replay window) before any state change, and requires the clicking user to appear in `SLACK_APPROVER_MAP` — a valid signature proves the workspace, not that the clicker may approve. See [docs/slack-approvals.md](docs/slack-approvals.md).
+
+### Changed
+- Decisions from every channel now run through a shared `DecisionService`, so a chat decision and a UI decision behave identically and carry a resolved approver identity.
+
+## [1.5.0] - 2026-07-23
+
+### Added
+- **JIT / time-bound access.** Approve for 5 minutes to 30 days; access is automatically revoked at expiry, which genuinely deprovisions the app in Omnissa Access. Choose what happens afterwards: **re-requestable** (the app returns after a short hold) or **one-time** (it stays gone). Auto-approval rules can grant timed access via `grantTtlMinutes`. See [docs/access-lifecycle.md](docs/access-lifecycle.md).
+- Revocation works for **group-provisioned and directly-assigned** apps alike, using a per-user **exclusion** that overrides group access without touching the group entitlement.
+- **Delete request** — admin cleanup for stale local records (two-step confirmation, fully audited, never touches Omnissa Access).
+- **Backup and restore** for the H2 database and env file: verified archives, retention, a manifest recording the running image digest, and a nightly systemd timer. See [docs/deployment.md](docs/deployment.md#backup-and-restore).
+- Version-tagged container images (moving `major.minor` plus the exact version) so the CasaOS update check detects new builds.
+
+### Fixed
+- Decision delivery reported a false *"Could not reach Omnissa Access"* when the decision had in fact been delivered — the unused response body was parsed into a strict type and the failure was misclassified.
+- SCIM `userName` lookups matched nobody because the filter was double-encoded.
+- Notifications named the requester by a numeric id instead of their name/email, and chat decisions were audited as `system` rather than the real approver.
+
 ## [1.4.0] - 2026-07-22
 
 ### Changed

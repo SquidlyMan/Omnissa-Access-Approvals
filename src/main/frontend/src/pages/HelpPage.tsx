@@ -62,6 +62,12 @@ const CONFIG_VARS: ConfigVar[] = [
   },
   { name: 'WEBHOOK_URL', def: '—', purpose: 'POST a notification to this URL for each new access request and each decision.' },
   { name: 'WEBHOOK_FORMAT', def: 'generic', purpose: 'Webhook payload format: generic, slack, or teams.' },
+  { name: 'WEBHOOK_NOTIFY_LIFECYCLE', def: 'true', purpose: 'Also notify when time-bound access is revoked at expiry and when the app becomes requestable again. false = audit trail and web UI only.' },
+  { name: 'APP_BASE_URL', def: '—', purpose: 'Public URL of this tool (e.g. https://approvals.example.com). Required for actionable Teams cards — their deep links are built off-request, so the URL cannot be read from forwarded headers.' },
+  { name: 'SLACK_ACTIONABLE', def: 'false', purpose: 'true posts an interactive Slack message with an access-duration menu and Approve / Reject / Reject-and-Block buttons. Requires WEBHOOK_FORMAT=slack.' },
+  { name: 'SLACK_SIGNING_SECRET', def: '—', purpose: 'Slack app signing secret. Verifies inbound button clicks at POST /api/slack/interactions (HMAC-SHA256, 5-minute replay window). Required — without it every click is rejected.' },
+  { name: 'SLACK_APPROVER_MAP', def: '—', purpose: 'Who may decide from Slack: comma-separated slackUserId:appIdentity pairs. A valid signature only proves the workspace, so unlisted users are rejected — channel membership never grants approval rights.' },
+  { name: 'TEAMS_ACTIONABLE', def: 'false', purpose: 'true posts a Microsoft Teams Adaptive Card whose buttons open the request with the decision pre-selected. Requires WEBHOOK_FORMAT=teams and APP_BASE_URL.' },
   { name: 'SYSLOG_HOST', def: '—', purpose: 'Forward application logs to this syslog server.' },
   { name: 'SYSLOG_PORT', def: '514', purpose: 'Syslog port number.' },
   { name: 'SYSLOG_PROTOCOL', def: 'udp', purpose: 'Syslog transport: udp, tcp, or tls.' },
@@ -236,6 +242,87 @@ export default function HelpPage() {
             e.g. <Code>Approved by &lt;admin&gt;</Code>, <Code>Rejected by &lt;admin&gt; (bulk
             action)</Code>, or <Code>Auto-Approved by rule #N</Code>.
           </p>
+        </HelpSection>
+
+        <HelpSection title="Access Duration, Revoking and Blocking">
+          <p>
+            Approving is not only yes/no — you also choose <span className="font-medium text-gray-800">how
+            long</span> the access lasts and <span className="font-medium text-gray-800">whether it can
+            come back</span>.
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <span className="font-medium text-gray-800">Access duration</span> — Permanent, or a
+              time-bound (JIT) grant from 5 minutes to 30 days. A timed grant is revoked
+              automatically when it expires, which removes the app from the user in Omnissa Access.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">After expiry</span> — leave{' '}
+              <Code>Allow the user to re-request</Code> ticked and the app returns to a requestable
+              state about a minute after expiry; untick it for one-time access that does not
+              reappear.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Rejecting</span> — a{' '}
+              <Code>Temporary</Code> decline rejects only that request; a <Code>Permanent</Code>{' '}
+              decline also excludes the user so the app will not reappear for them.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Revoking granted access</span> — open an
+              approved request and choose <Code>Revoke access</Code> (the app returns to a
+              requestable state shortly) or <Code>Revoke and block</Code> (the user stays excluded).
+              No need to wait for a TTL.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Allow re-request</span> — any blocked
+              request shows this action on its detail page. It lifts the exclusion so the user can
+              request the app again, and is fully audited. Blocked records live under the{' '}
+              <span className="font-medium text-gray-800">Deactivated</span> tab.
+            </li>
+          </ul>
+          <p>
+            This works whether the app is assigned to the user directly or through a group: the tool
+            toggles a per-user <span className="font-medium text-gray-800">exclusion</span>, leaving
+            the group assignment untouched. If a revoke or block cannot be applied in Omnissa Access,
+            it is <span className="font-medium text-gray-800">not</span> recorded as if it had
+            succeeded.
+          </p>
+          <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <span className="font-medium">Note —</span> after a revoke that allows re-requesting,
+            access can be handed straight back: if the group assignment's{' '}
+            <span className="font-medium">Deployment Type</span> is{' '}
+            <span className="font-medium">Automatic</span>, Omnissa Access re-provisions the app as
+            soon as the exclusion lifts, and a matching auto-approval rule will approve a new request
+            immediately. Use <Code>Revoke and block</Code> when access must stay gone.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="Approving from Slack or Teams">
+          <p>
+            Requests can be decided from chat instead of the queue.
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <span className="font-medium text-gray-800">Slack</span> — set{' '}
+              <EnvVar name="SLACK_ACTIONABLE" />=<Code>true</Code> with{' '}
+              <EnvVar name="WEBHOOK_FORMAT" />=<Code>slack</Code> to post an interactive message with
+              an access-duration menu and Approve / Reject / Reject-and-Block buttons; the message
+              updates in place with the outcome. Requires{' '}
+              <EnvVar name="SLACK_SIGNING_SECRET" /> (every click is signature-verified) and{' '}
+              <EnvVar name="SLACK_APPROVER_MAP" /> — only listed Slack users may decide, so being in
+              the channel is not enough.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Microsoft Teams</span> — set{' '}
+              <EnvVar name="TEAMS_ACTIONABLE" />=<Code>true</Code> with{' '}
+              <EnvVar name="WEBHOOK_FORMAT" />=<Code>teams</Code> and{' '}
+              <EnvVar name="APP_BASE_URL" />. Posts an Adaptive Card whose buttons open the request
+              here with the decision pre-selected — you sign in as usual, so the decision is
+              attributed to your account. Post it through a Power Automate{' '}
+              <span className="font-medium text-gray-800">Send webhook alerts to a channel</span>{' '}
+              workflow (Office 365 connectors are retired).
+            </li>
+          </ul>
         </HelpSection>
 
         <HelpSection title="Webhook Notifications">
