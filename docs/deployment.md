@@ -166,6 +166,44 @@ See [`deploy/zimacube/deploy.sh`](../deploy/zimacube/deploy.sh) and the
 README's ZimaCube section for the Nginx Proxy Manager wiring and the
 Docker-bridge firewall note.
 
+### The CasaOS app tile
+
+Before opening an app, CasaOS probes it at **`<scheme>://<hostname>:<port_map>/`**
+(`ComposeApp.HealthCheck`, logged as *"checking compose app health at the
+specified web port"* in `/var/log/casaos/mod-management.log`). If that probe
+fails, clicking the tile silently runs a `pull` + `up -d` — **it recreates the
+container instead of opening the UI**. Two things follow.
+
+**1. The port must be reachable from the NAS itself.** With `x-casaos hostname`
+unset the probe resolves to `http://127.0.0.1:<port_map>/`, so a container
+published only on the LAN IP is unreachable to it. The compose file publishes
+8081 on loopback as well for this reason — loopback is host-only and does not
+widen exposure.
+
+**2. Behind a TLS reverse proxy, point the tile at the public URL.** CasaOS
+builds the link as `scheme://hostname:port_map/index` and **always appends the
+port**, so all three must be set together. In the compose project's `.env`:
+
+```bash
+WEBUI_SCHEME=https
+WEBUI_HOSTNAME=approvals.example.com
+WEBUI_PORT=443
+```
+
+That yields `https://approvals.example.com:443/` — the public URL. Setting
+`WEBUI_HOSTNAME` while leaving the port at 8081 produces
+`https://approvals.example.com:8081/`, where nothing listens, and the launch
+page reports **Service Unavailable**.
+
+This is worth doing: admin OAuth2 login only works on the registered redirect
+URI, so opening the app by NAS host and port breaks *Sign in with Omnissa
+Access* (local admin login still works), and a plain-`http` link is blocked as
+mixed content when the ZimaOS dashboard itself is served over HTTPS. Leaving
+all three unset keeps the old behavior, `http://<nas-host>:8081/`.
+
+These are CasaOS-side settings read from the compose file's `x-casaos` block —
+nothing in the application image changes.
+
 ## Backup and Restore
 
 Only two things are not reproducible from GHCR and git:
