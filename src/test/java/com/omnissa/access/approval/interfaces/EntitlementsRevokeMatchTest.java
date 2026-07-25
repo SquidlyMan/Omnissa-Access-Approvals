@@ -88,6 +88,28 @@ class EntitlementsRevokeMatchTest {
     }
 
     @Test
+    void readsTheUsersDeploymentType() throws Exception {
+        // Captured at grant time so a restore re-creates the original assignment
+        // instead of silently converting an Automatic user to User-Activated.
+        String automatic = """
+            {"items":[{"subjectType":"USERS","subjectId":"scim-dean","name":"dean",
+                       "displayName":"dean@flaming.ws","activationPolicy":"AUTOMATIC"}]}""";
+        assertEquals("AUTOMATIC",
+                EntitlementsInterfaceImpl.userActivationPolicy(items(automatic), "scim-dean"));
+
+        // An exclusion entry is not the user's real assignment — ignore it.
+        String excluded = """
+            {"items":[{"subjectType":"USERS","subjectId":"scim-dean","name":"dean",
+                       "displayName":"dean@flaming.ws","activationPolicy":"USER_ACTIVATED","negative":true}]}""";
+        assertNull(EntitlementsInterfaceImpl.userActivationPolicy(items(excluded), "scim-dean"));
+
+        // Group-only listing: nothing to read for this user.
+        String groupOnly = """
+            {"items":[{"subjectType":"GROUPS","subjectId":"grp","name":"g","displayName":"g"}]}""";
+        assertNull(EntitlementsInterfaceImpl.userActivationPolicy(items(groupOnly), "scim-dean"));
+    }
+
+    @Test
     void detectsExclusion() throws Exception {
         // A negative USERS entry is an exclusion, not a positive assignment.
         String excluded = """

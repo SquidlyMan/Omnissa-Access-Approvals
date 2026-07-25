@@ -25,6 +25,7 @@ export interface CalloutRequest {
   revokedAt: string | null
   reRequestable: boolean | null
   assignmentType: string | null
+  activationPolicy: string | null
   restoreAt: string | null
   restoredAt: string | null
 }
