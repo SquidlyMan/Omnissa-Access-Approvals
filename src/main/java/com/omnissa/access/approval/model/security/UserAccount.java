@@ -1,5 +1,6 @@
 package com.omnissa.access.approval.model.security;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -67,7 +68,17 @@ public class UserAccount implements UserDetails {
 
     public void setAuthorities(List<Authority> authorities) { this.authorities = authorities; }
 
+    /**
+     * The persisted {@link Authority} rows. Named distinctly from
+     * {@link #getAuthorities()} so the {@link UserDetails} contract stays
+     * unambiguous, and marked {@code @JsonIgnore} so no serializer can walk
+     * back into the entity graph.
+     */
+    @JsonIgnore
+    public List<Authority> getAuthorityEntities() { return authorities; }
+
     @Override
+    @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return AuthorityUtils.createAuthorityList(authZ(authorities));
     }
@@ -77,11 +88,14 @@ public class UserAccount implements UserDetails {
     @Override public boolean isCredentialsNonExpired() { return true; }
     @Override public boolean isEnabled() { return Boolean.TRUE.equals(enabled); }
 
+    /** Null-safe: a user with no authority rows gets an empty authority list, not an NPE. */
     private String[] authZ(List<Authority> authorities) {
-        String[] array = new String[authorities.size()];
-        for (int i = 0; i < authorities.size(); i++) {
-            array[i] = authorities.get(i).getAuthorityName().toString();
+        if (authorities == null) {
+            return new String[0];
         }
-        return array;
+        return authorities.stream()
+                .filter(a -> a != null && a.getAuthorityName() != null)
+                .map(a -> a.getAuthorityName().toString())
+                .toArray(String[]::new);
     }
 }
