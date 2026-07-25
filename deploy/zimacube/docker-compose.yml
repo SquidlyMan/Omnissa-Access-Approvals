@@ -86,15 +86,22 @@ x-casaos:
   description:
     en_us: Independent approval workflow tool for Omnissa Access (Workspace ONE) application requests. Not an Omnissa product.
   icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgcng9IjQ4IiBmaWxsPSIjMTMyMjUwIi8+PGNpcmNsZSBjeD0iMTI4IiBjeT0iMTI4IiByPSI3MiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjE0Ii8+PHBhdGggZD0iTTk2IDEzMGwyNCAyNCA0NC01MiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjE2IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4="
-  # port_map is what CasaOS probes on 127.0.0.1 before opening the app (see the
-  # loopback publish above) and the port it puts in the tile's link.
-  port_map: "8081"
   index: /
-  # Point the CasaOS tile at the public URL instead of http://<nas>:8081. This
-  # matters because admin OAuth2 login only works on the registered redirect
-  # URI — reaching the app by NAS host:port breaks "Sign in with Omnissa
-  # Access" (local admin login still works). Set WEBUI_SCHEME=https and
-  # WEBUI_HOSTNAME=approvals.example.com in this compose's .env. Left empty,
-  # CasaOS falls back to the NAS host and port_map, which is the old behavior.
+  # CasaOS builds the tile's link as scheme://hostname:port_map/index — the
+  # port is ALWAYS appended, so these three must be set as a set.
+  #
+  # Default (all unset): http://<nas-host>:8081/ — the app's own port.
+  #
+  # Behind a TLS reverse proxy, point the tile at the public URL instead, in
+  # this compose's .env:
+  #     WEBUI_SCHEME=https
+  #     WEBUI_HOSTNAME=approvals.example.com
+  #     WEBUI_PORT=443
+  # which yields https://approvals.example.com:443/ — i.e. the public URL.
+  # Worth doing: admin OAuth2 login only works on the registered redirect URI,
+  # so opening the app by NAS host:port breaks "Sign in with Omnissa Access"
+  # (local admin login still works), and a plain-http link is blocked as mixed
+  # content when the ZimaOS dashboard itself is served over https.
+  port_map: "${WEBUI_PORT:-8081}"
   scheme: ${WEBUI_SCHEME:-http}
   hostname: ${WEBUI_HOSTNAME:-}
