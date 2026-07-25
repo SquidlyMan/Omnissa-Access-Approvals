@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSse } from '../hooks/useSse'
+import { useAuth } from '../hooks/useAuth'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
 import ApprovalDialog from '../components/ApprovalDialog'
 import type { Page, CalloutRequest, AuditPage, AuditAction } from '../types'
 import { getCsrfToken } from '../utils/csrf'
 import { requesterLabel } from '../utils/requester'
+import { canDecide, canViewAudit, canViewQueue, FORBIDDEN_MESSAGE } from '../lib/permissions'
 
 const STATE_TABS = [
   { key: 'pending',     label: 'Awaiting Review' },
@@ -42,8 +44,17 @@ function AuditActionBadge({ action }: { action: AuditAction }) {
 
 export default function QueuePage() {
   const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeState = searchParams.get('state') ?? 'pending'
+
+  // Auditors see the audit trail only; everyone else sees the request tabs too.
+  const showRequestTabs = canViewQueue(user)
+  const showAuditTab = canViewAudit(user)
+  const visibleTabs = STATE_TABS.filter(t => (t.key === 'audit' ? showAuditTab : showRequestTabs))
+  const requestedState = searchParams.get('state') ?? 'pending'
+  const activeState = visibleTabs.some(t => t.key === requestedState)
+    ? requestedState
+    : visibleTabs[0]?.key ?? requestedState
 
   const [page, setPage] = useState<Page<CalloutRequest> | null>(null)
   const [pageNum, setPageNum] = useState(0)
@@ -52,6 +63,8 @@ export default function QueuePage() {
   const [auditPage, setAuditPage] = useState<AuditPage | null>(null)
 
   const load = useCallback(() => {
+    // Which tab is active depends on the user's roles — wait for them.
+    if (authLoading) return
     if (activeState === 'audit') {
       fetch(`/api/audit?page=${pageNum}&size=25`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
@@ -65,14 +78,15 @@ export default function QueuePage() {
       .then(r => r.ok ? r.json() : null)
       .then(setPage)
       .finally(() => setPendingLiveUpdate(false))
-  }, [activeState, pageNum])
+  }, [activeState, pageNum, authLoading])
 
   useEffect(() => { setPageNum(0) }, [activeState])
   useEffect(() => { load() }, [load])
 
   useSse(
     useCallback(() => { if (activeState === 'pending') setPendingLiveUpdate(true) }, [activeState]),
-    useCallback(() => { load() }, [load])
+    useCallback(() => { load() }, [load]),
+    showRequestTabs,
   )
 
   const [pulling, setPulling] = useState(false)
@@ -81,6 +95,10 @@ export default function QueuePage() {
   function switchState(s: string) {
     setSearchParams({ state: s })
   }
+
+  // No role grants any tab — only reachable if the backend sends no authorities.
+  // Say so plainly instead of rendering an empty shell.
+  const noAccess = !authLoading && visibleTabs.length === 0
 
   async function pullFromAccess() {
     setPulling(true)
@@ -93,7 +111,7 @@ export default function QueuePage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setPullMsg(data.error || 'Could not reach Omnissa Access.')
+        setPullMsg(res.status === 403 ? FORBIDDEN_MESSAGE : data.error || 'Could not reach Omnissa Access.')
       } else {
         setPullMsg(
           data.pulled > 0
@@ -115,6 +133,14 @@ export default function QueuePage() {
         <h1 className="text-2xl font-semibold text-gray-900">Queue</h1>
       </div>
 
+      {noAccess && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <p className="text-sm text-gray-400 px-5 py-8 text-center">
+            You do not have permission to view this page.
+          </p>
+        </div>
+      )}
+
       {/* Live update banner */}
       {pendingLiveUpdate && (
         <div
@@ -127,8 +153,9 @@ export default function QueuePage() {
       )}
 
       {/* Tab bar */}
+      {!noAccess && (
       <div className="flex gap-1 mb-5 border-b border-gray-200 overflow-x-auto md:overflow-visible pb-px md:pb-0">
-        {STATE_TABS.map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => switchState(tab.key)}
@@ -141,9 +168,10 @@ export default function QueuePage() {
           </button>
         ))}
       </div>
+      )}
 
       {/* Audit trail */}
-      {activeState === 'audit' && (
+      {!noAccess && activeState === 'audit' && (
         <>
         <div className="flex justify-end mb-3">
           <a
@@ -212,8 +240,8 @@ export default function QueuePage() {
         </>
       )}
 
-      {/* Manual pull (Awaiting Review only) */}
-      {activeState === 'pending' && (
+      {/* Manual pull (Awaiting Review only, approvers and admins) */}
+      {activeState === 'pending' && canDecide(user) && (
         <div className="flex flex-wrap items-center justify-end gap-3 mb-3">
           {pullMsg && <span className="text-sm text-gray-500">{pullMsg}</span>}
           <button
@@ -228,7 +256,7 @@ export default function QueuePage() {
       )}
 
       {/* Request list */}
-      {activeState !== 'audit' && (
+      {!noAccess && activeState !== 'audit' && (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {!page || page.content.length === 0 ? (
           <p className="text-sm text-gray-400 px-5 py-8 text-center">No requests in this category.</p>
@@ -252,7 +280,7 @@ export default function QueuePage() {
                   </div>
                   <div className="shrink-0 flex items-center gap-3">
                     <StatusBadge state={req.state} />
-                    {req.state === 'pending' && (
+                    {req.state === 'pending' && canDecide(user) && (
                       <button
                         onClick={() => setDialogReq(req)}
                         className="text-sm px-3 py-1.5 rounded-lg bg-omnissa text-white hover:bg-omnissa-dark transition-colors"

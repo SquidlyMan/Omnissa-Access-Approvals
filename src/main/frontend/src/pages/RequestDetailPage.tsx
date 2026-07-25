@@ -8,12 +8,19 @@ import RevokeAccessDialog from '../components/RevokeAccessDialog'
 import type { CalloutRequest } from '../types'
 import { requesterLabel } from '../utils/requester'
 import { getCsrfToken } from '../utils/csrf'
+import { useAuth } from '../hooks/useAuth'
+import { canAdminister, canDecide, FORBIDDEN_MESSAGE } from '../lib/permissions'
 
 export default function RequestDetailPage() {
   const { requestId } = useParams<{ requestId: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const mayDecide = canDecide(user)
+  // Deleting the local record is admin-only — an approver gets 403 on DELETE.
+  const mayDelete = canAdminister(user)
   const [req, setReq] = useState<CalloutRequest | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showDialog, setShowDialog] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [unblocking, setUnblocking] = useState(false)
@@ -28,12 +35,12 @@ export default function RequestDetailPage() {
     deepLinkAction === 'approve' ? true : deepLinkAction === 'reject' ? false : null
 
   useEffect(() => {
-    if (!req || req.state !== 'pending' || !deepLinkAction) return
+    if (!req || req.state !== 'pending' || !deepLinkAction || !mayDecide) return
     setShowDialog(true)
     // Drop the param so a refresh or back-navigation doesn't reopen the dialog.
     searchParams.delete('action')
     setSearchParams(searchParams, { replace: true })
-  }, [req, deepLinkAction, searchParams, setSearchParams])
+  }, [req, deepLinkAction, mayDecide, searchParams, setSearchParams])
 
   /** Lift a permanent decline: remove the user's exclusion in Omnissa Access. */
   async function allowReRequest() {
@@ -45,6 +52,7 @@ export default function RequestDetailPage() {
         credentials: 'include',
         headers: { 'X-XSRF-TOKEN': getCsrfToken() },
       })
+      if (res.status === 403) { setUnblockMsg(FORBIDDEN_MESSAGE); return }
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const data: { outcome?: string } = await res.json().catch(() => ({}))
       if (data.outcome === 'revoked') {
@@ -68,13 +76,16 @@ export default function RequestDetailPage() {
 
   useEffect(() => {
     fetch(`/api/approvals/requests/${requestId}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (r.status === 403) { setLoadError(FORBIDDEN_MESSAGE); return null }
+        return r.ok ? r.json() : null
+      })
       .then(setReq)
       .finally(() => setLoading(false))
   }, [requestId])
 
   if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
-  if (!req) return <p className="text-sm text-red-500 py-10 text-center">Request not found.</p>
+  if (!req) return <p className="text-sm text-red-500 py-10 text-center">{loadError || 'Request not found.'}</p>
 
   const requestor = requesterLabel(req)
   const email     = req.userAttributes?.['email']?.[0]     ?? req.userId
@@ -144,7 +155,7 @@ export default function RequestDetailPage() {
       )}
 
       {/* Action */}
-      {req.state === 'pending' && (
+      {req.state === 'pending' && mayDecide && (
         <button
           onClick={() => setShowDialog(true)}
           className="w-full py-2.5 rounded-xl bg-omnissa text-white font-medium hover:bg-omnissa-dark transition-colors"
@@ -154,7 +165,7 @@ export default function RequestDetailPage() {
       )}
 
       {/* Revoke an active grant on demand, without waiting for a TTL. */}
-      {req.state === 'approved' && (
+      {req.state === 'approved' && mayDecide && (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-sm font-medium text-gray-800 mb-1">Revoke this access</p>
           <p className="text-xs text-gray-500 mb-3">
@@ -187,33 +198,39 @@ export default function RequestDetailPage() {
       {(req.state === 'rejected' || req.state === 'revoked') && req.reRequestable === false && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-900 font-medium mb-1">This user is blocked from re-requesting</p>
-          <p className="text-xs text-amber-800 mb-3">
-            They are excluded from this app in Omnissa Access. Lifting the block removes the
-            exclusion so they can request it again.
+          <p className={`text-xs text-amber-800 ${mayDecide ? 'mb-3' : ''}`}>
+            They are excluded from this app in Omnissa Access.
+            {mayDecide && ' Lifting the block removes the exclusion so they can request it again.'}
           </p>
-          {unblockMsg && <p className="text-xs text-amber-900 mb-2">{unblockMsg}</p>}
-          <button
-            onClick={allowReRequest}
-            disabled={unblocking}
-            className="text-sm px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-amber-900 hover:bg-amber-100 disabled:opacity-50 transition-colors"
-          >
-            {unblocking ? 'Lifting…' : 'Allow re-request'}
-          </button>
+          {mayDecide && (
+            <>
+              {unblockMsg && <p className="text-xs text-amber-900 mb-2">{unblockMsg}</p>}
+              <button
+                onClick={allowReRequest}
+                disabled={unblocking}
+                className="text-sm px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-amber-900 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+              >
+                {unblocking ? 'Lifting…' : 'Allow re-request'}
+              </button>
+            </>
+          )}
         </div>
       )}
 
       {/* Destructive: remove a stale/orphaned local record. Does not touch Access. */}
-      <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
-        <span className="text-xs text-gray-400">
-          Remove this request from the tool. Local only — does not affect Omnissa Access.
-        </span>
-        <button
-          onClick={() => setShowDelete(true)}
-          className="shrink-0 text-sm px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-        >
-          Delete request
-        </button>
-      </div>
+      {mayDelete && (
+        <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-400">
+            Remove this request from the tool. Local only — does not affect Omnissa Access.
+          </span>
+          <button
+            onClick={() => setShowDelete(true)}
+            className="shrink-0 text-sm px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Delete request
+          </button>
+        </div>
+      )}
 
       {showDialog && (
         <ApprovalDialog

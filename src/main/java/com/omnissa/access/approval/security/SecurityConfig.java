@@ -35,6 +35,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
@@ -250,12 +251,28 @@ public class SecurityConfig {
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
             )
-            // API calls from SPA get 401, not a redirect
+            // API calls from the SPA get a JSON status, browser navigations get a
+            // redirect. Previously everything redirected, so an expired session
+            // returned 302 -> /login -> 200 HTML and the SPA saw res.ok === true
+            // with an HTML body: a logged-out user looked like a successful,
+            // empty response. Order matters — the /api/** rule must be
+            // registered before the catch-all.
             .exceptionHandling(ex -> ex
+                .defaultAuthenticationEntryPointFor(
+                    jsonEntryPoint(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required"),
+                    PathPatternRequestMatcher.pathPattern("/api/**")
+                )
                 .defaultAuthenticationEntryPointFor(
                     new LoginUrlAuthenticationEntryPoint("/login"),
                     PathPatternRequestMatcher.pathPattern("/**")
                 )
+                // Without this, a denied request falls through to Boot's
+                // BasicErrorController and — because fetch sends Accept: */* —
+                // returns the Whitelabel HTML page, so res.json() throws on
+                // every 403.
+                .accessDeniedHandler((request, response, denied) ->
+                    writeJsonStatus(response, HttpServletResponse.SC_FORBIDDEN,
+                            "You do not have permission to do that"))
             )
             .headers(headers -> headers
                 .httpStrictTransportSecurity(hsts -> hsts
@@ -312,6 +329,22 @@ public class SecurityConfig {
 
             return new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo());
         };
+    }
+
+    /** Entry point that answers with a JSON status instead of a login redirect. */
+    private static AuthenticationEntryPoint jsonEntryPoint(int status, String message) {
+        return (request, response, authException) -> writeJsonStatus(response, status, message);
+    }
+
+    private static void writeJsonStatus(HttpServletResponse response, int status, String message)
+            throws IOException {
+        if (response.isCommitted()) {
+            return;
+        }
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"status\":" + status + ",\"error\":\""
+                + message.replace("\"", "\\\"") + "\"}");
     }
 
     @Bean
