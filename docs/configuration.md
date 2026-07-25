@@ -1,9 +1,18 @@
 # Configuration Reference
 
-All configuration is via environment variables (set in your `.env` /
-env file for Docker, or as properties in
-`config/application-local.properties` for local development). Changes
-require a container recreate/restart to apply.
+All configuration is via environment variables. Unless a page says otherwise,
+**every variable in this document is set in the tool's env file**:
+
+- `omnissa-approvals.env` — the ZimaCube/Docker deployment (referenced by
+  `env_file:` in the Compose file; on a ZimaCube it lives at
+  `/media/ZIMARAID/omnissa-approvals/omnissa-approvals.env`);
+- `.env` — the bundled Compose files in this repository;
+- or as container environment values, if your platform manages them that way;
+- or as properties in `config/application-local.properties` for local
+  development.
+
+Changes require a container **recreate** (`docker compose … up -d
+--force-recreate`) — a plain restart does not re-read the env file.
 
 A complete, commented env-file template lives at
 [`deploy/zimacube/omnissa-approvals.env.example`](../deploy/zimacube/omnissa-approvals.env.example).
@@ -139,9 +148,11 @@ The three formats:
   {"text":"Auto-Rejected by rule #5: Example App (SAML) (user 123456)"}
   ```
 
-- **`teams`** — same `text` payloads for a Microsoft Teams channel workflow
-  ("Post to a channel when a webhook request is received"; URL on
-  `webhook.office.com`).
+- **`teams`** — same `text` payloads for a Microsoft Teams channel workflow.
+  Create it from the **Workflows** app using the *"Send Webhook Alerts to a
+  Channel"* template, then **Copy webhook link** — the URL is on
+  `*.environment.api.powerplatform.com`. (The older `webhook.office.com`
+  connector URLs belong to Office 365 connectors, which Microsoft has retired.)
 
 ### Actionable Teams approvals
 

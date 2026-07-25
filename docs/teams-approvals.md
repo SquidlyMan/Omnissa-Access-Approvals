@@ -45,8 +45,10 @@ In Teams, open the **Workflows** app → **Templates** → search `webhook` → 
 *When a Teams webhook request is received* trigger).
 
 1. Pick the **team and channel** that should receive approvals.
-2. Finish the template — Power Automate shows a **URL**. Copy it; this is your
-   `WEBHOOK_URL`.
+2. Finish the template, then click **Copy webhook link**. The URL is a Power
+   Automate address on `*.environment.api.powerplatform.com` — this is your
+   `WEBHOOK_URL`. (Retired Office 365 connectors used `webhook.office.com`; a
+   URL on that domain is the old connector and no longer works.)
 
 The tool posts the standard envelope a workflow expects:
 
@@ -64,6 +66,10 @@ If the template's post step doesn't render the card, edit the flow's
 body** rather than a text field.
 
 ## 2. Configure the tool
+
+Set these in the tool's **env file** — `omnissa-approvals.env` for the
+ZimaCube/Docker deployment, `.env` for the bundled Compose files (or as container
+environment values if your platform manages them that way):
 
 | Variable | Example | Purpose |
 |---|---|---|
