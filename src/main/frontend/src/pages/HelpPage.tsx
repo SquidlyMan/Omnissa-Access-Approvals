@@ -299,11 +299,14 @@ export default function HelpPage() {
 
         <HelpSection title="Approving from Slack or Teams">
           <p>
-            Requests can be decided from chat instead of the queue.
+            Requests can be decided from chat instead of the queue. Both options are configured in
+            the tool's <span className="font-medium text-gray-800">env file</span> (
+            <Code>omnissa-approvals.env</Code>, or <Code>.env</Code> for the bundled Compose files),
+            on top of the webhook settings described in the next section.
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <span className="font-medium text-gray-800">Slack</span> — set{' '}
+              <span className="font-medium text-gray-800">Slack</span> — in the env file set{' '}
               <EnvVar name="SLACK_ACTIONABLE" />=<Code>true</Code> with{' '}
               <EnvVar name="WEBHOOK_FORMAT" />=<Code>slack</Code> to post an interactive message with
               an access-duration menu and Approve / Reject / Reject-and-Block buttons; the message
@@ -313,7 +316,7 @@ export default function HelpPage() {
               the channel is not enough.
             </li>
             <li>
-              <span className="font-medium text-gray-800">Microsoft Teams</span> — set{' '}
+              <span className="font-medium text-gray-800">Microsoft Teams</span> — in the env file set{' '}
               <EnvVar name="TEAMS_ACTIONABLE" />=<Code>true</Code> with{' '}
               <EnvVar name="WEBHOOK_FORMAT" />=<Code>teams</Code> and{' '}
               <EnvVar name="APP_BASE_URL" />. Posts an Adaptive Card whose buttons open the request
@@ -327,10 +330,16 @@ export default function HelpPage() {
 
         <HelpSection title="Webhook Notifications">
           <p>
-            Set the <EnvVar name="WEBHOOK_URL" /> container environment value to POST a notification
-            for each new access request and for each decision (approved or rejected, whether made
-            by an admin or an auto-approval rule), and <EnvVar name="WEBHOOK_FORMAT" /> to match
-            the receiving system:
+            All values below are set in the tool's <span className="font-medium text-gray-800">env
+            file</span> — <Code>omnissa-approvals.env</Code> for the ZimaCube/Docker deployment,{' '}
+            <Code>.env</Code> for the bundled Compose files — or as container environment values if
+            your platform manages them that way. Changes need a container recreate, not a restart.
+          </p>
+          <p>
+            Set <EnvVar name="WEBHOOK_URL" /> in the env file to POST a notification for each new
+            access request and for each decision (approved or rejected, whether made by an admin or
+            an auto-approval rule), and <EnvVar name="WEBHOOK_FORMAT" /> to match the receiving
+            system:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
@@ -345,9 +354,12 @@ export default function HelpPage() {
             <li>
               <span className="font-medium text-gray-800">Microsoft Teams</span> — in the channel,
               click <span className="font-medium text-gray-800">⋯ &gt; Workflows</span> and choose{' '}
-              <span className="font-medium text-gray-800">"Post to a channel when a webhook request
-              is received"</span> (the successor of the Incoming Webhook connector), then copy the{' '}
-              <Code>webhook.office.com</Code> URL. Set{' '}
+              <span className="font-medium text-gray-800">"Send Webhook Alerts to a Channel"</span>{' '}
+              (the successor of the Incoming Webhook connector, which Microsoft has retired), pick
+              the team and channel, then click{' '}
+              <span className="font-medium text-gray-800">Copy webhook link</span> to copy the URL —
+              a Power Automate address on{' '}
+              <Code>*.environment.api.powerplatform.com</Code>. Set{' '}
               <EnvVar name="WEBHOOK_FORMAT" />=<Code>teams</Code>.
             </li>
             <li>

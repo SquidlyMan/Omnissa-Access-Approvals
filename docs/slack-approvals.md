@@ -99,6 +99,10 @@ use.
 
 ## 2. Configure the tool
 
+Set these in the tool's **env file** — `omnissa-approvals.env` for the
+ZimaCube/Docker deployment, `.env` for the bundled Compose files (or as container
+environment values if your platform manages them that way):
+
 | Variable | Example | Purpose |
 |---|---|---|
 | `WEBHOOK_URL` | `https://hooks.slack.com/services/T…/B…/…` | Where messages are posted |
