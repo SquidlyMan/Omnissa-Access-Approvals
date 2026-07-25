@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.5] - 2026-07-25
+
+### Fixed
+- **Clicking the app's tile in ZimaOS recreated the container instead of opening it.** Before opening an app, CasaOS probes it at `<scheme>://<hostname>:<port_map>/` (`ComposeApp.HealthCheck`); with the port published only on the LAN IP that probe resolved to `http://127.0.0.1:8081/` and was refused, so CasaOS concluded the app was down and fell into its start/repair path — a silent `pull` + `up -d`. Port 8081 is now published on loopback as well (host-only; network exposure and the `DOCKER-USER` LAN-only rule are unchanged).
+- `deploy.sh` wrote the compose `.env` with a `>` redirect, so every run discarded `OMNISSA_IMAGE_TAG` and the new `WEBUI_*` settings — silently unpinning the image tag and reverting the CasaOS tile. `LAN_IP` is now rewritten in place.
+
+### Added
+- `WEBUI_SCHEME` / `WEBUI_HOSTNAME` / `WEBUI_PORT` in the ZimaCube compose `.env` point the CasaOS tile at the public URL instead of `http://<nas>:8081`. CasaOS builds the link as `scheme://hostname:port_map/index` and **always appends the port**, so the three must be set together. Worth setting: admin OAuth2 login only works on the registered redirect URI, and a plain-`http` link is blocked as mixed content from an HTTPS dashboard. Left unset, behavior is unchanged.
+
+### Changed
+- **Corrected the CasaOS update guidance, which was wrong in both directions.** The *"Check and then update"* button does not work for this container and no image tag changes that: ZimaOS resolves *"is an update available?"* by looking the app up in a CasaOS **AppStore**, and an externally-managed Compose app is never found there, so the check reports "latest version" without ever contacting the registry. Verified against the live NAS with the container pinned to `1.9` while the registry `1.9` tag pointed at a newer digest. `OMNISSA_IMAGE_TAG` is retained and re-scoped as deterministic pinning rather than a CasaOS workaround.
+- In-app Help gained condensed **6-step Slack** and **4-step Teams** setup walkthroughs, so chat approvals can be configured without leaving the app.
+- Documentation now names the **env file** wherever it tells an admin to set a variable, and the Teams setup steps match the current Power Automate UI (*"Send Webhook Alerts to a Channel"*, *"Copy webhook link"*).
+
 ## [1.9.1] - 2026-07-25
 
 ### Fixed
