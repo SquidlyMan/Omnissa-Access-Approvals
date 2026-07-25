@@ -173,7 +173,10 @@ public class SlackController {
             body.put("text", text);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            restTemplate.postForEntity(responseUrl, new HttpEntity<>(body, headers), String.class);
+            // URI, not String — a String is treated as a URI template and
+            // re-encoded, which would corrupt an already-encoded response_url.
+            restTemplate.postForEntity(java.net.URI.create(responseUrl),
+                    new HttpEntity<>(body, headers), String.class);
         } catch (Exception e) {
             logger.warn("Slack message update failed: {}", e.getMessage());
         }

@@ -11,6 +11,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -327,7 +328,13 @@ public class WebhookNotifier {
             try {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
-                restTemplate.postForEntity(webhookUrl, new HttpEntity<>(payload, headers), String.class);
+                // Pass a URI, not a String: RestTemplate treats a String as a URI
+                // TEMPLATE and re-encodes it, so a webhook URL carrying an
+                // already-encoded query (e.g. Power Automate's
+                // "sp=%2Ftriggers%2Fmanual%2Frun&sig=…") becomes "%252F…" and the
+                // signature no longer matches — the post is rejected 401.
+                restTemplate.postForEntity(URI.create(webhookUrl),
+                        new HttpEntity<>(payload, headers), String.class);
                 logger.info("Webhook notification sent for requestId={}", requestId);
             } catch (Exception e) {
                 logger.warn("Webhook notification failed for requestId={}: {}", requestId, e.getMessage());
