@@ -166,6 +166,73 @@ See [`deploy/zimacube/deploy.sh`](../deploy/zimacube/deploy.sh) and the
 README's ZimaCube section for the Nginx Proxy Manager wiring and the
 Docker-bridge firewall note.
 
+## Backup and Restore
+
+Only two things are not reproducible from GHCR and git:
+
+- **the H2 database** (`data/omnissa-approval.mv.db`) — every request, decision,
+  auto-approval rule, audit entry and local admin account;
+- **the env file** (`omnissa-approvals.env`) — tenant URL, OAuth client secrets,
+  Slack signing secret, SMTP credentials.
+
+[`deploy/zimacube/backup.sh`](../deploy/zimacube/backup.sh) archives both (plus
+the compose `.env` and a manifest recording the running image digest) to
+`/media/ZIMARAID/Backups/OmnissaApprovals/`.
+
+```bash
+sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/backup.sh
+sudo sh ... backup.sh --quiesce      # stop the app for a provably-consistent copy
+sudo sh ... backup.sh --keep 30      # retention (default: 14 archives)
+```
+
+Archives are `chmod 600` in a `chmod 700` directory **because they contain
+secrets** — treat a copy of one as equivalent to the env file. Each run verifies
+the archive is readable and contains the database before pruning old ones; a
+backup that fails verification is deleted rather than left to look valid.
+
+> **Consistency:** the default is a **live** copy taken without stopping the
+> container. H2 is a single file being written by a running app, so a live copy
+> is not transactionally guaranteed. That trade is deliberate — stopping the
+> container drops inbound callouts, and **Omnissa Access does not retry a failed
+> push**, so a request arriving during downtime would be lost outright (only
+> recoverable later via *Pull from Access*). Use `--quiesce` when you want a
+> guaranteed-clean copy and can accept ~30 s of downtime.
+
+### Schedule it
+
+Two systemd units run it nightly at 03:15 (quiet hours, so a live copy is least
+likely to catch a write) and catch up after downtime:
+
+```bash
+SRC=/media/ZIMARAID/omnissa-approvals/src/deploy/zimacube
+sudo cp $SRC/omnissa-approvals-backup.service $SRC/omnissa-approvals-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now omnissa-approvals-backup.timer
+systemctl list-timers omnissa-approvals-backup.timer     # confirm it is scheduled
+sudo systemctl start omnissa-approvals-backup.service    # run once now
+journalctl -u omnissa-approvals-backup.service -n 20     # check the result
+```
+
+### Restore
+
+[`deploy/zimacube/restore.sh`](../deploy/zimacube/restore.sh) prints the
+archive's manifest, requires you to type `RESTORE`, **copies the current state
+aside first** (so a bad restore is itself recoverable), stops the app, swaps the
+files in, restarts, and waits for the health check.
+
+```bash
+sudo sh restore.sh /media/ZIMARAID/Backups/OmnissaApprovals/omnissa-approvals-YYYYmmdd-HHMMSS.tar.gz
+sudo sh restore.sh <archive> --db-only    # database only; keep current secrets
+```
+
+Use `--db-only` when the env file has changed since the backup (rotated secrets,
+new Slack app) and you only want the data back.
+
+> **Test a restore before you need one.** A backup is only proven by restoring
+> it. `restore.sh` preserves the pre-restore state under
+> `/media/ZIMARAID/omnissa-approvals/pre-restore-<timestamp>/`, so a rehearsal is
+> low-risk — but it does briefly stop the app.
+
 ## Automatic Updates (optional, disabled by default)
 
 The ZimaCube compose file

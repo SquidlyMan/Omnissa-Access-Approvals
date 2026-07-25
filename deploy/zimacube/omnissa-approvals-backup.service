@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up Access Approval Tool state (H2 database + env file)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Live snapshot by default — stopping the app would drop inbound Omnissa Access
+# callouts, which are not retried. Add --quiesce here if you prefer a
+# provably-consistent copy and can accept ~30s of downtime.
+ExecStart=/bin/sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/backup.sh --keep 14

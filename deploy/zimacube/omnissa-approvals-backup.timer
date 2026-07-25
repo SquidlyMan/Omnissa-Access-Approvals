@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly backup of Access Approval Tool state
+
+[Timer]
+# 03:15 local time — quiet hours, so a live copy is least likely to catch a write.
+OnCalendar=*-*-* 03:15:00
+# Catch up after downtime rather than skipping the day.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
