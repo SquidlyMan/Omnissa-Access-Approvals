@@ -1,5 +1,6 @@
 package com.omnissa.access.approval.security;
 
+import com.omnissa.access.approval.model.security.AuthorityName;
 import com.omnissa.access.approval.repository.UserAccountRepository;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
@@ -16,6 +17,10 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -28,6 +33,7 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -40,10 +46,16 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Autowired
     private UserAccountRepository userAccountRepository;
@@ -59,6 +71,10 @@ public class SecurityConfig {
 
     @Value("${omnissa.auth.local-login-disabled:false}")
     private boolean localLoginDisabled;
+
+    /** {@code <groupId>:<ROLE>} pairs matched against the OIDC group_ids claim. */
+    @Value("${omnissa.rbac.role-map:}")
+    private String roleMap;
 
     @Value("${omnissa.api.rate-limit:60}")
     private int apiRateLimit;
@@ -142,6 +158,60 @@ public class SecurityConfig {
                 .requestMatchers("/api/config/auth").permitAll()
                 // Login page and OAuth2 endpoints
                 .requestMatchers("/login", "/login/**", "/oauth2/**").permitAll()
+
+                // ---- Role-based rules (#52) ----------------------------------
+                // Roles come from Omnissa Access group membership; see
+                // GroupRoleMapper. Rules are centralised here rather than spread
+                // across @PreAuthorize so the whole policy is reviewable at once.
+                //
+                // ADMIN    everything
+                // APPROVER decide requests, revoke, block, allow re-request
+                // VIEWER   read the queue, audit and statistics
+                // AUDITOR  audit trail and CSV export only — no live queue
+                //
+                // ROLE_USER is the pre-RBAC legacy role and reads as VIEWER.
+
+                // Anyone signed in may ask who they are.
+                .requestMatchers("/api/auth/**").authenticated()
+
+                // Tenant configuration, users, log bundle — admin only. The log
+                // bundle is admin-gated because it contains request payloads.
+                .requestMatchers("/api/users/**").hasRole("ADMIN")
+                .requestMatchers("/api/logs/**").hasRole("ADMIN")
+                .requestMatchers("/api/config/server/**", "/api/config/server").hasRole("ADMIN")
+
+                // Auto-approval rules: readable by anyone who can see the queue,
+                // writable only by admins — a rule change silently grants access.
+                .requestMatchers(HttpMethod.GET, "/api/rules", "/api/rules/**")
+                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "USER")
+                .requestMatchers("/api/rules", "/api/rules/**").hasRole("ADMIN")
+
+                // Historical records — the auditor's whole remit.
+                .requestMatchers("/api/audit", "/api/audit/**")
+                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
+                .requestMatchers("/api/approvals/export.csv")
+                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
+
+                // Deleting a local record, or purging remote state, is destructive
+                // and unrelated to deciding a request.
+                .requestMatchers(HttpMethod.DELETE, "/api/approvals/requests/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/approvals/remote").hasRole("ADMIN")
+
+                // Decisions and entitlement changes.
+                .requestMatchers(HttpMethod.POST,
+                        "/api/approvals/response",
+                        "/api/approvals/response/all",
+                        "/api/approvals/pull",
+                        "/api/approvals/requests/*/revoke",
+                        "/api/approvals/requests/*/allow-rerequest")
+                        .hasAnyRole("ADMIN", "APPROVER")
+
+                // Reading the queue, catalog and statistics. Deliberately excludes
+                // AUDITOR, whose remit is the record rather than the live queue.
+                .requestMatchers("/api/approvals/**", "/api/catalogitems/**",
+                        "/api/statistics/**", "/stats/**", "/api/config/status")
+                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "USER")
+
                 .anyRequest().authenticated()
             )
             // OAuth2 login — only wired when an admin OAuth2 client-id is configured
@@ -202,9 +272,46 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Grants application roles from Omnissa Access group membership.
+     *
+     * <p>The delegate fetches userinfo and merges it into the claims, which is
+     * essential rather than incidental: Access serves {@code group_ids} as an
+     * <em>overflow claim</em> ({@code ovc}/{@code ovl} in the token) once the
+     * list grows, so the ID token alone does not carry it.
+     *
+     * <p>Every signed-in user keeps their OIDC authorities and gains at least
+     * {@link GroupRoleMapper#DEFAULT_ROLE}. With no {@code omnissa.rbac.role-map}
+     * configured, that is all anyone gets — deliberately, so enabling the map is
+     * the explicit act that grants privilege.
+     */
     @Bean
     public OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
-        return new OidcUserService();
+        OidcUserService delegate = new OidcUserService();
+        Map<String, AuthorityName> parsedRoleMap = GroupRoleMapper.parse(roleMap);
+
+        if (parsedRoleMap.isEmpty()) {
+            logger.warn("No omnissa.rbac.role-map configured — every OIDC user gets {} only.",
+                    GroupRoleMapper.DEFAULT_ROLE);
+        } else {
+            logger.info("Group role mapping active for {} group(s)", parsedRoleMap.size());
+        }
+
+        return userRequest -> {
+            OidcUser user = delegate.loadUser(userRequest);
+
+            List<String> groupIds = GroupRoleMapper.groupIdsFrom(user.getClaim("group_ids"));
+            Set<AuthorityName> roles = GroupRoleMapper.rolesFor(parsedRoleMap, groupIds);
+
+            Set<GrantedAuthority> authorities = new LinkedHashSet<>(user.getAuthorities());
+            roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role.name())));
+
+            logger.info("OIDC login: {} in {} group(s) -> {}",
+                    user.getEmail() != null ? user.getEmail() : user.getSubject(),
+                    groupIds.size(), roles);
+
+            return new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo());
+        };
     }
 
     @Bean

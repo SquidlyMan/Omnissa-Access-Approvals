@@ -1,0 +1,122 @@
+package com.omnissa.access.approval.security;
+
+import com.omnissa.access.approval.model.security.AuthorityName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
+/**
+ * Turns Omnissa Access group membership into application roles.
+ *
+ * <p>Configured as {@code <groupId>:<ROLE>} pairs, matched against the
+ * {@code group_ids} claim. Ids rather than names: renaming a group in Access
+ * would otherwise silently drop everyone to the default role with no error.
+ *
+ * <p>Read the ids off {@code GET /api/auth/claims}, which pairs them with their
+ * display names.
+ *
+ * <p><strong>Users are commonly in many groups.</strong> When several map to
+ * roles, every matched role is granted — a user in both the approver and
+ * auditor groups gets both. That is additive by design; no role subtracts a
+ * capability another grants.
+ */
+public final class GroupRoleMapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(GroupRoleMapper.class);
+
+    /** What a signed-in user gets when no configured group matches. */
+    public static final AuthorityName DEFAULT_ROLE = AuthorityName.ROLE_VIEWER;
+
+    private GroupRoleMapper() {
+    }
+
+    /**
+     * Parses the configured map. Malformed entries are logged and skipped
+     * rather than failing startup — a typo should not take the tool offline,
+     * and the unmatched group simply grants nothing.
+     */
+    public static Map<String, AuthorityName> parse(String roleMap) {
+        Map<String, AuthorityName> parsed = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        if (roleMap == null || roleMap.isBlank()) {
+            return parsed;
+        }
+
+        for (String entry : roleMap.split(",")) {
+            String trimmed = entry.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            int split = trimmed.lastIndexOf(':');
+            if (split <= 0 || split == trimmed.length() - 1) {
+                logger.warn("Ignoring malformed role-map entry '{}' — expected <groupId>:<ROLE>", trimmed);
+                continue;
+            }
+
+            String groupId = trimmed.substring(0, split).trim();
+            String roleName = trimmed.substring(split + 1).trim().toUpperCase();
+            if (!roleName.startsWith("ROLE_")) {
+                roleName = "ROLE_" + roleName;
+            }
+
+            try {
+                parsed.put(groupId, AuthorityName.valueOf(roleName));
+            } catch (IllegalArgumentException e) {
+                logger.warn("Ignoring role-map entry '{}' — '{}' is not a known role. Known roles: {}",
+                        trimmed, roleName, List.of(AuthorityName.values()));
+            }
+        }
+        return parsed;
+    }
+
+    /**
+     * Resolves the roles for a set of group ids.
+     *
+     * <p>Always includes {@link #DEFAULT_ROLE}: an authenticated user with no
+     * matching group can still see the queue, and every higher role is additive
+     * on top of it.
+     */
+    public static Set<AuthorityName> rolesFor(Map<String, AuthorityName> roleMap, List<String> groupIds) {
+        Set<AuthorityName> roles = new LinkedHashSet<>();
+        roles.add(DEFAULT_ROLE);
+
+        if (roleMap == null || roleMap.isEmpty() || groupIds == null) {
+            return roles;
+        }
+
+        for (String groupId : groupIds) {
+            if (groupId == null) {
+                continue;
+            }
+            AuthorityName role = roleMap.get(groupId.trim());
+            if (role != null) {
+                roles.add(role);
+            }
+        }
+        return roles;
+    }
+
+    /**
+     * Extracts group ids from an OIDC claim value.
+     *
+     * <p>Access serves {@code group_ids} as an <em>overflow claim</em> — the
+     * token carries {@code ovc}/{@code ovl} pointing at the userinfo endpoint
+     * rather than the ids themselves once the list is large. Spring's
+     * {@code OidcUserService} fetches userinfo and merges it, which is why the
+     * claim is readable here; nothing may switch to parsing the ID token alone.
+     */
+    @SuppressWarnings("unchecked")
+    public static List<String> groupIdsFrom(Object claim) {
+        if (!(claim instanceof List<?> raw)) {
+            return List.of();
+        }
+        return (List<String>) raw.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .toList();
+    }
+}
