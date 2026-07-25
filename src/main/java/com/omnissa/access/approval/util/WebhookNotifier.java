@@ -123,16 +123,20 @@ public class WebhookNotifier {
                 // Permanent decline (#57): rejects AND excludes the user, so the
                 // app will not reappear for them. Confirmed to avoid a mis-click.
                 Map.of("type", "button", "action_id", "reject_block",
-                        "text", Map.of("type", "plain_text", "text", "⛔ Reject & Block"),
+                        // "and", not "&": Slack HTML-escapes the ampersand and it
+                        // renders as "&amp;" (clearly visible on mobile).
+                        "text", Map.of("type", "plain_text", "text", "⛔ Reject and Block"),
                         "value", request.getRequestId(),
                         "confirm", Map.of(
                                 "title", Map.of("type", "plain_text", "text", "Block re-requests?"),
-                                "text", Map.of("type", "mrkdwn",
-                                        "text", "This rejects the request *and excludes the user* from "
+                                // plain_text: mrkdwn emphasis is not rendered in a
+                                // confirm dialog and shows as literal asterisks.
+                                "text", Map.of("type", "plain_text",
+                                        "text", "This rejects the request and excludes the user from "
                                                 + request.getResourceName()
                                                 + " in Omnissa Access. The app will not reappear for them. "
                                                 + "You can undo this later from the request details."),
-                                "confirm", Map.of("type", "plain_text", "text", "Reject & Block"),
+                                "confirm", Map.of("type", "plain_text", "text", "Reject and Block"),
                                 "deny", Map.of("type", "plain_text", "text", "Cancel"))))));
 
         root.put("blocks", blocks);
