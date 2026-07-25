@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { canViewAudit, canViewQueue, roleLabel } from '../lib/permissions'
 
 const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
   `hidden md:block text-sm px-3 py-1 rounded transition-colors ${isActive ? 'bg-white/20' : 'hover:bg-white/10'}`
@@ -14,6 +15,12 @@ export default function Layout() {
 
   const closeMenu = () => setMenuOpen(false)
 
+  // Auditors only get the audit trail — send them straight to that tab and hide
+  // the pages they cannot open (#52).
+  const showQueueLinks = canViewQueue(user)
+  const showAuditLink = !showQueueLinks && canViewAudit(user)
+  const role = roleLabel(user)
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top nav */}
@@ -23,15 +30,24 @@ export default function Layout() {
             <span className="font-semibold text-base md:text-lg tracking-tight truncate max-w-[60vw] md:max-w-none">
               Access Approval Tool for Omnissa
             </span>
-            <NavLink to="/dashboard" className={desktopLinkClass}>
-              Dashboard
-            </NavLink>
-            <NavLink to="/queue" className={desktopLinkClass}>
-              Queue
-            </NavLink>
-            <NavLink to="/rules" className={desktopLinkClass}>
-              Rules
-            </NavLink>
+            {showQueueLinks && (
+              <>
+                <NavLink to="/dashboard" className={desktopLinkClass}>
+                  Dashboard
+                </NavLink>
+                <NavLink to="/queue" className={desktopLinkClass}>
+                  Queue
+                </NavLink>
+                <NavLink to="/rules" className={desktopLinkClass}>
+                  Rules
+                </NavLink>
+              </>
+            )}
+            {showAuditLink && (
+              <NavLink to="/queue?state=audit" className={desktopLinkClass}>
+                Audit
+              </NavLink>
+            )}
           </div>
           <div className="hidden md:flex items-center gap-3 text-sm">
             <NavLink
@@ -43,6 +59,14 @@ export default function Layout() {
               Help
             </NavLink>
             <span className="text-white/80">{user?.name || user?.username}</span>
+            {role && (
+              <span
+                className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-white/90"
+                title={`Signed in with ${role} permissions`}
+              >
+                {role}
+              </span>
+            )}
             <a
               href="/logout"
               className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded transition-colors"
@@ -73,20 +97,29 @@ export default function Layout() {
         {/* Mobile menu panel */}
         {menuOpen && (
           <div className="md:hidden border-t border-white/10 pb-2 bg-omnissa">
-            <NavLink to="/dashboard" onClick={closeMenu} className={mobileLinkClass}>
-              Dashboard
-            </NavLink>
-            <NavLink to="/queue" onClick={closeMenu} className={mobileLinkClass}>
-              Queue
-            </NavLink>
-            <NavLink to="/rules" onClick={closeMenu} className={mobileLinkClass}>
-              Rules
-            </NavLink>
+            {showQueueLinks && (
+              <>
+                <NavLink to="/dashboard" onClick={closeMenu} className={mobileLinkClass}>
+                  Dashboard
+                </NavLink>
+                <NavLink to="/queue" onClick={closeMenu} className={mobileLinkClass}>
+                  Queue
+                </NavLink>
+                <NavLink to="/rules" onClick={closeMenu} className={mobileLinkClass}>
+                  Rules
+                </NavLink>
+              </>
+            )}
+            {showAuditLink && (
+              <NavLink to="/queue?state=audit" onClick={closeMenu} className={mobileLinkClass}>
+                Audit
+              </NavLink>
+            )}
             <NavLink to="/help" onClick={closeMenu} className={mobileLinkClass}>
               Help
             </NavLink>
             <span className="block w-full text-sm py-2 px-4 text-white/60">
-              {user?.name || user?.username}
+              {user?.name || user?.username}{role && ` · ${role}`}
             </span>
             <a href="/logout" className="block w-full text-sm py-2 px-4 hover:bg-white/10 transition-colors">
               Sign out

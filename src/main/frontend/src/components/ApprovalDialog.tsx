@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getCsrfToken } from '../utils/csrf'
+import { FORBIDDEN_MESSAGE } from '../lib/permissions'
 
 interface Props {
   requestId: string
@@ -52,7 +53,7 @@ export default function ApprovalDialog({ requestId, resourceName, initialDecisio
             : declineReRequestable,
         }),
       })
-      if (!res.ok) throw new Error(`Server error ${res.status}`)
+      if (!res.ok) throw new Error(res.status === 403 ? FORBIDDEN_MESSAGE : `Server error ${res.status}`)
       const data: { outcome?: string } | null = await res.json().catch(() => null)
       const outcome = data?.outcome ?? 'delivered'
       if (outcome === 'expired') {

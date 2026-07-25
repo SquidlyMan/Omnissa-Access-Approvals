@@ -56,9 +56,70 @@ The **only intentionally unauthenticated endpoints** are:
   render the login page).
 - `/login` and static frontend assets.
 
-**Everything else requires an authenticated admin session.** An
-unauthenticated request reaching any other `/api/**` endpoint would be a
-vulnerability — please report it.
+**Everything else requires an authenticated session**, and — since roles landed
+— an authenticated session with a sufficient **role**. An unauthenticated
+request reaching any other `/api/**` endpoint would be a vulnerability, as
+would a request succeeding for a role that should not be permitted it. Please
+report either.
+
+## Roles
+
+Authorization is driven by Omnissa Access group membership (`OMNISSA_ROLE_MAP`,
+matched against the OIDC `group_ids` claim):
+
+| Role | Permitted |
+|---|---|
+| `ROLE_ADMIN` | Users, auto-approval rule writes, tenant config, log bundle, request deletion, remote purge — plus everything below |
+| `ROLE_APPROVER` | Decisions: approve, reject, revoke, revoke-and-block, allow re-request, pull |
+| `ROLE_VIEWER` | Read-only: queue, catalog, statistics, rules, audit |
+| `ROLE_AUDITOR` | Audit trail and CSV export only — no live queue, no decisions |
+
+`ROLE_USER` predates the model and is treated as `ROLE_VIEWER`.
+
+Rules are enforced centrally in `SecurityConfig` rather than scattered across
+`@PreAuthorize` annotations, so the whole policy is reviewable in one place.
+Roles are **additive**; every signed-in user holds at least `ROLE_VIEWER`, and
+with no role map configured that is *all* anyone holds — absence of
+configuration is restrictive, not permissive.
+
+Two properties are load-bearing and easy to break:
+
+- Role mapping keys on group **ids**, not names, so renaming a group in Access
+  cannot silently drop everyone to Viewer.
+- The group claim is served by Omnissa Access as an **overflow claim** once a
+  user is in roughly twenty or more groups: the ID token then carries `ovc` /
+  `ovl` pointing at the userinfo endpoint instead of the values. Roles resolve
+  correctly only because Spring's `OidcUserService` fetches and merges
+  userinfo. Any change that reads the ID token alone would fail *open to
+  Viewer* for exactly the users most likely to be administrators.
+
+The UI hides controls a role cannot use, but that is convenience only — the
+server is the boundary, and every rule is enforced there regardless of what the
+SPA renders.
+
+### Chat approvals and roles
+
+**Teams decisions are subject to roles.** The card's buttons are deep links, so
+the approver signs in and every rule applies as it does in the web UI.
+
+**Slack decisions are not.** A Slack decision is made inside the interaction
+callback, where there is no signed-in principal to check a role against — the
+request is authenticated by *signature*, which proves it came from your
+workspace, not who may act. Authorization comes solely from
+`SLACK_APPROVER_MAP`, which is therefore a **second, independent source of
+authority**: removing someone from an approver group in Omnissa Access revokes
+their web access immediately but leaves their Slack buttons working until the
+map is also updated and the container recreated. Keep the two in step.
+
+### Chat notifications are readable by the whole channel
+
+Notifications are posted to a Slack or Teams channel, so **every member of that
+channel can read the request details** — application name, requester and timing
+— regardless of role, and regardless of whether they have an account at all.
+Roles govern who may *act*, never who may *see*. If a channel is broader than
+the set of people who should know who is requesting what, that is settled
+through channel membership; the tool cannot enforce it. Treat an approvals
+channel as having the same audience as the request queue itself.
 
 ## Hardening Options
 

@@ -116,6 +116,29 @@ permanent vs temporary decline — is available on the resulting screen. See
 Decisions made this way are attributed to the signed-in admin, exactly as if the
 request had been opened from the queue.
 
+## Who can see, and who can act
+
+These are two different properties, and the tool controls only one of them.
+
+**Acting is governed by roles.** The buttons are deep links, so clicking one
+opens the request in the tool and the approver signs in as usual. Every
+authorization rule applies exactly as in the web UI — someone with only the
+Viewer role who clicks *Approve* authenticates successfully and then finds no
+approve control. The link carries the *intent*; it confers no authority, and it
+does not submit anything on its own. See [Roles](../README.md#roles).
+
+**Seeing is governed by channel membership, which the tool cannot enforce.** The
+card is posted to a Teams channel, so **every member of that channel can read
+the request details** — application name, requester and timing — regardless of
+their role, or of whether they have an account in the tool at all. Anyone in the
+channel can also click a button; they are simply sent to sign in and then
+cannot decide.
+
+If the channel is broader than the set of people who should know who is
+requesting what, that is an information-disclosure question to settle through
+channel membership — roles cannot fix it. Treat the approvals channel as having
+the same audience as the request queue itself.
+
 ## Troubleshooting
 
 | Symptom | Cause |

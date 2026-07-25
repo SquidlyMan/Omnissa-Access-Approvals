@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getCsrfToken } from '../utils/csrf'
+import { FORBIDDEN_MESSAGE } from '../lib/permissions'
 
 interface Props {
   requestId: string
@@ -28,6 +29,7 @@ export default function RevokeAccessDialog({ requestId, resourceName, permanent,
         { method: 'POST', credentials: 'include', headers: { 'X-XSRF-TOKEN': getCsrfToken() } },
       )
       const data: { outcome?: string; error?: string } = await res.json().catch(() => ({}))
+      if (res.status === 403) throw new Error(FORBIDDEN_MESSAGE)
       if (!res.ok) throw new Error(data.error || `Server error ${res.status}`)
       if (data.outcome === 'revoked' || data.outcome === 'already_absent') {
         onDone()

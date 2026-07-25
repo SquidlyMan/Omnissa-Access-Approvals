@@ -168,6 +168,38 @@ minutes, 15 minutes, 1 hour, 8 hours, 24 hours, 7 days, 30 days) and
   [Access Lifecycle](access-lifecycle.md).
 - The message is replaced with the outcome and the deciding identity.
 
+## Who can see, and who can act
+
+These are two different properties, and the tool controls only one of them.
+
+**Seeing is governed by channel membership, which the tool cannot enforce.** The
+message is posted to a Slack channel, so **every member of that channel can read
+the request details** — application name, requester and timing — regardless of
+whether they may approve, or whether they have an account in the tool at all.
+The buttons render for everyone; only mapped users can act on them, and
+everyone else is rejected and audited.
+
+If the channel is broader than the set of people who should know who is
+requesting what, that is an information-disclosure question to settle through
+channel membership. Treat the approvals channel as having the same audience as
+the request queue itself.
+
+**Acting is governed by `SLACK_APPROVER_MAP` — *not* by roles.**
+
+> **Note — Slack decisions bypass role-based access control.** Unlike the web UI
+> and [Teams approvals](teams-approvals.md), a Slack decision is made inside the
+> interaction callback, where there is no signed-in principal to check a role
+> against: the request is authenticated by *signature*, which proves it came
+> from your workspace, not who may act. Authorization therefore comes entirely
+> from `SLACK_APPROVER_MAP`.
+>
+> The consequence is that this map is a **second, independent source of
+> authority**. Removing someone from an approver group in Omnissa Access revokes
+> their access to the web UI immediately, but leaves their Slack buttons
+> working until you also remove them from `SLACK_APPROVER_MAP` and recreate the
+> container. Keep the two in step, and keep the map to people who genuinely hold
+> approval rights.
+
 ## Troubleshooting
 
 | Symptom | Cause |

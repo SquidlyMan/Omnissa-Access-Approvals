@@ -1,3 +1,6 @@
+import { useAuth } from '../hooks/useAuth'
+import { canAdminister } from '../lib/permissions'
+
 interface HelpSectionProps {
   title: string
   children: React.ReactNode
@@ -80,6 +83,7 @@ const CONFIG_VARS: ConfigVar[] = [
 ]
 
 export default function HelpPage() {
+  const { user } = useAuth()
   return (
     <div>
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Help</h1>
@@ -570,13 +574,16 @@ export default function HelpPage() {
         </HelpSection>
 
         <HelpSection title="Logs">
-          <a
-            href="/api/logs/bundle"
-            download
-            className="inline-block bg-omnissa text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-omnissa-dark transition-colors"
-          >
-            Download Log Bundle (last hour)
-          </a>
+          {/* The log bundle endpoint is administrator-only. */}
+          {canAdminister(user) && (
+            <a
+              href="/api/logs/bundle"
+              download
+              className="inline-block bg-omnissa text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-omnissa-dark transition-colors"
+            >
+              Download Log Bundle (last hour)
+            </a>
+          )}
           <p>
             Application logs can also be forwarded to a syslog server. Set the{' '}
             <EnvVar name="SYSLOG_HOST" /> container environment value, then restart the container

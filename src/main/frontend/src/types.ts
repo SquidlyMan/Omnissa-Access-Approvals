@@ -3,6 +3,12 @@ export interface User {
   username: string
   email: string
   name: string
+  /**
+   * Granted authorities as sent by GET /api/auth/me, e.g.
+   * ["OIDC_USER", "ROLE_ADMIN", "SCOPE_email"]. A backend older than #52 omits
+   * the field entirely — treat that as no roles (see lib/permissions.ts).
+   */
+  authorities: string[]
 }
 
 export interface CalloutRequest {

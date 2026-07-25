@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getCsrfToken } from '../utils/csrf'
+import { FORBIDDEN_MESSAGE } from '../lib/permissions'
 
 interface Props {
   requestId: string
@@ -30,7 +31,7 @@ export default function DeleteRequestDialog({ requestId, resourceName, onClose, 
         credentials: 'include',
         headers: { 'X-XSRF-TOKEN': getCsrfToken() },
       })
-      if (!res.ok) throw new Error(`Server error ${res.status}`)
+      if (!res.ok) throw new Error(res.status === 403 ? FORBIDDEN_MESSAGE : `Server error ${res.status}`)
       onDeleted()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Request failed')

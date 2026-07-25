@@ -172,7 +172,33 @@ Two OAuth clients are required in your tenant (a Client Credentials service clie
 ## First Login
 
 - **Local admin (default)** — on first startup, if `OMNISSA_BOOTSTRAP_ADMIN_USERNAME` and `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` are set and the user table is empty, a local admin account is created automatically. Sign in with those credentials.
-- **Omnissa Access OAuth2** — if the `OMNISSA_ADMIN_OAUTH_*` variables are configured, a **Sign in with Omnissa Access** button appears on the login page. Any user who authenticates successfully through that client is granted full admin access — restrict the client accordingly.
+- **Omnissa Access OAuth2** — if the `OMNISSA_ADMIN_OAUTH_*` variables are configured, a **Sign in with Omnissa Access** button appears on the login page. What a user may then *do* is decided by their Omnissa Access group membership — see [Roles](#roles) below. Signing in successfully grants **Viewer** and nothing more until a group is mapped to a higher role.
+
+## Roles
+
+Authorization is driven by **Omnissa Access group membership**, mapped to four roles:
+
+| Role | Can |
+|---|---|
+| **Admin** | Manage users, auto-approval rules, tenant configuration and the log bundle; delete requests; everything below |
+| **Approver** | Decide requests — approve, reject, revoke, revoke-and-block, allow re-request |
+| **Viewer** | Read the queue, request details, statistics, rules and the audit trail |
+| **Auditor** | The audit trail and CSV export only — no live queue, no decisions |
+
+Configure the mapping in the env file with `OMNISSA_ROLE_MAP`, as comma-separated `<groupId>:<ROLE>` pairs:
+
+```bash
+OMNISSA_ROLE_MAP=05eb7969-…:ADMIN,63173f00-…:APPROVER,4378e8f5-…:AUDITOR
+```
+
+Notes that matter in practice:
+
+- **The mapping keys on group *ids*, not names.** Renaming a group in Access would otherwise silently drop everyone to Viewer with no error anywhere. Sign in and open **`/api/auth/claims`** to read the ids — it pairs each id with its display name.
+- **Requires the `group` scope**, which is requested by default. Without it Access emits no group claim at all. Check your tenant advertises it in `scopes_supported` at `<issuer>/.well-known/openid-configuration`.
+- **Roles are additive** — a user in two mapped groups holds both.
+- **Anyone who signs in gets Viewer.** With no `OMNISSA_ROLE_MAP` set, *every* user is a Viewer: enabling the map is the deliberate act that grants privilege, rather than absence of config being permissive.
+- **Use groups created for this purpose.** Mapping an existing operational group (an AD *IT Admins*, say) means anyone added to it for unrelated reasons silently gains the ability to revoke and block entitlements in your tenant.
+- **Keep a way back in.** If the mapping is wrong or Access is unreachable, `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=false` plus the bootstrap admin account is the recovery path. Note the bootstrap account is only created when the user table is empty, so its password cannot be rotated by changing the env var on an existing install.
 
 ---
 

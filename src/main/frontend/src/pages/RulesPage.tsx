@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getCsrfToken } from '../utils/csrf'
+import { useAuth } from '../hooks/useAuth'
+import { canAdminister, FORBIDDEN_MESSAGE } from '../lib/permissions'
 import type { Rule } from '../types'
 
 // Time-bound (JIT) grant options for approve rules. '' = permanent.
@@ -34,6 +36,8 @@ function describeRule(rule: Rule): string {
 }
 
 export default function RulesPage() {
+  const { user } = useAuth()
+  const editable = canAdminister(user)
   const [rules, setRules] = useState<Rule[]>([])
   const [error, setError] = useState('')
 
@@ -75,6 +79,7 @@ export default function RulesPage() {
           grantTtlMinutes: rule.grantTtlMinutes,
         }),
       })
+      if (res.status === 403) { setError(FORBIDDEN_MESSAGE); return }
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       load()
     } catch {
@@ -89,6 +94,7 @@ export default function RulesPage() {
         credentials: 'include',
         headers: { 'X-XSRF-TOKEN': getCsrfToken() },
       })
+      if (res.status === 403) { setError(FORBIDDEN_MESSAGE); return }
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       load()
     } catch {
@@ -112,7 +118,7 @@ export default function RulesPage() {
         body: JSON.stringify(body),
       })
       if (!res.ok) {
-        let msg = `Server error ${res.status}`
+        let msg = res.status === 403 ? FORBIDDEN_MESSAGE : `Server error ${res.status}`
         try {
           const data = await res.json()
           if (data?.error) msg = data.error
@@ -171,6 +177,7 @@ export default function RulesPage() {
                   </p>
                   {!rule.enabled && <p className="text-xs text-gray-400">Disabled</p>}
                 </div>
+                {editable && (
                 <div className="shrink-0 flex items-center gap-3">
                   <button
                     onClick={() => toggleRule(rule)}
@@ -192,13 +199,15 @@ export default function RulesPage() {
                     Delete
                   </button>
                 </div>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      {/* Add rule form */}
+      {/* Add rule form — administrators only; everyone else sees the list read-only. */}
+      {editable && (
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 max-w-2xl">
         <h2 className="font-semibold text-gray-800 mb-4">Add Rule</h2>
         <form onSubmit={addRule} className="space-y-4">
@@ -309,6 +318,7 @@ export default function RulesPage() {
           </button>
         </form>
       </div>
+      )}
     </div>
   )
 }
