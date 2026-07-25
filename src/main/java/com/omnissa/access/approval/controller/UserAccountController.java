@@ -34,8 +34,8 @@ public class UserAccountController {
     /**
      * Creates a local account. The request model carries no {@code authorities}
      * and no {@code enabled} flag — both are set here — so a caller cannot
-     * grant itself a role. New accounts get {@code ROLE_USER}; elevating one is
-     * a separate, deliberate act.
+     * grant itself a role. New accounts get the least-privileged role,
+     * {@code ROLE_VIEWER}; elevating one is a separate, deliberate act.
      */
     @PostMapping
     public ResponseEntity<?> newUser(@RequestBody @Valid CreateUserRequest request) {
@@ -45,7 +45,7 @@ public class UserAccountController {
         }
 
         Authority role = new Authority();
-        role.setAuthorityName(AuthorityName.ROLE_USER);
+        role.setAuthorityName(AuthorityName.ROLE_VIEWER);
 
         UserAccount user = new UserAccount();
         user.setUsername(request.username());
@@ -58,7 +58,7 @@ public class UserAccountController {
 
         userAccountRepository.save(user);
         auditService.record("user-created", null, null,
-                "Local account '" + request.username() + "' created with ROLE_USER");
+                "Local account '" + request.username() + "' created with ROLE_VIEWER");
 
         return ResponseEntity.ok(UserSummary.from(user));
     }
