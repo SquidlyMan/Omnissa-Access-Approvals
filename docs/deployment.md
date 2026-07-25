@@ -157,9 +157,9 @@ sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 `docker compose -f <compose file> pull && docker compose -f <compose file>
 up -d` yourself, or opt in to Watchtower auto-updates — see
 [Automatic Updates](#automatic-updates-optional-disabled-by-default) below.
-To make the CasaOS **"Check and then update"** button work, pin the image to
-the moving version tag instead of `:latest` — set `OMNISSA_IMAGE_TAG` to the
-current minor line (e.g. `1.4`) in the compose's `.env`; see
+Do **not** use the CasaOS **"Check and then update"** button — it always
+reports "is the latest version" for this container regardless of the image tag,
+because it never checks the registry; see
 [CasaOS updates](#casaos-check-and-then-update) below.
 
 See [`deploy/zimacube/deploy.sh`](../deploy/zimacube/deploy.sh) and the
@@ -283,28 +283,56 @@ that trade-off is acceptable in your environment.
 
 ### CasaOS "Check and then update"
 
-CasaOS special-cases the `:latest` tag as "always current" and skips the pull,
-so with the default `:latest` image it frequently reports "on the latest
-version" while the container is actually stale. It **does** reliably detect a
-moved **version** tag, so CI publishes one for it:
+**This button does not work for this container, and no tag choice can make it
+work.** It always reports *"Access Approval Tool for Omnissa is the latest
+version!"* — even when the registry has a newer image. Do not use it to decide
+whether you are up to date.
 
-- a moving **`major.minor`** tag (e.g. `1.4`) that advances on every `main`
-  merge, and
-- the immutable full version (e.g. `1.4.1`).
+The reason is not a digest comparison going wrong; there is no digest
+comparison at all. ZimaOS resolves "is an update available?" by looking the app
+up in a **CasaOS AppStore**, and this container is externally managed (deployed
+by Compose, not installed from a store). The check bails out immediately —
+visible in `/var/log/casaos/mod-management.log`:
 
-To make the CasaOS update button work, point the deployment at the moving
-minor tag. Set it in the compose project's `.env` (next to the compose file,
-i.e. `/media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/.env`):
-
-```bash
-OMNISSA_IMAGE_TAG=1.4
+```
+info   app not found in any appstore                      {"id": "omnissa-approvals"}
+error  store compose app not found, thus no update available
+       {"func": "service.(*AppStoreManagement).isUpdateAvailable", "storeAppID": "omnissa-approvals"}
 ```
 
-then recreate once (`docker compose … up -d`). From then on, when a new patch
-publishes, CasaOS's **Check and then update** sees the moved `1.4` tag and
-pulls it. The dashboard shows the running app version, so you can confirm the
-update landed. (Bump `OMNISSA_IMAGE_TAG` to the new minor — `1.5`, `1.6`, … —
-when the minor version increments.)
+Because the lookup fails before any registry call, the result is the same for
+`:latest`, for a pinned `major.minor` tag, and for a full version tag. Verified
+on ZimaOS with the container pinned to `1.9` while the registry `1.9` tag
+pointed at a newer digest: the button still reported "latest version".
 
-If you prefer hands-off updates, use Watchtower (above) instead; it tracks
-`:latest` by digest and is unaffected by the CasaOS `:latest` quirk.
+**Use one of these instead:**
+
+- re-run `deploy.sh` (git pull + image pull + recreate), or
+- `docker compose -f <compose file> pull && docker compose -f <compose file> up -d`, or
+- enable the `autoupdate` Watchtower profile above for hands-off updates.
+
+The **dashboard version banner** is the authoritative answer to "what am I
+running?" — check it there, not in CasaOS.
+
+#### `OMNISSA_IMAGE_TAG`
+
+CI publishes a moving **`major.minor`** tag (e.g. `1.9`) that advances on every
+`main` merge, plus the immutable full version (e.g. `1.9.4`). Pinning is still
+worth doing — it makes deployments deterministic and keeps you on one minor
+line — but it is **not** a fix for the CasaOS button. Set it in the compose
+project's `.env` (next to the compose file, i.e.
+`/media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/.env`):
+
+```bash
+OMNISSA_IMAGE_TAG=1.9
+```
+
+Bump it to the new minor — `1.10`, `1.11`, … — when the minor version
+increments. Compare what you are running against the registry with:
+
+```bash
+docker image inspect ghcr.io/squidlyman/omnissa-access-approvals:1.9 \
+  --format '{{index .RepoDigests 0}}'
+```
+
+If that digest differs from the registry's, pull and recreate.

@@ -622,17 +622,16 @@ export default function HelpPage() {
               engine — the reason it ships disabled. See the deployment guide for details.
             </li>
             <li>
-              <span className="font-medium text-gray-800">CasaOS "Check and then update"</span> —
-              this works only if the container is pinned to a{' '}
-              <span className="font-medium text-gray-800">version</span> tag. CasaOS treats{' '}
-              <Code>:latest</Code> as always current and skips the pull, so it can report "on the
-              latest version" while the container is stale. Releases publish a moving{' '}
-              <Code>major.minor</Code> tag (e.g. <Code>1.9</Code>) that advances with each build, and
-              CasaOS does detect a moved version tag. Set{' '}
-              <EnvVar name="OMNISSA_IMAGE_TAG" />=<Code>1.9</Code> in the compose directory's{' '}
-              <Code>.env</Code> file, recreate once, and the button will pick up later patches. Bump
-              it again when the minor version changes. The dashboard shows the running version, so
-              you can confirm an update actually landed.
+              <span className="font-medium text-gray-800">CasaOS warning</span> — the CasaOS{' '}
+              <span className="font-medium text-gray-800">"Check and then update"</span> button does
+              NOT work for this container. It always reports{' '}
+              <span className="italic">"is the latest version"</span>, even when a newer image is
+              published. ZimaOS decides whether an update exists by looking the app up in a{' '}
+              <span className="font-medium text-gray-800">CasaOS AppStore</span>; an
+              externally-managed Compose app is never found there, so the check gives up before it
+              ever contacts the registry. No image tag changes this. Use one of the two methods above
+              instead, and treat the version shown on the dashboard as the authoritative answer to
+              what you are running.
             </li>
           </ul>
           <p>
