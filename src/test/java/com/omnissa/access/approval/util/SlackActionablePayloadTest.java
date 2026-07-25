@@ -84,6 +84,18 @@ class SlackActionablePayloadTest {
     }
 
     @Test
+    void blockButtonRendersCleanlyInSlack() throws Exception {
+        // Slack HTML-escapes "&" (shows as "&amp;", obvious on mobile), and a
+        // confirm dialog does not render mrkdwn emphasis (shows literal *stars*).
+        String json = serialized(notifier().buildSlackActionableMessage(request()));
+
+        assertFalse(json.contains("Reject & Block"), "use 'and', not '&': " + json);
+        assertTrue(json.contains("Reject and Block"), json);
+        assertFalse(json.contains("*and excludes the user*"),
+                "confirm text must not carry mrkdwn emphasis: " + json);
+    }
+
+    @Test
     void durationMenuOffersPermanentAndTimedOptions() throws Exception {
         Map<String, Object> payload = notifier().buildSlackActionableMessage(request());
         String json = serialized(payload);
