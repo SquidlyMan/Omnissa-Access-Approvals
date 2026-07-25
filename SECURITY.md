@@ -78,9 +78,19 @@ matched against the OIDC `group_ids` claim):
 
 Rules are enforced centrally in `SecurityConfig` rather than scattered across
 `@PreAuthorize` annotations, so the whole policy is reviewable in one place.
-Roles are **additive**; every signed-in user holds at least `ROLE_VIEWER`, and
-with no role map configured that is *all* anyone holds — absence of
-configuration is restrictive, not permissive.
+
+`ROLE_VIEWER` is a **fallback, not a floor**: a user whose groups match nothing
+gets Viewer, but once any group matches, the matched roles are exactly what
+they hold. Matched roles are additive among themselves. With no role map
+configured every user is a Viewer — absence of configuration is restrictive,
+not permissive.
+
+The distinction matters for `ROLE_AUDITOR`, which grants *less* than Viewer.
+Granting Viewer unconditionally would make every role additive on top of it,
+and since Viewer already includes reading the audit trail, an auditor would
+hold Viewer's access to the live queue plus nothing extra — the opposite of the
+role's purpose. A role that restricts cannot exist in a model where everyone
+starts as a Viewer.
 
 Two properties are load-bearing and easy to break:
 

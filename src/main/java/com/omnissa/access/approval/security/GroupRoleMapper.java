@@ -76,28 +76,36 @@ public final class GroupRoleMapper {
     /**
      * Resolves the roles for a set of group ids.
      *
-     * <p>Always includes {@link #DEFAULT_ROLE}: an authenticated user with no
-     * matching group can still see the queue, and every higher role is additive
-     * on top of it.
+     * <p>{@link #DEFAULT_ROLE} is a <em>fallback</em>, not a floor: a user whose
+     * groups match nothing gets Viewer, but once any group matches, the matched
+     * roles are exactly what they get.
+     *
+     * <p>That distinction is what makes {@code ROLE_AUDITOR} mean anything.
+     * Granting Viewer unconditionally would make every role additive on top of
+     * it — and since Viewer already includes reading the audit trail, an auditor
+     * would hold Viewer's access to the live queue plus nothing extra, which is
+     * the opposite of the intent. A role that grants <em>less</em> cannot be
+     * expressed in a model where every user starts with Viewer.
+     *
+     * <p>Matching remains additive among matched groups: someone in both the
+     * approver and auditor groups gets both roles.
      */
     public static Set<AuthorityName> rolesFor(Map<String, AuthorityName> roleMap, List<String> groupIds) {
-        Set<AuthorityName> roles = new LinkedHashSet<>();
-        roles.add(DEFAULT_ROLE);
+        Set<AuthorityName> matched = new LinkedHashSet<>();
 
-        if (roleMap == null || roleMap.isEmpty() || groupIds == null) {
-            return roles;
-        }
-
-        for (String groupId : groupIds) {
-            if (groupId == null) {
-                continue;
-            }
-            AuthorityName role = roleMap.get(groupId.trim());
-            if (role != null) {
-                roles.add(role);
+        if (roleMap != null && !roleMap.isEmpty() && groupIds != null) {
+            for (String groupId : groupIds) {
+                if (groupId == null) {
+                    continue;
+                }
+                AuthorityName role = roleMap.get(groupId.trim());
+                if (role != null) {
+                    matched.add(role);
+                }
             }
         }
-        return roles;
+
+        return matched.isEmpty() ? Set.of(DEFAULT_ROLE) : matched;
     }
 
     /**

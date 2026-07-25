@@ -195,8 +195,8 @@ Notes that matter in practice:
 
 - **The mapping keys on group *ids*, not names.** Renaming a group in Access would otherwise silently drop everyone to Viewer with no error anywhere. Sign in and open **`/api/auth/claims`** to read the ids — it pairs each id with its display name.
 - **Requires the `group` scope**, which is requested by default. Without it Access emits no group claim at all. Check your tenant advertises it in `scopes_supported` at `<issuer>/.well-known/openid-configuration`.
-- **Roles are additive** — a user in two mapped groups holds both.
-- **Anyone who signs in gets Viewer.** With no `OMNISSA_ROLE_MAP` set, *every* user is a Viewer: enabling the map is the deliberate act that grants privilege, rather than absence of config being permissive.
+- **Viewer is a fallback, not a floor.** A user whose groups match nothing gets Viewer; once *any* group matches, the matched roles are exactly what they hold. This is what makes **Auditor** meaningful — it grants *less* than Viewer, which is impossible if everyone starts as a Viewer. With no `OMNISSA_ROLE_MAP` set, every user is a Viewer, so enabling the map is the deliberate act that grants privilege.
+- **Matched roles are additive among themselves** — someone in both the approver and auditor groups holds both.
 - **Use groups created for this purpose.** Mapping an existing operational group (an AD *IT Admins*, say) means anyone added to it for unrelated reasons silently gains the ability to revoke and block entitlements in your tenant.
 - **Keep a way back in.** If the mapping is wrong or Access is unreachable, `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=false` plus the bootstrap admin account is the recovery path. Note the bootstrap account is only created when the user table is empty, so its password cannot be rotated by changing the env var on an existing install.
 
