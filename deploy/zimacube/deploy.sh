@@ -5,8 +5,10 @@
 # assets, env file, firewall unit). Idempotent: update by re-running this
 # script (git pull + image pull + recreate), or opt in to Watchtower
 # auto-updates via the "autoupdate" compose profile (see below). The CasaOS
-# "Check and then update" button does NOT reliably detect new GHCR images
-# for this externally-managed container — don't rely on it.
+# "Check and then update" button works only when the container is pinned to a
+# version tag: CasaOS treats :latest as always current and skips the pull, but
+# it does detect a moved major.minor tag. Set OMNISSA_IMAGE_TAG (e.g. 1.9) in
+# the compose directory's .env to use it.
 #
 # Follows the zimacube-container-deploy runbook:
 #   - nothing written to / (rootfs is 1.2 GB and ~full)

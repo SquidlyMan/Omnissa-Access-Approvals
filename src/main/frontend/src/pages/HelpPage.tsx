@@ -326,6 +326,86 @@ export default function HelpPage() {
               workflow (Office 365 connectors are retired).
             </li>
           </ul>
+
+          <h3 className="font-semibold text-gray-800 mt-5 mb-2">Slack — setup in 6 steps</h3>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>
+              At <Code>api.slack.com/apps</Code> click{' '}
+              <span className="font-medium text-gray-800">Create an App → From scratch</span>, name
+              it, and pick your workspace.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Incoming Webhooks</span> → toggle{' '}
+              <Code>On</Code> → <span className="font-medium text-gray-800">Add New Webhook to
+              Workspace</span> → choose the approvals channel → <Code>Allow</Code>. Copy the{' '}
+              <Code>https://hooks.slack.com/services/…</Code> URL.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Interactivity &amp; Shortcuts</span> →
+              toggle <Code>On</Code> → set the{' '}
+              <span className="font-medium text-gray-800">Request URL</span> to{' '}
+              <Code>https://&lt;your-host&gt;/api/slack/interactions</Code> → <Code>Save</Code>.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Basic Information → App Credentials</span>{' '}
+              → reveal and copy the{' '}
+              <span className="font-medium text-gray-800">Signing Secret</span>. For each approver,
+              open their Slack profile → <Code>⋮</Code> →{' '}
+              <span className="font-medium text-gray-800">Copy member ID</span> (a <Code>U…</Code>{' '}
+              value). No bot token or app-level token is needed.
+            </li>
+            <li>
+              In the env file set the five values, then recreate the container (a restart does not
+              re-read the env file):
+              <CodeBlock>{'WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXX\nWEBHOOK_FORMAT=slack\nSLACK_ACTIONABLE=true\nSLACK_SIGNING_SECRET=<signing secret>\nSLACK_APPROVER_MAP=U0123ABC:dean@example.com,U0456DEF:jane'}</CodeBlock>
+            </li>
+            <li>
+              Make <Code>POST /api/slack/interactions</Code> reachable from the internet through your
+              reverse proxy — same treatment as <Code>/api/approvals/new</Code>. Behind a UAG, add
+              the path to the <span className="font-medium text-gray-800">proxyPattern</span> and
+              keep <span className="font-medium text-gray-800">Identity Bridging off</span> (Slack's
+              callback carries no user identity). Then request an app and confirm the card appears.
+            </li>
+          </ol>
+          <p className="text-gray-600">
+            <span className="font-medium text-gray-800">Authorization is separate from the
+            signature.</span> A valid signature only proves the request came from your workspace —
+            only Slack ids listed in <EnvVar name="SLACK_APPROVER_MAP" /> may decide, and everyone
+            else in the channel is rejected and audited.
+          </p>
+
+          <h3 className="font-semibold text-gray-800 mt-5 mb-2">Teams — setup in 4 steps</h3>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>
+              In Teams open the <span className="font-medium text-gray-800">Workflows</span> app →{' '}
+              <span className="font-medium text-gray-800">Templates</span> → search{' '}
+              <Code>webhook</Code> → choose{' '}
+              <span className="font-medium text-gray-800">"Send Webhook Alerts to a Channel"</span>.
+            </li>
+            <li>
+              Pick the team and channel, finish the template, then click{' '}
+              <span className="font-medium text-gray-800">Copy webhook link</span>. The URL is on{' '}
+              <Code>*.environment.api.powerplatform.com</Code> — a{' '}
+              <Code>webhook.office.com</Code> URL is the retired connector and will not work.
+            </li>
+            <li>
+              In the env file set the four values, then recreate the container:
+              <CodeBlock>{'WEBHOOK_URL=<the workflow URL>\nWEBHOOK_FORMAT=teams\nTEAMS_ACTIONABLE=true\nAPP_BASE_URL=https://approvals.example.com'}</CodeBlock>
+            </li>
+            <li>
+              Request an app and confirm the card posts. No inbound endpoint is required — the card's
+              buttons are deep links, so only the <span className="font-medium text-gray-800">approver's
+              browser</span> reaches the tool. If the UI is LAN-only, approvers need the LAN or VPN.
+            </li>
+          </ol>
+          <p className="text-gray-600">
+            <EnvVar name="APP_BASE_URL" /> is mandatory here: notifications are sent from a
+            background thread with no HTTP request, so the public URL cannot be derived from
+            forwarded headers. If it is blank the tool sends plain text rather than broken links. If
+            the card posts but does not render, edit the flow's{' '}
+            <span className="font-medium text-gray-800">Post card in a chat or channel</span> action
+            so its message body is the raw trigger body rather than a text field.
+          </p>
         </HelpSection>
 
         <HelpSection title="Webhook Notifications">
@@ -542,10 +622,17 @@ export default function HelpPage() {
               engine — the reason it ships disabled. See the deployment guide for details.
             </li>
             <li>
-              <span className="font-medium text-gray-800">CasaOS warning</span> — the CasaOS{' '}
-              <span className="font-medium text-gray-800">"Check and then update"</span> button does
-              NOT reliably detect new registry images for this externally-managed container (it
-              compares against the local image cache). Use one of the two methods above instead.
+              <span className="font-medium text-gray-800">CasaOS "Check and then update"</span> —
+              this works only if the container is pinned to a{' '}
+              <span className="font-medium text-gray-800">version</span> tag. CasaOS treats{' '}
+              <Code>:latest</Code> as always current and skips the pull, so it can report "on the
+              latest version" while the container is stale. Releases publish a moving{' '}
+              <Code>major.minor</Code> tag (e.g. <Code>1.9</Code>) that advances with each build, and
+              CasaOS does detect a moved version tag. Set{' '}
+              <EnvVar name="OMNISSA_IMAGE_TAG" />=<Code>1.9</Code> in the compose directory's{' '}
+              <Code>.env</Code> file, recreate once, and the button will pick up later patches. Bump
+              it again when the minor version changes. The dashboard shows the running version, so
+              you can confirm an update actually landed.
             </li>
           </ul>
           <p>
