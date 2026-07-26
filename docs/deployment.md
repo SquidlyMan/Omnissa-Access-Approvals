@@ -206,64 +206,30 @@ nothing in the application image changes.
 
 ## Monitoring
 
-Two endpoints, because "the container is down" and "something it depends on is
-unhealthy" need different responses:
+Two health signals, deliberately separate:
 
-| Endpoint | Auth | Meaning |
+| Endpoint | Auth | Answers |
 |---|---|---|
-| `/actuator/health` | public | **Liveness only.** The container is running. |
-| `/api/health/deps` | public | Aggregate dependency status: `UP` / `DEGRADED` / `DOWN`. Nothing else. |
-| `/api/health/dependencies` | session | Full per-component detail. |
+| `/actuator/health` | public | **Liveness only** — is the container running? |
+| `/api/health/deps` | public | Aggregate dependency status: `UP` / `DEGRADED` / `DOWN` |
+| `/api/health/dependencies` | session | Per-component detail |
 
-**`/actuator/health` deliberately ignores dependencies.** It is consumed by the
-Docker health check, `deploy.sh`, CasaOS's tile probe and the UAG — and CasaOS
-*recreates the container* when its probe fails, while the UAG de-pools the
-backend. Letting an Omnissa Access outage turn it red would take down a
-perfectly healthy service in response to someone else's problem.
+`/actuator/health` ignores dependencies on purpose: Docker, `deploy.sh`, CasaOS
+and the UAG all consume it, and **CasaOS recreates the container** when it
+fails. An Omnissa Access outage must not restart a healthy service.
 
-`/api/health/deps` always returns **HTTP 200**, including when `DEGRADED`, so a
-plain HTTP monitor stays green and only a keyword monitor trips.
+Point the **UAG health monitor** and the **Docker health check** at
+`/actuator/health`. Point **Uptime Kuma** at both — an HTTP monitor on
+`/actuator/health` for outages, and a Keyword monitor on `/api/health/deps`
+matching `"status":"UP"` for warnings.
 
-### What is checked
+Checked components: Omnissa Access reachability, scheduler liveness (the only
+failure with no other symptom — if the JIT sweeps stall, time-bound access
+silently never expires), approval drift against the tenant, and webhook
+delivery.
 
-| Component | Degraded when |
-|---|---|
-| `omnissaAccess` | The tenant is configured but a token fetch fails. Not-yet-configured is a setup state, not a fault. |
-| `scheduler` | A JIT sweep has not completed for ~5 minutes (they run every minute), or the hourly expiry sweep for ~3 hours. |
-| `approvalDrift` | Omnissa Access is holding approval requests this queue has no pending record for. |
-| `notifications` | Three consecutive webhook delivery failures. Omitted until something has actually been sent. |
-
-The **scheduler** check is the most valuable one: every scheduled job shares
-Spring's single-threaded scheduler, so if the JIT sweeps wedge, time-bound
-access silently never expires — the container is up, the UI works, and users
-keep entitlements they should have lost. Nothing else would surface it.
-
-The **drift** check catches requests Access is waiting on that never reached the
-tool: a callout lost to a reverse-proxy misconfiguration, an outage, or rate
-limiting. Access holds an approval open until it receives a decision, so those
-requesters wait indefinitely and the app never provisions. **Pull from Access**
-on the queue imports them.
-
-> **A green `notifications` component means the endpoint accepted the request —
-> not that the message arrived.** Slack posts synchronously, so a success there
-> is real. Power Automate returns `202 Accepted`, meaning the trigger was
-> queued; the flow can still fail or drop the payload afterwards. This is
-> exactly how a Teams payload-shape bug once hid: every dropped message logged
-> as sent.
-
-### Uptime Kuma
-
-Kuma monitors are binary, so warning-versus-outage comes from *which* monitor
-fires:
-
-| Monitor | Type | URL | Fires when |
-|---|---|---|---|
-| **A — outage** | HTTP(s) | `https://<host>/actuator/health` | The container is down. Route to your alarm channel. |
-| **B — warning** | HTTP(s) Keyword | `https://<host>/api/health/deps`, keyword `"status":"UP"` | A dependency is unhealthy. Route to a quieter channel. |
-
-Use Kuma's **Retries** setting to debounce both. If you monitor from outside the
-LAN, `/api/health/deps` must be reachable through your reverse proxy — add it to
-the NPM location or the UAG proxy pattern alongside `/api/approvals/new`.
+**Full reference, including the Kuma and UAG recipes and a per-component
+runbook: [Monitoring](monitoring.md).**
 
 ## Backup and Restore
 
