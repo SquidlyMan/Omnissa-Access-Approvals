@@ -156,8 +156,12 @@ public class SecurityConfig {
                         "/apple-touch-icon.png", "/vite.svg").permitAll()
                 // OpenAPI / Swagger UI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                // Health probe for Docker
+                // Liveness probe for Docker, deploy.sh, CasaOS and the UAG.
                 .requestMatchers("/actuator/health").permitAll()
+                // Dependency status for an external monitor. Aggregate word only —
+                // no tenant hostname, no error strings, no counts. The detailed
+                // view at /api/health/dependencies stays behind a session.
+                .requestMatchers(HttpMethod.GET, "/api/health/deps").permitAll()
                 // Public auth-mode discovery for the login page
                 .requestMatchers("/api/config/auth").permitAll()
                 // Login page and OAuth2 endpoints
@@ -177,6 +181,10 @@ public class SecurityConfig {
 
                 // Anyone signed in may ask who they are.
                 .requestMatchers("/api/auth/**").authenticated()
+
+                // Dependency detail names the tenant and carries error strings.
+                .requestMatchers("/api/health/**")
+                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
 
                 // Tenant configuration, users, log bundle — admin only. The log
                 // bundle is admin-gated because it contains request payloads.

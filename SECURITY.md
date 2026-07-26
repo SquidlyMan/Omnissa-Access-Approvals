@@ -37,7 +37,12 @@ The **only intentionally unauthenticated endpoints** are:
   can additionally require HTTP Basic auth (see hardening below). The
   `OPTIONS` probe always remains unauthenticated so the Omnissa Access
   console can validate the URI.
-- `/actuator/health` — health probe.
+- `/actuator/health` — liveness probe.
+- `GET /api/health/deps` — dependency status for an external monitor. Returns
+  **only** an aggregate word (`{"status":"UP"}` / `DEGRADED` / `DOWN`): no tenant
+  hostname, no error strings, and deliberately **no counts** — a pending or
+  drift number would leak request volume to anyone able to reach the URL. The
+  detailed per-component view at `/api/health/dependencies` requires a session.
 - `/api/config/auth` — advertises which login methods are enabled (needed to
   render the login page).
 - `/login` and static frontend assets.

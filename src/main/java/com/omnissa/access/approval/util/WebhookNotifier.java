@@ -1,8 +1,10 @@
 package com.omnissa.access.approval.util;
 
 import com.omnissa.access.approval.model.CalloutRequest;
+import com.omnissa.access.approval.service.NotificationHealth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -61,6 +63,9 @@ public class WebhookNotifier {
      */
     @Value("${app.base-url:}")
     private String appBaseUrl;
+
+    @Autowired
+    private NotificationHealth notificationHealth;
 
 
     private final RestTemplate restTemplate;
@@ -385,8 +390,11 @@ public class WebhookNotifier {
                 // signature no longer matches — the post is rejected 401.
                 restTemplate.postForEntity(URI.create(webhookUrl),
                         new HttpEntity<>(payload, headers), String.class);
+                notificationHealth.recordSuccess();
                 logger.info("Webhook notification sent for requestId={}", requestId);
             } catch (Exception e) {
+                notificationHealth.recordFailure(
+                        e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
                 logger.warn("Webhook notification failed for requestId={}: {}", requestId, e.getMessage());
             }
         });

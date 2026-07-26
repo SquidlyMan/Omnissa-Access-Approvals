@@ -659,6 +659,70 @@ export default function HelpPage() {
           </p>
         </HelpSection>
 
+        <HelpSection title="Health and Monitoring">
+          <p>
+            Two endpoints, because "the container is down" and "something it depends on is
+            unhealthy" call for different responses:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <Code>/actuator/health</Code> — <span className="font-medium text-gray-800">liveness
+              only</span>, public. Deliberately ignores dependencies: it is what the Docker health
+              check, CasaOS and the reverse proxy watch, and CasaOS{' '}
+              <span className="font-medium text-gray-800">recreates the container</span> when it
+              fails. An Omnissa Access outage must not take down a healthy service.
+            </li>
+            <li>
+              <Code>/api/health/deps</Code> — public, aggregate word only:{' '}
+              <Code>{'{"status":"UP"}'}</Code>, <Code>DEGRADED</Code> or <Code>DOWN</Code>. No
+              tenant name, no error text, no counts. Always returns HTTP 200 so a plain HTTP
+              monitor stays green and only a keyword monitor trips.
+            </li>
+            <li>
+              <Code>/api/health/dependencies</Code> — signed in, full per-component detail.
+            </li>
+          </ul>
+          <p>What turns the status to DEGRADED:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <span className="font-medium text-gray-800">Omnissa Access</span> — configured but a
+              token fetch fails. Not-yet-configured is setup, not a fault.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Scheduler</span> — a JIT sweep has not run
+              for about 5 minutes, or the hourly rule sweep for about 3 hours. The most valuable
+              check here: all scheduled jobs share one thread, so if the sweeps wedge, time-bound
+              access <span className="font-medium text-gray-800">silently never expires</span> while
+              everything else looks healthy.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Approval drift</span> — Omnissa Access is
+              holding requests this queue has no pending record of. Use{' '}
+              <span className="font-medium text-gray-800">Pull from Access</span> on the queue to
+              import them; until they are decided the requesters wait indefinitely.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Notifications</span> — three consecutive
+              webhook delivery failures.
+            </li>
+          </ul>
+          <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <span className="font-medium">Note —</span> a healthy{' '}
+            <span className="font-medium">Notifications</span> status means the webhook endpoint
+            accepted the request, not that the message reached the channel. Slack posts
+            synchronously, so success there is real; Power Automate returns{' '}
+            <Code>202 Accepted</Code> — queued — and the flow can still fail afterwards. Teams
+            delivery is not confirmed by this check.
+          </p>
+          <p>
+            For <span className="font-medium text-gray-800">Uptime Kuma</span>, use two monitors:
+            an HTTP(s) monitor on <Code>/actuator/health</Code> for outages, and an{' '}
+            <span className="font-medium text-gray-800">HTTP(s) Keyword</span> monitor on{' '}
+            <Code>/api/health/deps</Code> matching <Code>"status":"UP"</Code> for warnings — routed
+            to different notifications.
+          </p>
+        </HelpSection>
+
         <HelpSection title="Access Connectivity">
           <p>
             The dashboard tile checks that the service client can obtain a token from the Omnissa
