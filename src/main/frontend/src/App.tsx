@@ -49,6 +49,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Adding a route here also needs adding to SpaController's forward list,
+            or it will work in-app but 404 on refresh or a direct link. */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={
           <ProtectedRoute>
