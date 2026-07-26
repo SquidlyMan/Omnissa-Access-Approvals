@@ -16,6 +16,7 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Approval queue** with live updates (Server-Sent Events) and a Deactivated list
 - **Native Omnissa Access callout integration** — messaging-envelope parsing, decision posting, connectivity status tile
 - **Admin login**: local account and/or "Sign in with Omnissa Access" (OIDC + PKCE), optional OAuth-only mode, automatic consent-screen disable
+- **Local account management** — add, disable, delete and re-role local accounts, self-service password change, and a guard that refuses to remove the last enabled local admin (the break-glass when Access is unreachable)
 - **Access lifecycle** — time-bound (JIT) grants that auto-expire, permanent vs temporary decline, on-demand revoke, and a reversible block ([details](docs/access-lifecycle.md))
 - **Approve from chat** — [Slack](docs/slack-approvals.md) messages and [Teams](docs/teams-approvals.md) Adaptive Cards with deep-link decision buttons: the approver signs in, so roles apply and no inbound endpoint or shared secret is needed
 - **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence; approve rules can grant time-bound access

@@ -41,6 +41,19 @@ table is empty**. Ignored on subsequent starts.
 | `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` | — | Password of the initial local admin |
 | `OMNISSA_BOOTSTRAP_ADMIN_EMAIL` | — | Email address of the initial local admin (optional) |
 
+> **These variables cannot rotate the password.** The bootstrap runs only when
+> the user table is empty, so on an existing install changing
+> `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` has **no effect at all** — and does so
+> silently. Rotate it in the app instead: **Users** page → *Reset password*, or
+> **Change my password** for your own account.
+
+Because local sign-in is the **break-glass** route — roles come from Omnissa
+Access group membership, so a local admin is the only way in when the tenant is
+unreachable or the role map is wrong — the tool refuses to disable, delete or
+demote the last enabled local administrator. Grant a second account the Admin
+role first if you need to remove one.
+
+
 ## Admin OAuth2 Login (optional)
 
 Enables "Sign in with Omnissa Access" (OIDC) for administrators. If omitted,
@@ -119,6 +132,47 @@ extraction rather than a read — it produces a file that leaves the tool's
 controls entirely. `/api/audit/export.csv` is `ADMIN` + `AUDITOR`;
 `/api/approvals/export.csv` is `ADMIN` + `APPROVER` + `AUDITOR`. A Viewer may
 read the audit trail on screen but not download it.
+
+## Local Accounts
+
+Local sign-in is the **break-glass** route — see the note under
+[First-Run Local Admin](#first-run-local-admin-bootstrap). Accounts are managed
+in the app rather than by configuration:
+
+| Action | Where | Who |
+|---|---|---|
+| Change your own password | **Change my password**, top bar | any account signed in locally |
+| Add an account | **Users** page | Admin |
+| Reset a password | **Users** page | Admin |
+| Enable / disable | **Users** page | Admin |
+| Change roles | **Users** page | Admin |
+| Delete | **Users** page | Admin |
+
+All are recorded in the audit trail. The corresponding endpoints are
+`PUT /api/users/me/password` (any local user) and, under `/api/users/{id}`,
+`password` / `enabled` / `roles` plus `DELETE` (Admin only).
+
+**Disabling, deleting or demoting the last enabled local administrator is
+refused** with HTTP 409 and an explanation. An Omnissa Access user holding the
+Admin role through a group does *not* satisfy the guard, because the situations
+break-glass exists for are exactly those where Access sign-in is unavailable.
+
+### Password rules
+
+- At least **12 characters**
+- Not built from a handful of repeated characters
+- Not a well-known password, and not a plain ascending/descending sequence
+- Must not contain the username
+
+There is deliberately **no uppercase/digit/symbol requirement**. Such rules are
+discouraged (NIST SP 800-63B) because they push people towards predictable
+shapes like `Password1!` while adding little entropy and rejecting strong
+passphrases — `correct horse battery staple` is accepted here and is stronger
+than most passwords that satisfy a composition policy.
+
+The built-in weak-password list is small and is not a breach corpus. Making the
+policy configurable, including loading a real wordlist from a mounted file, is
+tracked separately.
 
 ## Callout API Security
 

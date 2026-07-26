@@ -152,6 +152,18 @@ channel as having the same audience as the request queue itself.
   endpoint (default 60; `0` disables).
 - `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=true` — disable local
   username/password login entirely (OAuth2-only admin login).
+
+  Consider leaving local login **enabled** instead, as a deliberate
+  break-glass: roles are resolved from Omnissa Access group membership, so an
+  unreachable tenant, a misconfigured OIDC client or a wrong role map otherwise
+  locks every administrator out, recoverable only by editing the container's
+  environment and recreating it. If you keep it, treat the local admin as a
+  standing credential — give it a long random password and **rotate it from the
+  Users page**, since `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` only applies on first
+  run and silently does nothing afterwards.
+
+  The tool refuses to disable, delete or demote the last enabled local
+  administrator, so the break-glass cannot be removed by accident.
 - Terminate TLS at a reverse proxy (Caddy/nginx) and keep the plain-HTTP
   port 8081 off the public internet. **Only `POST /api/approvals/new` needs to
   be internet-reachable.** Chat approvals add no inbound endpoint at all — both

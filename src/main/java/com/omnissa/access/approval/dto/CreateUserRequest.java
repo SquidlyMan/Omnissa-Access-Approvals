@@ -15,7 +15,7 @@ import jakarta.validation.constraints.Size;
  */
 public record CreateUserRequest(
         @NotNull @Size(min = 4, max = 50) String username,
-        @NotNull @Size(min = 4, max = 100) String password,
+        @NotNull String password,   // length + strength enforced by PasswordPolicy
         @Size(max = 100) String firstName,
         @Size(max = 100) String lastName,
         @NotNull @Email @Size(max = 100) String email) {

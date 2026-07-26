@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-07-26
+
+Operability: knowing when something is wrong, and being able to get back in.
+
+### Added
+- **Dependency health API** for external monitoring, separating *"this container is down"* from *"something it depends on is unhealthy"*. `/actuator/health` is unchanged and remains **liveness only** — Docker, `deploy.sh`, CasaOS and the UAG all consume it, and CasaOS *recreates the container* when it fails, so a third-party outage must never reach it. New `GET /api/health/deps` (public, aggregate word only — no tenant name, no error strings, no counts) and `GET /api/health/dependencies` (authenticated, per-component detail). Checks Omnissa Access reachability, scheduler liveness, approval drift and webhook delivery. See [Monitoring](docs/monitoring.md).
+- **Scheduler liveness check** — the one failure with no other symptom. Every `@Scheduled` job shares Spring's single-threaded scheduler, so if the JIT sweeps wedge, time-bound access silently never expires while the container, the UI and every other check stay green.
+- **Approval drift detection** — requests Omnissa Access is holding that the queue has no pending record of. Those requesters wait indefinitely and the app never provisions, with nothing to indicate why. The queue shows a banner and **Pull from Access** recovers them.
+- **Local account management** — add, reset password, enable/disable, change roles and delete, all audited, plus **self-service password change** in the top bar for any locally signed-in account. Local sign-in is the deliberate break-glass route: roles come from Access group membership, so a local admin is the only way in when the tenant is unreachable or the role map is wrong.
+- **Password policy** — 12 characters minimum, rejecting repeated characters, well-known passwords, plain sequences, and anything containing the username. Deliberately **no uppercase/digit/symbol requirement**: composition rules push people towards `Password1!` while adding little entropy and rejecting strong passphrases.
+
+### Fixed
+- **`OmnissaRestClient` had no connect or read timeout**, so a hung tenant pinned the calling thread indefinitely. Tolerable at one call per dashboard load; fatal once polled every minute, where hung probes accumulate until the pool starves — the monitoring would have caused the outage it exists to detect. Now 5s/5s.
+- **Deleting a pending request is refused** (HTTP 409). Omnissa Access holds an approval open until it receives a decision, so deleting the local record left the requester waiting permanently on a decision that could never be given — five requests sat stuck this way and presented as an Access provisioning fault. Decline it first; deleting a decided record is unchanged.
+- **Account creation accepted a 4-character password** while password *change* required 12 — so a weak password could be set at creation and then not be replaceable with an equally weak one.
+- The connectivity probe is now shared between the dashboard tile and health, rather than each polling the tenant independently.
+
+### Security
+- The tool **refuses to disable, delete or demote the last enabled local administrator**, explaining why rather than failing bare. An Access user holding Admin through a group does not satisfy the guard — the situations break-glass exists for are exactly those where Access sign-in is unavailable.
+- Documented that `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` **cannot rotate a password**: the bootstrap runs only when the user table is empty, so changing it on an existing install does nothing, silently.
+
+### Documentation
+- New [Monitoring](docs/monitoring.md) reference: both endpoints and why they are separate, the Uptime Kuma and UAG recipes, and a per-component runbook.
+- Recorded that the **UAG health monitor connects directly to the internal resource** and does not traverse the edge service's proxy pattern, so `/actuator/health` needs no whitelisting there.
+- Recorded that a healthy `notifications` status means the endpoint **accepted** the request, not that the message arrived — Power Automate returns `202 Accepted`, which is exactly how the Teams payload-shape bug hid.
+- `troubleshooting.md` corrected: *"Health endpoint shows DOWN"* claimed `/actuator/health` aggregates component health including mail; it is liveness-only and mail health has long been disabled.
+- `OMNISSA_ROLE_MAP` and `OMNISSA_ADMIN_OAUTH_SCOPE` added to the configuration reference and env template, and the Access setup guide now registers the **`group`** scope — without it no group claim is emitted and every user silently becomes a Viewer.
+
 ## [1.16.1] - 2026-07-26
 
 Access governance: the tool now decides **who may act**, not just what happens.

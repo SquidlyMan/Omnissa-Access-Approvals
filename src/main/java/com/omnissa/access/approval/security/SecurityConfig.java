@@ -188,6 +188,10 @@ public class SecurityConfig {
 
                 // Tenant configuration, users, log bundle — admin only. The log
                 // bundle is admin-gated because it contains request payloads.
+                // Changing your OWN password is not an administrative act — a
+                // user must not need someone else to rotate their credential.
+                // Must precede the admin rule; the first match wins.
+                .requestMatchers(HttpMethod.PUT, "/api/users/me/password").authenticated()
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
                 .requestMatchers("/api/logs/**").hasRole("ADMIN")
                 .requestMatchers("/api/config/server/**", "/api/config/server").hasRole("ADMIN")
