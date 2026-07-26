@@ -323,9 +323,13 @@ public class SecurityConfig {
             Set<GrantedAuthority> authorities = new LinkedHashSet<>(user.getAuthorities());
             roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role.name())));
 
-            logger.info("OIDC login: {} in {} group(s) -> {}",
-                    user.getEmail() != null ? user.getEmail() : user.getSubject(),
-                    groupIds.size(), roles);
+            String identity = user.getEmail() != null ? user.getEmail() : user.getSubject();
+            logger.info("OIDC login: {} in {} group(s) -> {}", identity, groupIds.size(), roles);
+
+            String conflict = GroupRoleMapper.auditorConflict(roles);
+            if (conflict != null) {
+                logger.warn("Role conflict for {}: {}", identity, conflict);
+            }
 
             return new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo());
         };

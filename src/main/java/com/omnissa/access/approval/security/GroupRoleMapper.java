@@ -109,6 +109,44 @@ public final class GroupRoleMapper {
     }
 
     /**
+     * Describes the case where {@code ROLE_AUDITOR} is held alongside another
+     * role, or {@code null} when there is nothing to report.
+     *
+     * <p>Auditor is the one <em>restrictive</em> role: it withholds the live
+     * queue so a compliance reviewer sees the record without visibility of, or
+     * influence over, requests in flight. Because role resolution is additive,
+     * pairing it with any other role silently defeats that — the union of
+     * permissions applies and Auditor contributes nothing. Adding an approver
+     * to the auditors group therefore looks like a restriction and is not one.
+     *
+     * <p>Combined with {@code ROLE_ADMIN} or {@code ROLE_APPROVER} it is also a
+     * separation-of-duties conflict: the same person both decides requests and
+     * audits those decisions.
+     *
+     * <p>This is reported rather than corrected. Silently dropping a role would
+     * mean a group membership <em>removing</em> access, which is surprising in
+     * its own way and could strand someone unexpectedly; the failure worth
+     * fixing is that the conflict was invisible.
+     */
+    public static String auditorConflict(Set<AuthorityName> roles) {
+        if (roles == null || !roles.contains(AuthorityName.ROLE_AUDITOR) || roles.size() < 2) {
+            return null;
+        }
+
+        Set<AuthorityName> others = new LinkedHashSet<>(roles);
+        others.remove(AuthorityName.ROLE_AUDITOR);
+
+        boolean canAct = others.contains(AuthorityName.ROLE_ADMIN)
+                || others.contains(AuthorityName.ROLE_APPROVER);
+
+        return "ROLE_AUDITOR is held alongside " + others + ", so it has no restrictive effect — "
+                + "roles are additive and the union applies, giving full access to the live queue"
+                + (canAct ? ", and the same identity both decides requests and audits those decisions "
+                            + "(separation-of-duties conflict)" : "")
+                + ". Map this user to the auditors group ONLY if the intent is to restrict them.";
+    }
+
+    /**
      * Extracts group ids from an OIDC claim value.
      *
      * <p>Access serves {@code group_ids} as an <em>overflow claim</em> — the

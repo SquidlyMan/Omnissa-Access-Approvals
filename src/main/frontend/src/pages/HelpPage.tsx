@@ -218,6 +218,104 @@ export default function HelpPage() {
           </p>
         </HelpSection>
 
+        <HelpSection title="Roles and Permissions">
+          <p>
+            What a signed-in user may do is decided by their{' '}
+            <span className="font-medium text-gray-800">Omnissa Access group membership</span>.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm border border-gray-200 rounded-lg">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left font-medium text-gray-800 px-3 py-2 border-b border-gray-200">Role</th>
+                  <th className="text-left font-medium text-gray-800 px-3 py-2 border-b border-gray-200">Can</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-800">Admin</td>
+                  <td className="px-3 py-2 border-b border-gray-100">
+                    Manage users, auto-approval rules, tenant configuration and the log bundle;
+                    delete requests — plus everything below
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-800">Approver</td>
+                  <td className="px-3 py-2 border-b border-gray-100">
+                    Decide requests — approve, reject, revoke, revoke and block, allow re-request.
+                    Can <span className="font-medium">read</span> rules but not change them
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-800">Viewer</td>
+                  <td className="px-3 py-2 border-b border-gray-100">
+                    Read the queue, request details, statistics, rules and the audit trail. Changes
+                    nothing
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium text-gray-800">Auditor</td>
+                  <td className="px-3 py-2">
+                    The audit trail and CSV export <span className="font-medium">only</span> — no
+                    live queue, no request details, no decisions
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Map groups to roles in the env file with <EnvVar name="OMNISSA_ROLE_MAP" />, as
+            comma-separated <Code>{'<groupId>:<ROLE>'}</Code> pairs:
+          </p>
+          <CodeBlock>{'OMNISSA_ROLE_MAP=05eb7969-…:ADMIN,63173f00-…:APPROVER,4378e8f5-…:AUDITOR'}</CodeBlock>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <span className="font-medium text-gray-800">It matches group ids, not names.</span> A
+              rename in Access would otherwise silently drop everyone to Viewer with no error. Sign
+              in and open <Code>/api/auth/claims</Code> to read the ids — it pairs each id with its
+              display name.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Viewer is a fallback, not a floor.</span>{' '}
+              A user whose groups match nothing gets Viewer; once any group matches, the matched
+              roles are exactly what they hold. With no map configured, everyone is a Viewer — so
+              setting the map is the deliberate act that grants privilege.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Multiple matches are additive, and the
+              most permissive wins.</span> Someone in the approver and auditor groups holds both
+              roles and gets the union of their permissions.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Changes take effect at next sign-in.</span>{' '}
+              Roles are read from the token, which is a snapshot — adding or removing a group does
+              nothing until the user signs out and back in.
+            </li>
+          </ul>
+          <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <span className="font-medium">Note —</span> Auditor is the only{' '}
+            <span className="font-medium">restrictive</span> role, so combining it with any other
+            role silently defeats it: permissions are additive, so the user keeps full access to the
+            live queue and Auditor contributes nothing. Adding an approver to the auditors group
+            looks like a restriction and is not one. Paired with Admin or Approver it is also a{' '}
+            <span className="font-medium">separation-of-duties conflict</span> — the same person
+            decides requests and audits those decisions. The combination is permitted but a warning
+            is written to the log at each sign-in; grant Auditor{' '}
+            <span className="font-medium">on its own</span> when the intent is to restrict.
+          </p>
+          <p>
+            Sign-in method and permissions are separate concerns:{' '}
+            <span className="font-medium text-gray-800">Teams</span> approvals respect roles, since
+            the card's buttons open the tool and the approver signs in normally.{' '}
+            <span className="font-medium text-gray-800">Slack</span> approvals do not — a Slack
+            decision is made in the interaction callback where there is no signed-in user to check,
+            so authority there comes solely from <EnvVar name="SLACK_APPROVER_MAP" />. Keep that map
+            in step with group membership. Note also that anyone in a notification channel can{' '}
+            <span className="font-medium">read</span> request details regardless of role; roles
+            govern who may act, never who may see.
+          </p>
+        </HelpSection>
+
         <HelpSection title="Security Options">
           <ul className="list-disc pl-5 space-y-2">
             <li>

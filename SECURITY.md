@@ -85,6 +85,17 @@ they hold. Matched roles are additive among themselves. With no role map
 configured every user is a Viewer — absence of configuration is restrictive,
 not permissive.
 
+`ROLE_AUDITOR` must not be combined with another role. Resolution is additive
+and every rule admits any one of its listed roles, so the most permissive role
+wins: an auditor who also holds Approver keeps full access to the live queue and
+the auditor restriction has no effect. Alongside `ROLE_ADMIN` or
+`ROLE_APPROVER` it is additionally a separation-of-duties conflict — one
+identity deciding requests and auditing those decisions. The combination is
+reported at each sign-in with a `WARN` naming the user and roles, rather than
+silently corrected: a group membership that *removed* access would be
+surprising in its own way, and the defect worth fixing was that the conflict
+was invisible.
+
 The distinction matters for `ROLE_AUDITOR`, which grants *less* than Viewer.
 Granting Viewer unconditionally would make every role additive on top of it,
 and since Viewer already includes reading the audit trail, an auditor would
