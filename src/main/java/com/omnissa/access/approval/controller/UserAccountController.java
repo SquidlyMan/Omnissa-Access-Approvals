@@ -122,7 +122,12 @@ public class UserAccountController {
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             auditService.record("password-change-failed", null, null,
                     "Incorrect current password supplied for '" + user.getUsername() + "'");
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            // 422, not 403: the caller is authenticated and permitted to be
+            // here — a supplied value is wrong. 403 across this API means "your
+            // role does not allow this", and conflating the two would have the
+            // SPA tell the user they lack permission to change their own
+            // password.
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                     .body(Map.of("error", "Current password is incorrect."));
         }
 

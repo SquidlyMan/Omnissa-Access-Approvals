@@ -81,9 +81,13 @@ export async function readAccountError(res: Response): Promise<AccountError> {
   if (res.status === 401) {
     return { message: 'Your session has ended. Sign in again.', refused: false }
   }
+  if (res.status === 422) {
+    // A supplied value is wrong rather than disallowed — e.g. an incorrect
+    // current password. Distinct from 403 so the user is not told they lack
+    // permission to change their own credential.
+    return { message: serverMessage || 'That value was not accepted.', refused: false }
+  }
   if (res.status === 403) {
-    // PUT /me/password answers 403 with its own wording when the current
-    // password is wrong — that is not a permissions problem, so it wins.
     return { message: serverMessage || FORBIDDEN_MESSAGE, refused: false }
   }
   return { message: serverMessage || `Server error ${res.status}`, refused: false }
