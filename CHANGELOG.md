@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.1] - 2026-07-26
+
+### Fixed
+- **ERROR-level log noise on an expected condition.** Spring Security authorizes every dispatch type, not just the original request. `/api/approvals/stream` is an `SseEmitter`, so its response is committed as soon as streaming begins — when the **ASYNC** dispatch was re-authorized and denied, Spring Security could not write a 403 into an open stream and the wrapped failure reached Tomcat as an `ERROR`. `FORWARD` and `ERROR` dispatches were already exempted for the same reason ("authorization already happened on the original request"); `ASYNC` was missed, and only became reachable when role rules replaced `anyRequest().authenticated()`. Reproduced and confirmed fixed: an open queue tab plus a sign-out elsewhere previously produced a burst of errors at the same millisecond, one per open emitter.
+- **The Users page 404'd on refresh or a direct link.** `SpaController` forwards a hand-listed set of client routes to the SPA shell and `/users` was added to the router without being added there, so the page worked when navigated to in-app but not on reload. Both files now cross-reference each other.
+
+## [1.19.0] - 2026-07-26
+
+### Added
+- **Sign-in throttling on the local login form** — previously the only credential-accepting endpoint with no rate limiting of any kind, so the break-glass admin password could be guessed at full LAN speed. Three free attempts, then a doubling delay capped so a request thread is never held long; an address making sustained attempts is refused with HTTP 429. Counters expire on their own and clear on success.
+
+  **Deliberately no account lockout.** Locking an account after N failures would let anyone able to reach the login page disable the one credential that exists for emergencies — precisely when Omnissa Access is unavailable and local sign-in is the only way in. The per-address counter may refuse; the **per-username counter only ever delays**, because it is shared with the account's real owner and an attacker distributed across addresses could otherwise lock them out. The delay applies to correct attempts too, or response timing would reveal a valid password.
+- **Configurable password policy** — `OMNISSA_PASSWORD_MIN_LENGTH`, `_MIN_DISTINCT`, `_BLOCK_USERNAME`, `_BLOCKLIST_FILE`, and opt-in `_REQUIRE_MIXED_CASE` / `_REQUIRE_DIGIT` / `_REQUIRE_SYMBOL`. Minimum length is **clamped to a floor of 8** with a warning: configuration may tighten the policy, never remove it, or `min-length=1` would silently make the break-glass credential worthless.
+
+### Changed
+- The bundled weak-password list targets **long-but-weak** values rather than a general corpus. Of the 10,000 most common passwords **only 10 reach 12 characters** — the length rule alone rejects the other 9,990 — so bundling a common-password list would add weight while implying protection it does not give. The bundled list instead catches doubled words, keyboard walks and digit runs, which also defeat composition rules (`Passwordpassword1!` satisfies every character-class requirement). Point `OMNISSA_PASSWORD_BLOCKLIST_FILE` at a real wordlist if you lower the minimum length, at which point the whole corpus is back in scope.
+- Composition rules are documented as **not recommended** (NIST SP 800-63B): people decorate rather than abandon a weak password, turning `password` into `Password1!` — exactly what a cracking toolchain generates first — while strong passphrases such as `correct horse battery staple` are rejected. Provided for compliance requirements.
+
 ## [1.18.0] - 2026-07-26
 
 Operability: knowing when something is wrong, and being able to get back in.

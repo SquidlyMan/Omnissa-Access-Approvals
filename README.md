@@ -25,6 +25,7 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Ops** — [backup & restore](docs/deployment.md#backup-and-restore) for the database and secrets, log bundle download, syslog export (UDP/TCP/TLS with client certs), and a [dependency health API](docs/deployment.md#monitoring) that separates "the container is down" from "something it depends on is unhealthy" — including detection of approval requests Omnissa Access is waiting on that never reached the queue
 - **Role-based access control** — Admin / Approver / Viewer / Auditor, resolved from Omnissa Access group membership ([details](#roles))
 - **API hardening** — optional Basic auth and per-IP rate limiting on the callout endpoint, the only endpoint that must be internet-reachable
+- **Sign-in protection** — failed local sign-ins are progressively delayed and a persistent source is refused, with *no* account lockout: locking would let anyone reach the login page and disable the break-glass credential. Password policy is configurable ([details](docs/configuration.md#password-rules))
 
 ## Screenshots
 
