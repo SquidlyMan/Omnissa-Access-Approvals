@@ -394,14 +394,35 @@ export default function HelpPage() {
             it is <span className="font-medium text-gray-800">not</span> recorded as if it had
             succeeded.
           </p>
-          <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            <span className="font-medium">Note —</span> after a revoke that allows re-requesting,
-            access can be handed straight back: if the group assignment's{' '}
-            <span className="font-medium">Deployment Type</span> is{' '}
-            <span className="font-medium">Automatic</span>, Omnissa Access re-provisions the app as
-            soon as the exclusion lifts, and a matching auto-approval rule will approve a new request
-            immediately. Use <Code>Revoke and block</Code> when access must stay gone.
-          </p>
+          <div className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-2">
+            <p>
+              <span className="font-medium">Note —</span> when the exclusion lifts (a{' '}
+              <Code>Revoke access</Code>, an <Code>Allow re-request</Code>, or a re-requestable JIT
+              expiry), whether the user gets the app back immediately depends on the assignment's{' '}
+              <span className="font-medium">Deployment Type</span> in Omnissa Access:
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <span className="font-medium">Automatic</span> — Omnissa Access re-provisions the app
+                straight away. The user never requests it, so no approval happens at all; an
+                auto-approval rule is not involved, because there is no request to approve.
+              </li>
+              <li>
+                <span className="font-medium">User-Activated</span> — the app reappears in the
+                catalog as <span className="font-medium">requestable</span>. Nothing is granted yet.
+                When the user clicks <span className="font-medium">Request</span>, a new request
+                reaches this tool, and <span className="font-medium">then</span> a matching
+                auto-approval rule approves it immediately. With no matching rule it waits in the
+                queue like any other request.
+              </li>
+            </ul>
+            <p>
+              So an auto-approval rule never hands access back on its own — it acts on the{' '}
+              <span className="font-medium">next request</span>, which only exists under
+              User-Activated. Use <Code>Revoke and block</Code> when access must stay gone
+              regardless.
+            </p>
+          </div>
         </HelpSection>
 
         <HelpSection title="Approving from Slack or Teams">

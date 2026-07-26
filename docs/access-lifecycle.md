@@ -94,16 +94,22 @@ Both are confirmation-gated. As with a permanent decline, a revocation that
 cannot be applied changes nothing — the request stays `approved` and no
 notification is sent.
 
-> ### Note — access can be re-granted automatically
-> After a **Revoke access** (or a re-requestable JIT expiry), two things can hand
-> the app straight back:
-> - **Deployment Type = Automatic** on the group assignment — Omnissa Access
->   re-provisions the app the moment the exclusion is lifted; the user never has
->   to request it.
-> - **A matching Auto-Approval Rule** in this tool — the user's new request is
->   approved immediately.
+> ### Note — what happens when the exclusion lifts depends on Deployment Type
+> After a **Revoke access**, an **Allow re-request**, or a re-requestable JIT
+> expiry, the exclusion is removed — but whether the user gets the app back
+> *immediately* depends on the assignment's **Deployment Type** in Omnissa
+> Access:
 >
-> Use **Revoke and block** if the access must stay gone.
+> | Deployment Type | What happens |
+> |---|---|
+> | **Automatic** | Omnissa Access **re-provisions the app straight away**. The user never requests it, so no approval happens at all — an auto-approval rule is not involved, because there is no request to approve. |
+> | **User-Activated** | The app simply **reappears in the catalog as requestable**. Nothing is granted yet. When the user clicks **Request**, a new approval request reaches this tool — and *then* a matching auto-approval rule approves it immediately. With no matching rule it waits in the queue like any other request. |
+>
+> So an auto-approval rule does not cause access to return on its own; it acts on
+> the *next request*, which only exists under **User-Activated**. Under
+> **Automatic** the app returns whether or not any rule exists.
+>
+> Use **Revoke and block** if the access must stay gone regardless.
 
 ---
 
@@ -194,7 +200,8 @@ All are authenticated and CSRF-protected.
 | Symptom | Cause |
 |---|---|
 | Grant never expires | The request was approved as *Permanent* — check **Access duration** on the request detail page |
-| App comes back immediately after a revoke | Group Deployment Type is *Automatic*, or an auto-approval rule matched — use **Revoke and block** |
+| App comes back immediately after a revoke | Deployment Type is *Automatic* — Access re-provisions with no request involved. Use **Revoke and block** |
+| App reappears as requestable, then is approved the moment the user requests | Deployment Type is *User-Activated* and an auto-approval rule matched the new request. Disable the rule, or use **Revoke and block** |
 | "the exclusion could NOT be applied" | Access was unreachable or the requester's SCIM id could not be resolved; nothing was changed — retry |
 | Revoke did nothing and the audit says the user was not entitled | The user's access came from somewhere the tool cannot see (e.g. another group with the app assigned directly) |
 | Blocked user still can't request after lifting | Check the app's **Assign** list in Access for a leftover *Exclude* entry |
