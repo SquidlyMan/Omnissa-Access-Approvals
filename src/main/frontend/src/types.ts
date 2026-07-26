@@ -11,6 +11,21 @@ export interface User {
   authorities: string[]
 }
 
+/**
+ * A local sign-in account as returned by /api/users (#58). Distinct from
+ * {@link User}, which describes the current session and may be an OIDC one.
+ * Roles carry the ROLE_ prefix, e.g. ["ROLE_ADMIN"].
+ */
+export interface UserSummary {
+  id: number
+  username: string
+  firstName: string
+  lastName: string
+  email: string
+  enabled: boolean
+  roles: string[]
+}
+
 export interface CalloutRequest {
   id: number
   requestId: string

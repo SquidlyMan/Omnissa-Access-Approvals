@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { canViewAudit, canViewQueue, roleLabel } from '../lib/permissions'
+import { canAdminister, canViewAudit, canViewQueue, roleLabel } from '../lib/permissions'
+import ChangePasswordDialog from './ChangePasswordDialog'
 
 const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
   `hidden md:block text-sm px-3 py-1 rounded transition-colors ${isActive ? 'bg-white/20' : 'hover:bg-white/10'}`
@@ -12,6 +13,8 @@ const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
 export default function Layout() {
   const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const [passwordChanged, setPasswordChanged] = useState(false)
 
   const closeMenu = () => setMenuOpen(false)
 
@@ -19,7 +22,14 @@ export default function Layout() {
   // the pages they cannot open (#52).
   const showQueueLinks = canViewQueue(user)
   const showAuditLink = !showQueueLinks && canViewAudit(user)
+  const showUsersLink = canAdminister(user)
   const role = roleLabel(user)
+
+  // Self-service password change lives here rather than on the admin-only
+  // Users page (#58): every local account needs it, including viewers and
+  // auditors who never see an admin page. An OIDC session has no local
+  // password — that credential lives in Omnissa Access.
+  const showPasswordChange = user?.loginType === 'local'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -48,6 +58,11 @@ export default function Layout() {
                 Audit
               </NavLink>
             )}
+            {showUsersLink && (
+              <NavLink to="/users" className={desktopLinkClass}>
+                Users
+              </NavLink>
+            )}
           </div>
           <div className="hidden md:flex items-center gap-3 text-sm">
             <NavLink
@@ -66,6 +81,15 @@ export default function Layout() {
               >
                 {role}
               </span>
+            )}
+            {showPasswordChange && (
+              <button
+                type="button"
+                onClick={() => { setPasswordChanged(false); setPasswordOpen(true) }}
+                className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded transition-colors"
+              >
+                Change password
+              </button>
             )}
             <a
               href="/logout"
@@ -115,12 +139,26 @@ export default function Layout() {
                 Audit
               </NavLink>
             )}
+            {showUsersLink && (
+              <NavLink to="/users" onClick={closeMenu} className={mobileLinkClass}>
+                Users
+              </NavLink>
+            )}
             <NavLink to="/help" onClick={closeMenu} className={mobileLinkClass}>
               Help
             </NavLink>
             <span className="block w-full text-sm py-2 px-4 text-white/60">
               {user?.name || user?.username}{role && ` · ${role}`}
             </span>
+            {showPasswordChange && (
+              <button
+                type="button"
+                onClick={() => { closeMenu(); setPasswordChanged(false); setPasswordOpen(true) }}
+                className="block w-full text-left text-sm py-2 px-4 hover:bg-white/10 transition-colors"
+              >
+                Change password
+              </button>
+            )}
             <a href="/logout" className="block w-full text-sm py-2 px-4 hover:bg-white/10 transition-colors">
               Sign out
             </a>
@@ -130,8 +168,26 @@ export default function Layout() {
 
       {/* Page content */}
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        {passwordChanged && (
+          <div className="mb-4 flex items-start justify-between gap-4 rounded-lg bg-green-50 border border-green-200 px-4 py-2 text-sm text-green-800">
+            <span>Your password was changed. Use the new one the next time you sign in.</span>
+            <button
+              onClick={() => setPasswordChanged(false)}
+              className="text-green-700 hover:text-green-900 shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
+
+      {passwordOpen && (
+        <ChangePasswordDialog
+          onClose={() => setPasswordOpen(false)}
+          onDone={() => { setPasswordOpen(false); setPasswordChanged(true) }}
+        />
+      )}
     </div>
   )
 }

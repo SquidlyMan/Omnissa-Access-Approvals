@@ -321,6 +321,58 @@ export default function HelpPage() {
           </p>
         </HelpSection>
 
+        <HelpSection title="Local Accounts">
+          <p>
+            Local username/password sign-in exists as the{' '}
+            <span className="font-medium text-gray-800">break-glass</span> route. Roles come from
+            Omnissa Access group membership, so if the tenant is unreachable, the OIDC client is
+            misconfigured, or <EnvVar name="OMNISSA_ROLE_MAP" /> is wrong, a local admin is the only
+            way back in.
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <span className="font-medium text-gray-800">Change my password</span> — in the top
+              bar, for any account signed in <span className="font-medium">locally</span>. Requires
+              your current password. Signed in with Omnissa Access? That credential lives in your
+              identity provider, so the option does not appear.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Users</span> page (admins only) — add a
+              local account, reset a password, enable or disable an account, change its roles, or
+              delete it. Every one of these is recorded in the audit trail.
+            </li>
+          </ul>
+          <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <span className="font-medium">Note —</span> the tool refuses to disable, delete or
+            demote the <span className="font-medium">last enabled local administrator</span>, and
+            explains why rather than just failing. An Omnissa Access user holding the Admin role
+            through a group does not satisfy this: the situations break-glass exists for are exactly
+            the ones where Access sign-in does not work. Grant a second local account the Admin role
+            first.
+          </p>
+          <p>
+            <span className="font-medium text-gray-800">The bootstrap variables cannot rotate a
+            password.</span> <EnvVar name="OMNISSA_BOOTSTRAP_ADMIN_PASSWORD" /> is read only when
+            the user table is empty, so changing it on an existing install does nothing — silently.
+            Use <span className="font-medium text-gray-800">Reset password</span> on the Users page
+            instead.
+          </p>
+          <p>Password rules:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>At least <span className="font-medium text-gray-800">12 characters</span></li>
+            <li>Not made of a handful of repeated characters</li>
+            <li>Not a well-known password, and not a plain sequence</li>
+            <li>Must not contain the username</li>
+            <li>
+              <span className="font-medium text-gray-800">No uppercase / digit / symbol
+              requirement</span> — a passphrase such as{' '}
+              <Code>correct horse battery staple</Code> is accepted and is stronger than a short
+              complex one. Composition rules mostly produce predictable shapes like{' '}
+              <Code>Password1!</Code> without adding real strength.
+            </li>
+          </ul>
+        </HelpSection>
+
         <HelpSection title="Security Options">
           <ul className="list-disc pl-5 space-y-2">
             <li>

@@ -6,8 +6,9 @@ import QueuePage from './pages/QueuePage'
 import RequestDetailPage from './pages/RequestDetailPage'
 import RulesPage from './pages/RulesPage'
 import HelpPage from './pages/HelpPage'
+import UsersPage from './pages/UsersPage'
 import Layout from './components/Layout'
-import { canViewQueue } from './lib/permissions'
+import { canAdminister, canViewQueue } from './lib/permissions'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -31,6 +32,19 @@ function QueueRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/**
+ * Local account management (#58) is admin-only on the server. Send everyone
+ * else back to their landing page rather than rendering a table whose every
+ * call comes back 403. Self-service password change lives in the nav bar, so
+ * no non-admin needs this route.
+ */
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">Loading…</div>
+  if (!canAdminister(user)) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -46,6 +60,7 @@ export default function App() {
           <Route path="queue" element={<QueuePage />} />
           <Route path="requests/:requestId" element={<QueueRoute><RequestDetailPage /></QueueRoute>} />
           <Route path="rules" element={<QueueRoute><RulesPage /></QueueRoute>} />
+          <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
           <Route path="help" element={<HelpPage />} />
         </Route>
       </Routes>
