@@ -1,0 +1,129 @@
+/* Print/screen styling for the published blog post and documentation.
+   Kept in one place so both documents look like the same product. */
+
+@page {
+  size: Letter;
+  margin: 1.6cm 1.8cm;
+  @bottom-left  { content: string(doctitle); font-size: 8pt; color: #8a96a3; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages);
+                  font-size: 8pt; color: #8a96a3; }
+}
+
+body {
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2733;
+  font-size: 10.5pt;
+  line-height: 1.5;
+}
+
+h1 {
+  font-size: 22pt;
+  color: #132250;          /* Omnissa navy, matching the app */
+  margin: 0 0 4px;
+  string-set: doctitle content();
+}
+h2 {
+  font-size: 14pt;
+  color: #132250;
+  border-bottom: 2px solid #d7e3ec;
+  padding-bottom: 4px;
+  margin: 22px 0 10px;
+  break-after: avoid;
+}
+h3 { font-size: 11.5pt; color: #14507a; margin: 14px 0 5px; break-after: avoid; }
+h4 { font-size: 10.5pt; color: #14507a; margin: 12px 0 4px; break-after: avoid; }
+
+p { margin: 7px 0; }
+ul, ol { margin: 7px 0; padding-left: 22px; }
+li { margin: 3px 0; }
+
+a { color: #14507a; word-break: break-word; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 9.5pt;
+  margin: 10px 0;
+  break-inside: avoid;
+}
+th, td {
+  border: 1px solid #cdd9e3;
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: #eef4f8; color: #132250; }
+
+code {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9pt;
+  background: #f2f5f8;
+  padding: 1px 4px;
+  border-radius: 3px;
+  word-break: break-word;
+}
+pre {
+  background: #1f2a36;
+  color: #e6edf3;
+  padding: 9px 11px;
+  border-radius: 5px;
+  font-size: 8.5pt;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  break-inside: avoid;
+}
+pre code { background: none; color: inherit; padding: 0; }
+
+img {
+  max-width: 100%;
+  border: 1px solid #d7e3ec;
+  border-radius: 4px;
+  margin: 8px 0 2px;
+}
+
+/* Emphasised paragraph immediately after an image = figure caption. */
+img + em, p > em:only-child {
+  display: block;
+  font-size: 8.5pt;
+  color: #6b7a89;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+/* Blockquotes carry the warnings. The disclaimer blocks lead with a ⚠ heading;
+   colour them red, and the softer advisory notes amber. */
+blockquote {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 5px solid #d9822b;
+  background: #fdf6ec;
+  border-radius: 4px;
+  break-inside: avoid;
+}
+blockquote h3 {
+  margin: 0 0 6px;
+  color: #a8600f;
+  font-size: 10.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+blockquote p { margin: 5px 0; }
+
+/* A warning block is any blockquote whose heading starts with the alert mark. */
+blockquote.danger {
+  border-left-color: #c0392b;
+  background: #fdecea;
+  border: 1px solid #e8b4ae;
+  border-left: 5px solid #c0392b;
+}
+blockquote.danger h3 { color: #a5271a; }
+blockquote.danger strong { color: #8f1f14; }
+
+hr { border: none; border-top: 1px solid #d7e3ec; margin: 20px 0; }
+
+.doc-meta {
+  font-size: 9.5pt;
+  color: #55636f;
+  margin-bottom: 4px;
+}
