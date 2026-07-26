@@ -29,3 +29,6 @@ src/main/resources/static/
 # Local assets - not distributed
 Omnissa_Identity_Service_Logo.png
 zimacube-container-deploy/
+
+# Generated publication output — rebuild with docs/publish/build.sh
+docs/publish/out/
