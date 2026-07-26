@@ -180,17 +180,21 @@ so approvers decide from Slack. Full walkthrough:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SLACK_ACTIONABLE` | `false` | `true` posts the interactive message instead of plain text (requires `WEBHOOK_FORMAT=slack`) |
-| `SLACK_SIGNING_SECRET` | — | Slack app **signing secret**. Verifies inbound interactions at `POST /api/slack/interactions` (HMAC-SHA256, 5-minute replay window). Required — without it every click is rejected |
-| `SLACK_APPROVER_MAP` | — | Comma-separated `slackUserId:appIdentity` pairs, e.g. `U0123ABC:dean@example.com,U0456DEF:jane`. Only listed users may decide; everyone else is rejected and audited |
+| `SLACK_ACTIONABLE` | `false` | `true` adds Approve / Reject / Open buttons to the message (requires `WEBHOOK_FORMAT=slack` and `APP_BASE_URL`) |
+| `APP_BASE_URL` | — | **Required** for the buttons — the public URL used to build their deep links |
 
-A valid signature proves a request came from your Slack workspace — **not** that
-the clicking user may approve. Authorization comes solely from
-`SLACK_APPROVER_MAP`, so channel membership never grants decision rights.
+The buttons are **deep links**, not interaction callbacks: they open the request
+in this tool, so the approver signs in and their
+[role](../README.md#roles) decides what they may do. There is **no inbound
+endpoint, no signing secret and no separate approver list**.
 
-The callback path `/api/slack/interactions` must be reachable from the internet
-through your reverse proxy (and, behind a UAG, added to the proxyPattern
-whitelist with Identity Bridging off).
+That last point is the reason for the design. A callback arrives where no
+signed-in user exists — a Slack signature proves the workspace, not the person —
+so authorization had to come from a separate map, which drifted from Omnissa
+Access group membership and failed *open*.
+
+If `APP_BASE_URL` is blank the tool sends the plain-text notification rather
+than emitting dead links.
 
 Example:
 

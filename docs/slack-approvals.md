@@ -1,212 +1,148 @@
 # Actionable Slack Approvals
 
-Post each new access request to Slack as an **interactive message** — an access
-duration menu plus **Approve** / **Reject** buttons — and let approvers decide
-without opening the web UI. The decision runs through exactly the same path as a
-UI decision (delivery to Omnissa Access, JIT grant/TTL, audit trail), and the
-Slack message is updated in place with the outcome.
+New access requests post a Slack message with **Approve**, **Reject** and
+**Open request** buttons. The buttons open the request in the Access Approval
+Tool with the decision pre-selected — you sign in as usual and confirm there.
 
-> Optional feature, **disabled by default**. Without `SLACK_ACTIONABLE=true` the
-> tool keeps sending the plain-text Slack notification.
-
----
+> Not an Omnissa product — see [NOTICE.md](../NOTICE.md). Intended for
+> testing/demo use only.
 
 ## How it works
 
-1. A request arrives → the tool posts a Block Kit message to your Slack
-   **incoming webhook**: app name, requester, a duration menu, and two buttons.
-2. An approver picks a duration and clicks **Approve** or **Reject**.
-3. Slack POSTs the interaction to `POST /api/slack/interactions` on your host.
-4. The tool **verifies Slack's signature**, maps the clicking Slack user to an
-   authorized approver, applies the decision, and **replaces the message** with
-   the result (e.g. *"✅ Approved by dean@flaming.ws · time-bound 60 min"*).
+1. Omnissa Access posts a callout to this tool; the request lands in the queue.
+2. The tool posts a Slack message to the channel behind `WEBHOOK_URL`.
+3. An approver clicks a button, which opens
+   `https://<your-host>/requests/<id>?action=approve|reject` in the browser.
+4. They sign in (if not already), and the review dialog opens with that decision
+   pre-selected — choose an access duration, or temporary vs permanent decline,
+   and submit.
 
-### Security model
+### Why the buttons open the tool instead of deciding in Slack
 
-The endpoint is unauthenticated at the session layer (Slack has no login), so
-the caller is authenticated **cryptographically** and authorization is explicit:
+Slack **can** deliver a decision straight from the message, and this tool did
+that originally. The problem is authorization.
 
-- **Signature check** — every request must carry a valid `X-Slack-Signature`
-  (HMAC-SHA256 over `v0:{timestamp}:{body}` using the app's *signing secret*).
-  Requests older than 5 minutes are rejected (replay guard). Unsigned or
-  tampered requests get `401` and never reach any state change.
-- **Explicit approver mapping** — a valid signature only proves the click came
-  from your Slack workspace, **not** that the clicker may approve. The Slack user
-  id must appear in `SLACK_APPROVER_MAP`; anyone else gets *"You are not an
-  authorized approver"* and the attempt is audited. **Channel membership never
-  grants approval rights.**
-- **Rate limited** — the path is registered with the same per-IP rate limiter as
-  the Access callout endpoint.
-- **Audited** — the decision is recorded with the resolved identity, e.g.
-  `dean@flaming.ws (via Slack)`.
+An interaction callback arrives at an endpoint where **no signed-in user
+exists**. Slack signs the request, which proves it came from your workspace —
+not that the person clicking may approve anything. Authority therefore had to
+come from a separate list, `SLACK_APPROVER_MAP`, and that list is a second
+source of truth that drifts: removing someone from an approver group in Omnissa
+Access revoked their access to the web UI immediately, but left their Slack
+buttons working until somebody remembered to edit the env file. It failed
+**open**, silently, with no error and no audit entry.
 
----
+Deep links remove the divergence rather than manage it. The approver
+authenticates with the tool's own OIDC login, so their [role](../README.md#roles)
+is resolved from Omnissa Access group membership exactly as it is everywhere
+else. Someone who no longer holds an approver role can still click the button —
+they simply land on a read-only request page.
+
+It also means:
+
+- **no inbound endpoint** — nothing to expose through your reverse proxy,
+- **no signing secret and no approver list** to configure or keep in step,
+- **decisions attributed to the real signed-in user**, not to a mapped identity,
+- **stale messages are harmless** — the request page reads live state, so a
+  button clicked after the request was already decided just shows the outcome.
+
+Teams approvals work the same way, for the same reason.
 
 ## 1. Create the Slack app
 
-At <https://api.slack.com/apps> → **Create an App**.
+At <https://api.slack.com/apps> → **Create an App** → **From scratch**, name it,
+and pick your workspace.
 
-### Option A — From a manifest (fastest)
+Then **Incoming Webhooks** → toggle **On** → **Add New Webhook to Workspace** →
+choose the channel that should receive approvals → **Allow**. Copy the URL:
 
-Choose **From a Manifest**, pick your workspace, and paste (replacing the host):
-
-```yaml
-display_information:
-  name: Access Approvals
-  description: Approve or reject Omnissa Access app requests from Slack
-  background_color: "#132250"
-features:
-  bot_user:
-    display_name: Access Approvals
-    always_online: false
-oauth_config:
-  scopes:
-    bot:
-      - incoming-webhook
-settings:
-  interactivity:
-    is_enabled: true
-    request_url: https://<your-host>/api/slack/interactions
-  org_deploy_enabled: false
-  socket_mode_enabled: false
-  token_rotation_enabled: false
+```
+https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
-Then **Create** → **Install to Workspace** → choose the channel that should
-receive approvals → **Allow**.
-
-### Option B — Blank app (click-through)
-
-1. **Create an App → Blank App**, name it, pick the workspace.
-2. **Incoming Webhooks** → toggle **On** → *Add New Webhook to Workspace* →
-   choose the channel → **Allow**.
-3. **Interactivity & Shortcuts** → toggle **On** → **Request URL**:
-   `https://<your-host>/api/slack/interactions` → **Save**.
-
-### Collect three values
-
-| Value | Where |
-|---|---|
-| **Webhook URL** | *Incoming Webhooks* → *Webhook URLs for Your Workspace* (`https://hooks.slack.com/services/…`) |
-| **Signing secret** | *Basic Information* → *App Credentials* → **Signing Secret** → *Show* |
-| **Approver member id(s)** | Slack profile → **⋮** → *Copy member ID* (`U…`) for each approver |
-
-No bot token, OAuth scopes beyond `incoming-webhook`, or **app-level token** is
-needed — app-level tokens are only for Socket Mode, which this feature does not
-use.
-
----
+That is the only value you need. There is no signing secret, no bot token, no
+app-level token, no interactivity Request URL, and no OAuth scope beyond
+`incoming-webhook`.
 
 ## 2. Configure the tool
 
 Set these in the tool's **env file** — `omnissa-approvals.env` for the
-ZimaCube/Docker deployment, `.env` for the bundled Compose files (or as container
-environment values if your platform manages them that way):
+ZimaCube/Docker deployment, `.env` for the bundled Compose files (or as
+container environment values if your platform manages them that way):
 
 | Variable | Example | Purpose |
 |---|---|---|
 | `WEBHOOK_URL` | `https://hooks.slack.com/services/T…/B…/…` | Where messages are posted |
 | `WEBHOOK_FORMAT` | `slack` | Required for Slack formatting |
-| `SLACK_ACTIONABLE` | `true` | Turns the plain notification into the interactive message |
-| `SLACK_SIGNING_SECRET` | *(32-char secret)* | Verifies inbound interactions — **required** |
-| `SLACK_APPROVER_MAP` | `U0123ABC:dean@example.com,U0456DEF:jane` | Comma-separated `slackUserId:appIdentity` pairs |
+| `SLACK_ACTIONABLE` | `true` | Adds the decision buttons |
+| `APP_BASE_URL` | `https://approvals.example.com` | **Required** — the public URL used to build the deep links |
+
+`APP_BASE_URL` is mandatory for actionable messages: notifications are sent from
+a background thread with no HTTP request, so the public URL cannot be derived
+from forwarded headers. If it is blank the tool sends the plain-text
+notification rather than emitting broken links.
 
 `WEBHOOK_URL` carries **all** tool notifications (new requests, decisions, and
 undeliverable notices), so they all land in the chosen channel.
 
-Restarting is not enough for env changes — **recreate** the container:
+Env changes need a container **recreate**, not a restart:
 
 ```bash
 docker compose -f <compose file> up -d --force-recreate
 ```
 
----
+## 3. Reachability
 
-## 3. Expose the callback endpoint
-
-Slack calls `POST /api/slack/interactions` from the internet, so the path must be
-reachable through your reverse proxy — the same treatment as
-`/api/approvals/new`:
-
-- Publicly resolvable host, valid TLS certificate, port 443 open.
-- **Behind a UAG:** add `/api/slack/interactions` to the **proxyPattern**
-  whitelist **and keep Identity Bridging OFF**. Bridging asserts an identity for
-  every routed request; an unauthenticated callback has none, so it fails before
-  reaching the app — and whitelisting alone does **not** waive bridging. See
-  [Troubleshooting](troubleshooting.md).
-
-### Verify
-
-```bash
-# Unsigned request must be rejected
-curl -s -o /dev/null -w "%{http_code}\n" -X POST \
-  -H "Content-Type: application/x-www-form-urlencoded" --data "payload=%7B%7D" \
-  https://<your-host>/api/slack/interactions        # expect 401
-```
-
-`401` proves the endpoint is reachable *and* enforcing signatures. A `404`,
-redirect, or timeout means the proxy is not passing the path. Test from **outside**
-your network — split DNS may resolve the host internally and bypass the gateway
-entirely, which makes a broken external path look healthy.
-
----
+Only the **approver's browser** needs to reach the tool — Slack itself never
+calls it. If the admin UI is LAN-only, approvers must be on the LAN or VPN to
+follow the links. **No inbound endpoint is required.**
 
 ## Using it
 
-A new request posts a message with an **Access duration** menu (Permanent, 5
-minutes, 15 minutes, 1 hour, 8 hours, 24 hours, 7 days, 30 days) and
-**✓ Approve** / **✗ Reject**.
+A new request posts a message with the app name, the requester's name, and three
+buttons:
 
-- Pick a duration **before** clicking Approve; leaving it on *Permanent* grants
-  standing access. Any other value creates a time-bound (JIT) grant that is
-  automatically revoked at expiry — see the JIT behavior in
-  [`docs/design/iga-foundations.md`](design/iga-foundations.md) §1.2.
-- Slack-initiated timed grants use the default re-request policy
-  (re-requestable after expiry).
-- **⛔ Reject and Block** performs a permanent decline (the user is excluded and
-  cannot re-request); plain **✗ Reject** is temporary. See
-  [Access Lifecycle](access-lifecycle.md).
-- The message is replaced with the outcome and the deciding identity.
+| Button | Effect |
+|---|---|
+| **✓ Approve…** | Opens the request with the review dialog open and **Approve** pre-selected — choose an access duration and submit |
+| **✗ Reject…** | Same, with **Reject** pre-selected — choose temporary or permanent |
+| **Open request** | Opens the request detail page with no decision pre-selected |
+
+The full set of options — time-bound (JIT) durations, the re-request policy,
+permanent vs temporary decline — is on the resulting screen. See
+[Access Lifecycle](access-lifecycle.md).
+
+Decisions made this way are attributed to the signed-in admin, exactly as if the
+request had been opened from the queue.
 
 ## Who can see, and who can act
 
 These are two different properties, and the tool controls only one of them.
 
+**Acting is governed by roles.** The buttons are deep links, so clicking one
+opens the request in the tool and the approver signs in as usual. Every
+authorization rule applies exactly as in the web UI — someone holding only the
+Viewer role who clicks *Approve* authenticates successfully and then finds no
+approve control. The link carries the *intent*; it confers no authority, and it
+submits nothing on its own. See [Roles](../README.md#roles).
+
 **Seeing is governed by channel membership, which the tool cannot enforce.** The
 message is posted to a Slack channel, so **every member of that channel can read
 the request details** — application name, requester and timing — regardless of
-whether they may approve, or whether they have an account in the tool at all.
-The buttons render for everyone; only mapped users can act on them, and
-everyone else is rejected and audited.
+their role, or of whether they have an account in the tool at all. Anyone in the
+channel can also click a button; they are simply sent to sign in and then cannot
+decide.
 
 If the channel is broader than the set of people who should know who is
 requesting what, that is an information-disclosure question to settle through
-channel membership. Treat the approvals channel as having the same audience as
-the request queue itself.
-
-**Acting is governed by `SLACK_APPROVER_MAP` — *not* by roles.**
-
-> **Note — Slack decisions bypass role-based access control.** Unlike the web UI
-> and [Teams approvals](teams-approvals.md), a Slack decision is made inside the
-> interaction callback, where there is no signed-in principal to check a role
-> against: the request is authenticated by *signature*, which proves it came
-> from your workspace, not who may act. Authorization therefore comes entirely
-> from `SLACK_APPROVER_MAP`.
->
-> The consequence is that this map is a **second, independent source of
-> authority**. Removing someone from an approver group in Omnissa Access revokes
-> their access to the web UI immediately, but leaves their Slack buttons
-> working until you also remove them from `SLACK_APPROVER_MAP` and recreate the
-> container. Keep the two in step, and keep the map to people who genuinely hold
-> approval rights.
+channel membership — roles cannot fix it. Treat the approvals channel as having
+the same audience as the request queue itself.
 
 ## Troubleshooting
 
 | Symptom | Cause |
 |---|---|
-| Buttons do nothing | Endpoint not reachable from the internet (proxy path/UAG whitelist), or Interactivity Request URL not set |
-| *"You are not an authorized approver"* | Clicking user's id is missing from `SLACK_APPROVER_MAP` |
-| Every click fails, logs show *invalid/absent signature* | `SLACK_SIGNING_SECRET` empty, wrong, or the container wasn't recreated after the env change |
-| Message posts without buttons | `SLACK_ACTIONABLE` not `true`, or `WEBHOOK_FORMAT` is not `slack` |
-| Nothing posts at all | `WEBHOOK_URL` blank or revoked in Slack |
-| Buttons appear but clicks 401 in logs | Message was posted by a *different* webhook than the app that owns the Interactivity URL — Slack routes clicks to the posting app |
+| No message appears | `WEBHOOK_URL` unset or wrong, or `WEBHOOK_FORMAT` is not `slack`. Check the app log for a `Webhook notification failed` WARN. |
+| Message appears but has no buttons | `SLACK_ACTIONABLE` is not `true`, or `APP_BASE_URL` is blank — the tool falls back to plain text rather than emitting dead links. |
+| Buttons open a URL that does not resolve | `APP_BASE_URL` does not match how approvers actually reach the tool. It must be the public URL, and it must match the OIDC redirect URI's host or sign-in will fail. |
+| Clicking a button shows the request read-only | Working as intended — that account does not hold an approver role. See [Roles](../README.md#roles). |
+| A decided request still shows buttons | The Slack message is a snapshot from when the request arrived. Clicking it is harmless: the request page shows the current state. |

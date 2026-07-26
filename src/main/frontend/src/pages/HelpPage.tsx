@@ -67,9 +67,7 @@ const CONFIG_VARS: ConfigVar[] = [
   { name: 'WEBHOOK_FORMAT', def: 'generic', purpose: 'Webhook payload format: generic, slack, or teams.' },
   { name: 'WEBHOOK_NOTIFY_LIFECYCLE', def: 'true', purpose: 'Also notify when time-bound access is revoked at expiry and when the app becomes requestable again. false = audit trail and web UI only.' },
   { name: 'APP_BASE_URL', def: '—', purpose: 'Public URL of this tool (e.g. https://approvals.example.com). Required for actionable Teams cards — their deep links are built off-request, so the URL cannot be read from forwarded headers.' },
-  { name: 'SLACK_ACTIONABLE', def: 'false', purpose: 'true posts an interactive Slack message with an access-duration menu and Approve / Reject / Reject-and-Block buttons. Requires WEBHOOK_FORMAT=slack.' },
-  { name: 'SLACK_SIGNING_SECRET', def: '—', purpose: 'Slack app signing secret. Verifies inbound button clicks at POST /api/slack/interactions (HMAC-SHA256, 5-minute replay window). Required — without it every click is rejected.' },
-  { name: 'SLACK_APPROVER_MAP', def: '—', purpose: 'Who may decide from Slack: comma-separated slackUserId:appIdentity pairs. A valid signature only proves the workspace, so unlisted users are rejected — channel membership never grants approval rights.' },
+  { name: 'SLACK_ACTIONABLE', def: 'false', purpose: 'true adds Approve / Reject / Open buttons to the Slack message. They are deep links that open the request here with the decision pre-selected, so the approver signs in and their role applies. Requires WEBHOOK_FORMAT=slack and APP_BASE_URL.' },
   { name: 'TEAMS_ACTIONABLE', def: 'false', purpose: 'true posts a Microsoft Teams Adaptive Card whose buttons open the request with the decision pre-selected. Requires WEBHOOK_FORMAT=teams and APP_BASE_URL.' },
   { name: 'SYSLOG_HOST', def: '—', purpose: 'Forward application logs to this syslog server.' },
   { name: 'SYSLOG_PORT', def: '514', purpose: 'Syslog port number.' },
@@ -315,10 +313,9 @@ export default function HelpPage() {
             Sign-in method and permissions are separate concerns:{' '}
             <span className="font-medium text-gray-800">Teams</span> approvals respect roles, since
             the card's buttons open the tool and the approver signs in normally.{' '}
-            <span className="font-medium text-gray-800">Slack</span> approvals do not — a Slack
-            decision is made in the interaction callback where there is no signed-in user to check,
-            so authority there comes solely from <EnvVar name="SLACK_APPROVER_MAP" />. Keep that map
-            in step with group membership. Note also that anyone in a notification channel can{' '}
+            <span className="font-medium text-gray-800">Slack</span> approvals respect roles for
+            the same reason — both use deep links rather than callbacks, so the approver signs in
+            and the ordinary rules apply. Note that anyone in a notification channel can{' '}
             <span className="font-medium">read</span> request details regardless of role; roles
             govern who may act, never who may see.
           </p>
@@ -418,12 +415,10 @@ export default function HelpPage() {
             <li>
               <span className="font-medium text-gray-800">Slack</span> — in the env file set{' '}
               <EnvVar name="SLACK_ACTIONABLE" />=<Code>true</Code> with{' '}
-              <EnvVar name="WEBHOOK_FORMAT" />=<Code>slack</Code> to post an interactive message with
-              an access-duration menu and Approve / Reject / Reject-and-Block buttons; the message
-              updates in place with the outcome. Requires{' '}
-              <EnvVar name="SLACK_SIGNING_SECRET" /> (every click is signature-verified) and{' '}
-              <EnvVar name="SLACK_APPROVER_MAP" /> — only listed Slack users may decide, so being in
-              the channel is not enough.
+              <EnvVar name="WEBHOOK_FORMAT" />=<Code>slack</Code> and{' '}
+              <EnvVar name="APP_BASE_URL" />. Adds Approve / Reject / Open buttons that open the
+              request here with the decision pre-selected — you sign in as usual, so the decision is
+              attributed to your account and your role decides what you may do.
             </li>
             <li>
               <span className="font-medium text-gray-800">Microsoft Teams</span> — in the env file set{' '}
@@ -437,7 +432,7 @@ export default function HelpPage() {
             </li>
           </ul>
 
-          <h3 className="font-semibold text-gray-800 mt-5 mb-2">Slack — setup in 6 steps</h3>
+          <h3 className="font-semibold text-gray-800 mt-5 mb-2">Slack — setup in 4 steps</h3>
           <ol className="list-decimal pl-5 space-y-1">
             <li>
               At <Code>api.slack.com/apps</Code> click{' '}
@@ -448,40 +443,29 @@ export default function HelpPage() {
               <span className="font-medium text-gray-800">Incoming Webhooks</span> → toggle{' '}
               <Code>On</Code> → <span className="font-medium text-gray-800">Add New Webhook to
               Workspace</span> → choose the approvals channel → <Code>Allow</Code>. Copy the{' '}
-              <Code>https://hooks.slack.com/services/…</Code> URL.
+              <Code>https://hooks.slack.com/services/…</Code> URL. That is the only value you need —
+              no signing secret, no bot token, no interactivity Request URL.
             </li>
             <li>
-              <span className="font-medium text-gray-800">Interactivity &amp; Shortcuts</span> →
-              toggle <Code>On</Code> → set the{' '}
-              <span className="font-medium text-gray-800">Request URL</span> to{' '}
-              <Code>https://&lt;your-host&gt;/api/slack/interactions</Code> → <Code>Save</Code>.
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">Basic Information → App Credentials</span>{' '}
-              → reveal and copy the{' '}
-              <span className="font-medium text-gray-800">Signing Secret</span>. For each approver,
-              open their Slack profile → <Code>⋮</Code> →{' '}
-              <span className="font-medium text-gray-800">Copy member ID</span> (a <Code>U…</Code>{' '}
-              value). No bot token or app-level token is needed.
-            </li>
-            <li>
-              In the env file set the five values, then recreate the container (a restart does not
+              In the env file set the four values, then recreate the container (a restart does not
               re-read the env file):
-              <CodeBlock>{'WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXX\nWEBHOOK_FORMAT=slack\nSLACK_ACTIONABLE=true\nSLACK_SIGNING_SECRET=<signing secret>\nSLACK_APPROVER_MAP=U0123ABC:dean@example.com,U0456DEF:jane'}</CodeBlock>
+              <CodeBlock>{'WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXX\nWEBHOOK_FORMAT=slack\nSLACK_ACTIONABLE=true\nAPP_BASE_URL=https://approvals.example.com'}</CodeBlock>
             </li>
             <li>
-              Make <Code>POST /api/slack/interactions</Code> reachable from the internet through your
-              reverse proxy — same treatment as <Code>/api/approvals/new</Code>. Behind a UAG, add
-              the path to the <span className="font-medium text-gray-800">proxyPattern</span> and
-              keep <span className="font-medium text-gray-800">Identity Bridging off</span> (Slack's
-              callback carries no user identity). Then request an app and confirm the card appears.
+              Request an app and confirm the message posts with buttons. No inbound endpoint is
+              required — the buttons are deep links, so only the{' '}
+              <span className="font-medium text-gray-800">approver's browser</span> reaches the
+              tool. If the UI is LAN-only, approvers need the LAN or VPN.
             </li>
           </ol>
           <p className="text-gray-600">
-            <span className="font-medium text-gray-800">Authorization is separate from the
-            signature.</span> A valid signature only proves the request came from your workspace —
-            only Slack ids listed in <EnvVar name="SLACK_APPROVER_MAP" /> may decide, and everyone
-            else in the channel is rejected and audited.
+            <span className="font-medium text-gray-800">Why deep links rather than deciding inside
+            Slack.</span> A Slack interaction callback arrives where no signed-in user exists — the
+            signature proves the workspace, not the person — so authority had to come from a
+            separate approver list, which drifted from Omnissa Access group membership and failed{' '}
+            <span className="font-medium text-gray-800">open</span>: revoking someone in Access left
+            their Slack buttons working. Opening the tool means one set of roles governs every
+            decision. It also removes the inbound endpoint and its shared secret.
           </p>
 
           <h3 className="font-semibold text-gray-800 mt-5 mb-2">Teams — setup in 4 steps</h3>

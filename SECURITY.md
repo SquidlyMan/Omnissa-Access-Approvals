@@ -37,20 +37,6 @@ The **only intentionally unauthenticated endpoints** are:
   can additionally require HTTP Basic auth (see hardening below). The
   `OPTIONS` probe always remains unauthenticated so the Omnissa Access
   console can validate the URI.
-- `POST /api/slack/interactions` — the Slack interactivity callback, present
-  only when actionable Slack approvals are configured. Unauthenticated at the
-  *session* layer (Slack has no login), but the caller is authenticated
-  **cryptographically**: every request must carry a valid `X-Slack-Signature`
-  (HMAC-SHA256 over `v0:{timestamp}:{body}` using the app's signing secret),
-  and requests older than 5 minutes are rejected as replays. Verification
-  happens **before any state change**; an invalid or absent signature gets
-  `401`. The path is per-IP rate-limited like the callout endpoint.
-  A valid signature only proves the request came from your Slack workspace —
-  **not** that the clicking user may approve. Authorization is separate and
-  explicit: the Slack user id must appear in `SLACK_APPROVER_MAP`, and
-  unmapped users are rejected and audited. Channel membership never grants
-  decision rights. Leaving `SLACK_SIGNING_SECRET` unset disables the endpoint
-  in practice (every request fails verification).
 - `/actuator/health` — health probe.
 - `/api/config/auth` — advertises which login methods are enabled (needed to
   render the login page).
@@ -128,17 +114,19 @@ SPA renders.
 
 ### Chat approvals and roles
 
-**Teams decisions are subject to roles.** The card's buttons are deep links, so
-the approver signs in and every rule applies as it does in the web UI.
+**Both Slack and Teams decisions are subject to roles.** Neither posts a
+callback: the buttons are deep links, so the approver opens the request in the
+tool, signs in, and every authorization rule applies exactly as it does in the
+web UI.
 
-**Slack decisions are not.** A Slack decision is made inside the interaction
-callback, where there is no signed-in principal to check a role against — the
-request is authenticated by *signature*, which proves it came from your
-workspace, not who may act. Authorization comes solely from
-`SLACK_APPROVER_MAP`, which is therefore a **second, independent source of
-authority**: removing someone from an approver group in Omnissa Access revokes
-their web access immediately but leaves their Slack buttons working until the
-map is also updated and the container recreated. Keep the two in step.
+Slack approvals were previously interactive, and decided inside an inbound
+callback where no signed-in principal existed — a Slack signature proves the
+workspace, not the person. Authorization therefore came from a separate
+`SLACK_APPROVER_MAP`, a second source of truth that failed **open**: removing
+someone from an approver group in Omnissa Access revoked their access to the
+web UI immediately but left their Slack buttons working, silently. Deep links
+remove that divergence by construction, and with it the inbound endpoint, its
+signing secret, its replay window and the approver list.
 
 ### Chat notifications are readable by the whole channel
 
@@ -159,15 +147,11 @@ channel as having the same audience as the request queue itself.
   endpoint (default 60; `0` disables).
 - `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=true` — disable local
   username/password login entirely (OAuth2-only admin login).
-- `SLACK_APPROVER_MAP` — the authorization list for chat decisions. Keep it to
-  users who should genuinely hold approval rights; everyone else in the channel
-  can see the buttons but cannot act on them.
 - Terminate TLS at a reverse proxy (Caddy/nginx) and keep the plain-HTTP
-  port 8081 off the public internet. Only `POST /api/approvals/new` needs to
-  be internet-reachable — plus `POST /api/slack/interactions` if actionable
-  Slack approvals are enabled. Actionable **Teams** approvals need no inbound
-  endpoint at all: the card's buttons are deep links, so only the approver's
-  browser reaches the tool. See [docs/deployment.md](docs/deployment.md).
+  port 8081 off the public internet. **Only `POST /api/approvals/new` needs to
+  be internet-reachable.** Chat approvals add no inbound endpoint at all — both
+  Slack and Teams use deep links, so only the approver's browser reaches the
+  tool. See [docs/deployment.md](docs/deployment.md).
 
 ### Privileged operations
 
