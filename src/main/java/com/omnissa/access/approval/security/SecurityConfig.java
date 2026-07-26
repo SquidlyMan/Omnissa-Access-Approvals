@@ -146,10 +146,27 @@ public class SecurityConfig {
             // to a raw JSON endpoint.
             .requestCache(cache -> cache.requestCache(navigationRequestCache()))
             .authorizeHttpRequests(auth -> auth
-                // SpaController serves routes via forward:/index.html; Spring Boot 3
-                // authorizes FORWARD/ERROR dispatches too, which turned /login into a
-                // redirect loop. Authorization already happened on the original request.
-                .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
+                // Spring Security authorizes every dispatch type, not just the
+                // original REQUEST. Authorization already happened on that first
+                // pass, so re-running it on a re-dispatch is at best redundant and
+                // at worst harmful:
+                //
+                //   FORWARD  SpaController serves routes via forward:/index.html;
+                //            re-authorizing turned /login into a redirect loop.
+                //   ERROR    the error dispatch would be denied and re-error.
+                //   ASYNC    /api/approvals/stream is an SseEmitter. Its response is
+                //            committed the moment streaming starts, so when the async
+                //            dispatch is re-authorized and denied, Spring Security
+                //            cannot write the 403 into an open stream — it wraps the
+                //            failure and it surfaces as an ERROR-level
+                //            "Unable to handle the Spring Security Exception because
+                //            the response is already committed". Harmless to the
+                //            client, but noise on an expected condition. This became
+                //            reachable only when role rules replaced
+                //            anyRequest().authenticated(): before that an
+                //            authenticated SSE client was never denied.
+                .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR,
+                        DispatcherType.ASYNC).permitAll()
                 // Omnissa Access POSTs callout requests here — must be unauthenticated.
                 // It also probes with OPTIONS when saving the approvals settings; a
                 // redirect-to-login there reads as "Unable to connect to the URI".
