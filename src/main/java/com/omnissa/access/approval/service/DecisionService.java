@@ -54,8 +54,7 @@ public class DecisionService {
                 String note = (message != null && !message.isBlank()) ? " — " + message : "";
                 // Attribute the audit entry to the resolved decider — a Slack
                 // approver has no Spring session, so currentAdmin() would say "system".
-                auditService.record(approved ? "approved" : "rejected", requestId,
-                        request != null ? request.getResourceName() : null,
+                auditService.recordFor(approved ? "approved" : "rejected", request,
                         (approved ? "Approved by " : "Rejected by ") + decider + note + ttlNote,
                         decider);
                 // Re-read: applyGrant/applyDecline persist the TTL and re-request
@@ -70,8 +69,7 @@ public class DecisionService {
                 sseController.publishQueueUpdate("queue-updated");
             }
             case EXPIRED -> {
-                auditService.record("decision-undeliverable", requestId,
-                        request != null ? request.getResourceName() : null,
+                auditService.recordFor("decision-undeliverable", request,
                         (approved ? "Approval by " : "Rejection by ") + decider
                                 + " could not be delivered — request no longer exists in Omnissa Access",
                         decider);
@@ -108,7 +106,7 @@ public class DecisionService {
             RevokeOutcome outcome = entitlementsInterface.revokeAccess(fresh);
             if (outcome == RevokeOutcome.REVOKED || outcome == RevokeOutcome.ALREADY_ABSENT) {
                 fresh.setRevokedAt(new Date());
-                auditService.record("access-blocked", requestId, fresh.getResourceName(),
+                auditService.recordFor("access-blocked", fresh,
                         "Permanently declined by " + decider
                                 + " — user excluded from the app in Omnissa Access; cannot re-request", decider);
             } else {
@@ -116,7 +114,7 @@ public class DecisionService {
                 note = " (permanent decline requested, but the exclusion could NOT be applied — "
                         + outcome + "; the user can still re-request)";
                 fresh.setReRequestable(true);
-                auditService.record("access-block-failed", requestId, fresh.getResourceName(),
+                auditService.recordFor("access-block-failed", fresh,
                         "Permanent decline by " + decider + " could not be enforced (" + outcome
                                 + ") — no exclusion applied", decider);
             }
@@ -155,7 +153,7 @@ public class DecisionService {
             request.setRestoreAt(null);
         }
         approvalsRepository.save(request);
-        auditService.record("access-revoked", request.getRequestId(), request.getResourceName(),
+        auditService.recordFor("access-revoked", request,
                 "Access revoked by " + actor + " — user excluded in Omnissa Access"
                         + (permanent
                             ? "; permanent — the app will not reappear until an admin lifts the block"
@@ -175,7 +173,7 @@ public class DecisionService {
             request.setReRequestable(true);
             request.setRestoredAt(new Date());
             approvalsRepository.save(request);
-            auditService.record("access-reopened", request.getRequestId(), request.getResourceName(),
+            auditService.recordFor("access-reopened", request,
                     "Permanent decline lifted by " + actor + " — the user may request this app again", actor);
             webhookNotifier.notifyReopened(request);
             sseController.publishQueueUpdate("queue-updated");

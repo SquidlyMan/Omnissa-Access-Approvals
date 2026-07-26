@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
 import ApprovalDialog from '../components/ApprovalDialog'
-import type { Page, CalloutRequest, AuditPage, AuditAction } from '../types'
+import type { Page, CalloutRequest, AuditPage, AuditAction, AuditEvent } from '../types'
 import { getCsrfToken } from '../utils/csrf'
 import { requesterLabel } from '../utils/requester'
 import { canDecide, canExportAudit, canExportRequests, canViewAudit, canViewQueue, FORBIDDEN_MESSAGE } from '../lib/permissions'
@@ -31,6 +31,19 @@ const AUDIT_ACTION_STYLES: Record<AuditAction, string> = {
   'request-deleted':        'bg-red-100 text-red-800',
   'access-blocked':         'bg-red-100 text-red-800',
   'access-block-failed':    'bg-orange-100 text-orange-800',
+}
+
+/**
+ * Who the access was for. Events predating the requester columns, and those
+ * whose originating request was deleted before the backfill ran, have nothing
+ * to show — say so rather than rendering an empty cell that reads as a bug.
+ */
+function auditRequester(ev: AuditEvent): string {
+  const parts: string[] = []
+  if (ev.requesterName) parts.push(ev.requesterName)
+  if (ev.requesterEmail && ev.requesterEmail !== ev.requesterName) parts.push(`(${ev.requesterEmail})`)
+  if (ev.requesterId) parts.push(parts.length ? `· ${ev.requesterId}` : ev.requesterId)
+  return parts.length ? parts.join(' ') : '—'
 }
 
 function AuditActionBadge({ action }: { action: AuditAction }) {
@@ -212,6 +225,7 @@ export default function QueuePage() {
                       <th className="px-5 py-3">Admin</th>
                       <th className="px-5 py-3">Action</th>
                       <th className="px-5 py-3">Application</th>
+                      <th className="px-5 py-3">Requested for</th>
                       <th className="px-5 py-3">Message</th>
                     </tr>
                   </thead>
@@ -222,6 +236,9 @@ export default function QueuePage() {
                         <td className="px-5 py-3 text-gray-900">{ev.adminUsername}</td>
                         <td className="px-5 py-3"><AuditActionBadge action={ev.action} /></td>
                         <td className="px-5 py-3 text-gray-900">{ev.resourceName}</td>
+                        <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                          {auditRequester(ev)}
+                        </td>
                         <td className="px-5 py-3 text-gray-500 break-words">{ev.message}</td>
                       </tr>
                     ))}

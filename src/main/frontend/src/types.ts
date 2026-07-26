@@ -72,6 +72,10 @@ export interface AuditEvent {
   action: AuditAction
   requestId: string
   resourceName: string
+  /** Who the access was for — distinct from adminUsername, who acted. */
+  requesterId: string | null
+  requesterName: string | null
+  requesterEmail: string | null
   message: string
 }
 
