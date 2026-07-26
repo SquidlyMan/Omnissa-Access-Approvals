@@ -40,6 +40,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
@@ -133,6 +136,11 @@ public class SecurityConfig {
                     chain.doFilter(req, res);
                 }
             }, BasicAuthenticationFilter.class)
+            // Remember where the user was headed so login can return them there —
+            // but only for page navigations. An XHR that 401s mid-session would
+            // otherwise be saved, and the next login would redirect the browser
+            // to a raw JSON endpoint.
+            .requestCache(cache -> cache.requestCache(navigationRequestCache()))
             .authorizeHttpRequests(auth -> auth
                 // SpaController serves routes via forward:/index.html; Spring Boot 3
                 // authorizes FORWARD/ERROR dispatches too, which turned /login into a
@@ -223,7 +231,12 @@ public class SecurityConfig {
             .oauth2Login(oauth2 -> {
                 oauth2
                     .loginPage("/login")
-                    .defaultSuccessUrl("/", true)
+                    // No alwaysUse: a chat deep link (/requests/{id}?action=approve)
+                    // is saved before the login redirect and must be honoured
+                    // afterwards, or an approver arriving from Slack or Teams
+                    // signs in and lands on the dashboard with their decision
+                    // lost. Only page navigations are saved — see requestCache.
+                    .defaultSuccessUrl("/")
                     .userInfoEndpoint(userInfo -> userInfo
                         .oidcUserService(oidcUserService())
                     );
@@ -243,7 +256,7 @@ public class SecurityConfig {
             http.formLogin(form -> form
                 .loginPage("/login")
                 .loginProcessingUrl("/login/local")
-                .defaultSuccessUrl("/", true)
+                .defaultSuccessUrl("/")
                 .failureUrl("/login?error=true")
                 .permitAll()
             );
@@ -337,6 +350,17 @@ public class SecurityConfig {
 
             return new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo());
         };
+    }
+
+    /**
+     * Saves only navigational requests, so a deep link survives the login
+     * round-trip while an API call never becomes a post-login destination.
+     */
+    private static RequestCache navigationRequestCache() {
+        HttpSessionRequestCache cache = new HttpSessionRequestCache();
+        cache.setRequestMatcher(new NegatedRequestMatcher(
+                PathPatternRequestMatcher.pathPattern("/api/**")));
+        return cache;
     }
 
     /** Entry point that answers with a JSON status instead of a login redirect. */

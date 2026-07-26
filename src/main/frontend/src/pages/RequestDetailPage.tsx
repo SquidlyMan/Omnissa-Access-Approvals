@@ -27,15 +27,21 @@ export default function RequestDetailPage() {
   const [unblockMsg, setUnblockMsg] = useState('')
   const [revokeMode, setRevokeMode] = useState<null | 'temporary' | 'permanent'>(null)
 
-  // Teams deep links (#55) arrive as /requests/{id}?action=approve|reject —
+  // Chat deep links (#55, #52) arrive as /requests/{id}?action=approve|reject —
   // open the review dialog with that choice pre-selected.
   const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkAction = searchParams.get('action')
-  const initialDecision =
-    deepLinkAction === 'approve' ? true : deepLinkAction === 'reject' ? false : null
+
+  // Held in state rather than derived from the URL on each render. Opening the
+  // dialog and clearing the param happen in one effect, so React applies both
+  // in a single re-render: a derived value would already have gone back to null
+  // by the time the dialog mounted and captured it, leaving nothing selected —
+  // which made Approve and Reject behave identically to Open request.
+  const [initialDecision, setInitialDecision] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (!req || req.state !== 'pending' || !deepLinkAction || !mayDecide) return
+    setInitialDecision(deepLinkAction === 'approve' ? true : deepLinkAction === 'reject' ? false : null)
     setShowDialog(true)
     // Drop the param so a refresh or back-navigation doesn't reopen the dialog.
     searchParams.delete('action')
