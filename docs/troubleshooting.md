@@ -73,10 +73,33 @@ restart — the tool disables it automatically via the Access admin API
 
 ## Health endpoint shows DOWN
 
-`/actuator/health` aggregates component health, including mail. A wrong or
-unreachable `SPRING_MAIL_HOST` (or wrong port/credentials/STARTTLS setting)
-makes the overall status `DOWN` even though the app works. Fix the SMTP
-settings or remove them if you don't use email notifications.
+`/actuator/health` reports **liveness only** — whether the container is running.
+It deliberately ignores Omnissa Access, the scheduler and notifications, because
+Docker, CasaOS and the UAG all act destructively on a failure there (CasaOS
+recreates the container; the UAG de-pools the backend). A third-party outage
+must not restart a healthy service.
+
+So a `DOWN` here means the application itself is broken — check the container
+log. Mail cannot cause it (`management.health.mail.enabled=false` exists
+precisely so an unreachable SMTP server does not fail the Docker health check).
+
+For dependency problems, look at `/api/health/deps` instead — it reports
+`DEGRADED` when Omnissa Access is unreachable, a scheduled sweep has stalled,
+approvals have drifted, or webhook delivery is failing. See
+[Monitoring](monitoring.md) for the per-component runbook.
+
+## Time-bound access is not expiring
+
+Grants past their TTL stay active and the app is never revoked.
+
+This is the one failure with no other outward symptom: the container is up, the
+UI works, and every other check is green. All scheduled jobs share a single
+thread, so if one wedges the JIT sweeps stop with it.
+
+Check `/api/health/dependencies` — the `scheduler` component reports the age of
+each job's last run. Restarting the container clears a wedged scheduler thread;
+nothing is lost, because the sweep selects on state and expiry rather than
+tracking a cursor, so overdue grants are revoked on the next pass.
 
 ## HTTP 429 on the callout endpoint
 
@@ -117,6 +140,14 @@ Download the **Log Bundle** (last hour) from the in-app Help page, or check
 Omnissa Access pushes each callout once and does not retry. If a push lands during a container restart or a transient network gap, Access keeps the request **Pending** on its side but it never reaches the tool, and re-requesting the same app does nothing (Access already considers it pending).
 
 Fix: on the **Awaiting Review** tab, click **Pull from Access**. The tool fetches every pending request Access is holding and ingests any it does not already have. Safe to click anytime — it only adds requests missing locally.
+
+The queue now **detects this automatically** and shows a banner when Access is
+holding requests it has no record of; `/api/health/deps` reports `DEGRADED` for
+the same condition. See [Monitoring](monitoring.md#the-drift-check-and-what-it-caught).
+
+Note that deleting a **pending** request locally causes the same divergence, and
+is now refused with HTTP 409 for that reason — Access would be left waiting on a
+decision that could never be given. Decline it first, then delete the record.
 
 ## Behind a Unified Access Gateway (UAG): disable Identity Bridging
 
