@@ -2,6 +2,7 @@ package com.omnissa.access.approval.util;
 
 import com.omnissa.access.approval.model.OmnissaServer;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -16,11 +17,29 @@ import java.util.Map;
  */
 public class OmnissaRestClient {
 
+    /**
+     * Bounded so a hung tenant cannot pin a request thread indefinitely.
+     *
+     * <p>Without this, an unresponsive Access endpoint blocks whichever thread
+     * called it until the OS gives up — survivable while the connectivity check
+     * ran once per dashboard load, but not once a monitor polls it every
+     * minute, where hung probes accumulate until the pool starves and the
+     * monitoring causes the outage it exists to detect.
+     *
+     * <p>Matches the 5s/5s already used for webhook delivery.
+     */
+    private static final int CONNECT_TIMEOUT_MS = 5000;
+    private static final int READ_TIMEOUT_MS = 5000;
+
     private final OmnissaServer server;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     public OmnissaRestClient(OmnissaServer server) {
         this.server = server;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        factory.setReadTimeout(READ_TIMEOUT_MS);
+        this.restTemplate = new RestTemplate(factory);
     }
 
     private String getAccessToken() {

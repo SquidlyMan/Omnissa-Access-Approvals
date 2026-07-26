@@ -8,6 +8,7 @@ import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.model.DecisionOutcome;
 import com.omnissa.access.approval.model.RevokeOutcome;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
+import com.omnissa.access.approval.service.SchedulerHeartbeat;
 import com.omnissa.access.approval.repository.AutoRuleRepository;
 import com.omnissa.access.approval.controller.SseController;
 import com.omnissa.access.approval.util.AuditService;
@@ -39,6 +40,9 @@ public class RuleScheduler {
     private ApprovalsRepository approvalsRepository;
 
     @Autowired
+    private SchedulerHeartbeat schedulerHeartbeat;
+
+    @Autowired
     private ApprovalsInterface approvalsInterface;
 
     @Autowired
@@ -55,6 +59,17 @@ public class RuleScheduler {
 
     @Scheduled(fixedDelayString = "PT1H", initialDelayString = "PT5M")
     public void applyExpiryRules() {
+        try {
+            runApplyExpiryRules();
+        } finally {
+            // Recorded even on an early return or a thrown
+            // exception: a sweep with nothing to do has still
+            // run, and health must not read that as a stall.
+            schedulerHeartbeat.recordRun(SchedulerHeartbeat.EXPIRY_RULES);
+        }
+    }
+
+    private void runApplyExpiryRules() {
         List<AutoRule> expiryRules = autoRuleRepository.findAll().stream()
                 .filter(rule -> rule.isEnabled()
                         && rule.getExpiryDays() != null && rule.getExpiryDays() > 0
@@ -113,6 +128,17 @@ public class RuleScheduler {
      */
     @Scheduled(fixedDelayString = "PT1M", initialDelayString = "PT1M")
     public void applyJitExpiry() {
+        try {
+            runApplyJitExpiry();
+        } finally {
+            // Recorded even on an early return or a thrown
+            // exception: a sweep with nothing to do has still
+            // run, and health must not read that as a stall.
+            schedulerHeartbeat.recordRun(SchedulerHeartbeat.JIT_EXPIRY);
+        }
+    }
+
+    private void runApplyJitExpiry() {
         List<CalloutRequest> expired =
                 approvalsRepository.findByStateAndAccessExpiresAtBefore("approved", new Date());
         if (expired.isEmpty()) {
@@ -170,6 +196,17 @@ public class RuleScheduler {
      */
     @Scheduled(fixedDelayString = "PT1M", initialDelayString = "PT1M")
     public void applyJitRestore() {
+        try {
+            runApplyJitRestore();
+        } finally {
+            // Recorded even on an early return or a thrown
+            // exception: a sweep with nothing to do has still
+            // run, and health must not read that as a stall.
+            schedulerHeartbeat.recordRun(SchedulerHeartbeat.JIT_RESTORE);
+        }
+    }
+
+    private void runApplyJitRestore() {
         List<CalloutRequest> due =
                 approvalsRepository.findByStateAndRestoreAtBefore("revoked", new Date());
         if (due.isEmpty()) {

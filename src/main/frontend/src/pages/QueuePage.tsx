@@ -102,6 +102,19 @@ export default function QueuePage() {
     showRequestTabs,
   )
 
+  // Requests Omnissa Access is waiting on that this queue has no record of —
+  // a callout that never arrived, or a record deleted while pending. Nothing
+  // else surfaces these: the requester simply waits forever.
+  const [drift, setDrift] = useState<number>(0)
+
+  useEffect(() => {
+    if (authLoading || !canDecide(user)) return
+    fetch('/api/health/dependencies', { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setDrift(d?.components?.approvalDrift?.missingLocally ?? 0))
+      .catch(() => setDrift(0))
+  }, [authLoading, user, page])
+
   const [pulling, setPulling] = useState(false)
   const [pullMsg, setPullMsg] = useState<string | null>(null)
 
@@ -151,6 +164,19 @@ export default function QueuePage() {
           <p className="text-sm text-gray-400 px-5 py-8 text-center">
             You do not have permission to view this page.
           </p>
+        </div>
+      )}
+
+      {/* Approval drift — Access is holding requests this queue never saw */}
+      {!noAccess && drift > 0 && canDecide(user) && (
+        <div className="mb-4 rounded-lg bg-orange-50 border border-orange-200 px-4 py-3 text-sm text-orange-900">
+          <span className="font-medium">
+            Omnissa Access is waiting on {drift} request{drift === 1 ? '' : 's'} this queue has no
+            record of.
+          </span>{' '}
+          Until they are decided here the requesters wait indefinitely and the apps never
+          provision. Use <span className="font-medium">Pull from Access</span> below to import
+          them.
         </div>
       )}
 

@@ -31,7 +31,13 @@ export default function DeleteRequestDialog({ requestId, resourceName, onClose, 
         credentials: 'include',
         headers: { 'X-XSRF-TOKEN': getCsrfToken() },
       })
-      if (!res.ok) throw new Error(res.status === 403 ? FORBIDDEN_MESSAGE : `Server error ${res.status}`)
+      if (!res.ok) {
+        if (res.status === 403) throw new Error(FORBIDDEN_MESSAGE)
+        // 409: the request is still pending and Access is waiting on a decision.
+        // The server explains why; surface that rather than a status code.
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? `Server error ${res.status}`)
+      }
       onDeleted()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Request failed')

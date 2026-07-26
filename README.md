@@ -21,7 +21,7 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence; approve rules can grant time-bound access
 - **Audit trail** recording both the **acting identity** (including chat approvers) and **who the access was for**, so an entry survives the deletion of the request it describes — plus **CSV export**
 - **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats for new requests, decisions, and access-revoked / app-reopened lifecycle events
-- **Ops** — [backup & restore](docs/deployment.md#backup-and-restore) for the database and secrets, log bundle download, syslog export (UDP/TCP/TLS with client certs), health endpoint
+- **Ops** — [backup & restore](docs/deployment.md#backup-and-restore) for the database and secrets, log bundle download, syslog export (UDP/TCP/TLS with client certs), and a [dependency health API](docs/deployment.md#monitoring) that separates "the container is down" from "something it depends on is unhealthy" — including detection of approval requests Omnissa Access is waiting on that never reached the queue
 - **Role-based access control** — Admin / Approver / Viewer / Auditor, resolved from Omnissa Access group membership ([details](#roles))
 - **API hardening** — optional Basic auth and per-IP rate limiting on the callout endpoint, the only endpoint that must be internet-reachable
 

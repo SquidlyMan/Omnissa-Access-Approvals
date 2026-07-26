@@ -1,6 +1,7 @@
 package com.omnissa.access.approval.controller;
 
 import com.omnissa.access.approval.model.Mappings;
+import com.omnissa.access.approval.service.TenantStatusService;
 import com.omnissa.access.approval.model.OmnissaServer;
 import com.omnissa.access.approval.repository.OmnissaServerRepository;
 import com.omnissa.access.approval.util.OmnissaRestClient;
@@ -23,6 +24,9 @@ public class ConfigController {
     @Autowired
     private OmnissaServerRepository repository;
 
+    @Autowired
+    private TenantStatusService tenantStatusService;
+
     @Value("${omnissa.auth.local-login-disabled:false}")
     private boolean localLoginDisabled;
 
@@ -41,47 +45,23 @@ public class ConfigController {
         ));
     }
 
-    // Connectivity check cache — dashboard polling must not hammer the tenant.
-    private static final long STATUS_CACHE_MILLIS = 60_000L;
-    private volatile Map<String, Object> statusCache;
-    private volatile long statusCheckedAt;
-
     /**
-     * Omnissa Access connectivity status (authenticated). Attempts a
-     * client_credentials token fetch against the configured tenant; the
-     * result is cached in-memory for 60 seconds.
+     * Omnissa Access connectivity status (authenticated). Backed by
+     * {@link TenantStatusService} so the dashboard tile and the health
+     * endpoints share one probe and one 60s cache rather than each polling the
+     * tenant independently.
      */
     @GetMapping("/status")
     public ResponseEntity<?> getConnectivityStatus() {
-        long now = System.currentTimeMillis();
-        Map<String, Object> cached = statusCache;
-        if (cached != null && now - statusCheckedAt < STATUS_CACHE_MILLIS) {
-            return ResponseEntity.ok(cached);
-        }
+        TenantStatusService.TenantStatus tenant = tenantStatusService.current();
+        String version = ConfigController.class.getPackage().getImplementationVersion();
 
         Map<String, Object> status = new LinkedHashMap<>();
-        String version = ConfigController.class.getPackage().getImplementationVersion();
         status.put("version", version != null ? version : "dev");
-        status.put("tenantUrl", "");
-        status.put("reachable", false);
-        status.put("checkedAt", Instant.now().toString());
-        status.put("error", null);
-        try {
-            if (repository.count() == 0) {
-                status.put("error", "Not configured");
-            } else {
-                OmnissaServer server = repository.findAll().get(0);
-                status.put("tenantUrl", server.getUrl() != null ? server.getUrl() : "");
-                new OmnissaRestClient(server).checkToken();
-                status.put("reachable", true);
-            }
-        } catch (Exception e) {
-            status.put("reachable", false);
-            status.put("error", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-        }
-
-        statusCache = status;
-        statusCheckedAt = now;
+        status.put("tenantUrl", tenant.tenantUrl());
+        status.put("reachable", tenant.reachable());
+        status.put("checkedAt", tenant.checkedAt());
+        status.put("error", tenant.error());
         return ResponseEntity.ok(status);
     }
 

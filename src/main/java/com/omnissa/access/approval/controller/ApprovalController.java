@@ -140,6 +140,24 @@ public class ApprovalController {
         if (request == null) {
             return ResponseEntity.notFound().build();
         }
+
+        // Refuse while the request is still pending. Omnissa Access holds an
+        // approval open until it receives a decision; deleting the local record
+        // discards the only means of answering, so the requester waits forever
+        // on a decision that can never be given and the app never provisions.
+        // Nothing surfaces the cause — this presented as an Access provisioning
+        // fault for days. Decline it first (a decline is always available), then
+        // the record deletes harmlessly.
+        if ("pending".equalsIgnoreCase(request.getState())) {
+            logger.warn("Refused deletion of PENDING request {} by {} — Omnissa Access is still "
+                    + "waiting on a decision", requestId, auditService.currentAdmin());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "error", "This request is still pending, and Omnissa Access is waiting for a "
+                            + "decision on it. Deleting it here would leave the requester waiting "
+                            + "indefinitely. Decline it first, then delete the record.",
+                    "state", request.getState()));
+        }
+
         String admin = auditService.currentAdmin();
         String detail = "Local request record permanently deleted by " + admin
                 + " — does NOT affect Omnissa Access. [state=" + request.getState()
