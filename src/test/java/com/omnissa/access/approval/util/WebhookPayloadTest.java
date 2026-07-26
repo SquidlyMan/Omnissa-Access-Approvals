@@ -53,11 +53,17 @@ class WebhookPayloadTest {
                 .contains("Salesforce").contains("jdoe");
     }
 
+    /**
+     * Teams needs the Adaptive Card envelope, not Slack's bare text. The
+     * retired Office 365 connector accepted both, which is why this asserted
+     * {@code text} and passed while Teams silently received nothing.
+     */
     @Test
-    void teamsNewRequestPayloadIsText() {
+    void teamsNewRequestPayloadIsACard() {
         Map<String, Object> p = notifier("teams").buildNewRequestPayload(request());
-        assertThat(p).containsOnlyKeys("text");
-        assertThat((String) p.get("text")).contains("Salesforce");
+        assertThat(p).containsOnlyKeys("type", "attachments");
+        assertThat(p).containsEntry("type", "message");
+        assertThat(p.toString()).contains("Salesforce").contains("AdaptiveCard");
     }
 
     @Test

@@ -266,17 +266,46 @@ public class WebhookNotifier {
         postAsync(buildReopenedPayload(request), request.getRequestId());
     }
 
+    /**
+     * Wraps a line of text in the Adaptive Card envelope a Power Automate
+     * "Send webhook alerts to a channel" workflow expects.
+     *
+     * <p>The retired Office 365 connector accepted Slack's bare
+     * {@code {"text": …}}, and the lifecycle notifications were written against
+     * that. A Power Automate workflow silently drops it — which is why Teams
+     * received the new-request card (built as a card) but never a decision,
+     * expiry, revoke or reopen notification.
+     */
+    static Map<String, Object> teamsTextMessage(String text) {
+        Map<String, Object> card = new LinkedHashMap<>();
+        card.put("type", "AdaptiveCard");
+        card.put("$schema", "http://adaptivecards.io/schemas/adaptive-card.json");
+        card.put("version", "1.4");
+        card.put("body", List.of(Map.of("type", "TextBlock", "text", text, "wrap", true)));
+
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("type", "message");
+        envelope.put("attachments", List.of(Map.of(
+                "contentType", "application/vnd.microsoft.card.adaptive",
+                "content", card)));
+        return envelope;
+    }
+
     Map<String, Object> buildRevokedPayload(CalloutRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         String format = resolvedFormat();
         String ttl = request.getAccessTtlMinutes() != null
                 ? " (" + request.getAccessTtlMinutes() + " min limit)" : "";
         if ("slack".equals(format) || "teams".equals(format)) {
-            payload.put("text", "Access expired: " + request.getResourceName()
+            String text = "Access expired: " + request.getResourceName()
                     + " — access for " + requesterLabel(request) + " was revoked in Omnissa Access" + ttl
                     + (Boolean.TRUE.equals(request.getReRequestable())
                         ? "; the app will become requestable again shortly."
-                        : "; this was a one-time grant and will not reappear."));
+                        : "; this was a one-time grant and will not reappear.");
+            if ("teams".equals(format)) {
+                return teamsTextMessage(text);
+            }
+            payload.put("text", text);
         } else {
             payload.put("event", "access.revoked");
             payload.put("requestId", request.getRequestId());
@@ -295,8 +324,12 @@ public class WebhookNotifier {
         Map<String, Object> payload = new LinkedHashMap<>();
         String format = resolvedFormat();
         if ("slack".equals(format) || "teams".equals(format)) {
-            payload.put("text", request.getResourceName() + " is requestable again for "
-                    + requesterLabel(request) + " — the temporary exclusion was lifted.");
+            String text = request.getResourceName() + " is requestable again for "
+                    + requesterLabel(request) + " — the temporary exclusion was lifted.";
+            if ("teams".equals(format)) {
+                return teamsTextMessage(text);
+            }
+            payload.put("text", text);
         } else {
             payload.put("event", "access.reopened");
             payload.put("requestId", request.getRequestId());
@@ -336,10 +369,13 @@ public class WebhookNotifier {
         Map<String, Object> payload = new LinkedHashMap<>();
         String format = resolvedFormat();
         if ("slack".equals(format) || "teams".equals(format)) {
-            // Teams incoming webhooks accept the same simple text payload as Slack.
-            payload.put("text", "New access request: " + request.getResourceName()
+            String text = "New access request: " + request.getResourceName()
                     + " requested by " + requesterLabel(request)
-                    + " — approve or reject in the Access Approval Tool.");
+                    + " — approve or reject in the Access Approval Tool.";
+            if ("teams".equals(format)) {
+                return teamsTextMessage(text);
+            }
+            payload.put("text", text);
         } else {
             payload.put("event", "request.created");
             payload.put("requestId", request.getRequestId());
@@ -362,8 +398,12 @@ public class WebhookNotifier {
             String attribution = ruleLabel != null
                     ? (approved ? "Auto-Approved by rule " : "Auto-Rejected by rule ") + ruleLabel
                     : (approved ? "Approved by " : "Rejected by ") + decidedBy;
-            payload.put("text", attribution + ": " + request.getResourceName()
-                    + " (" + requesterLabel(request) + ")");
+            String text = attribution + ": " + request.getResourceName()
+                    + " (" + requesterLabel(request) + ")";
+            if ("teams".equals(format)) {
+                return teamsTextMessage(text);
+            }
+            payload.put("text", text);
         } else {
             payload.put("event", "request.decided");
             payload.put("requestId", request.getRequestId());

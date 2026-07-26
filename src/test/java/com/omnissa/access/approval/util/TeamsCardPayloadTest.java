@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -84,12 +85,65 @@ class TeamsCardPayloadTest {
         assertTrue(json.contains(BASE + "/requests/req-123"), json);
     }
 
+    /**
+     * Without a public URL there is nothing to link to, so the buttons are
+     * dropped — but the notification must still be a card, or Power Automate
+     * discards it and the channel gets nothing at all. This previously asserted
+     * a bare {@code text} payload, which was precisely the shape that failed
+     * silently.
+     */
     @Test
-    void fallsBackToPlainTextWhenNoBaseUrlIsConfigured() {
-        // Without a public URL there is nothing to link to, so the card is skipped
-        // and the ordinary text notification is sent instead.
-        WebhookNotifier n = notifier("");
-        Map<String, Object> payload = n.buildNewRequestPayload(request());
-        assertTrue(payload.containsKey("text"), payload.toString());
+    void fallsBackToACardWithoutButtonsWhenNoBaseUrlIsConfigured() {
+        Map<String, Object> payload = notifier("").buildNewRequestPayload(request());
+
+        assertEquals("message", payload.get("type"), payload.toString());
+        assertFalse(payload.containsKey("text"), "a bare text payload is dropped: " + payload);
+        assertFalse(payload.toString().contains("Action.OpenUrl"),
+                "no base URL means no links: " + payload);
+        assertTrue(payload.toString().contains("New access request"), payload.toString());
+    }
+
+    /**
+     * Teams never received a decision, expiry, revoke or reopen notification:
+     * those builders emitted Slack's bare {"text": …}, which the retired Office
+     * 365 connector accepted but a Power Automate workflow silently drops. Only
+     * the new-request card worked, because it was the one built as a card.
+     */
+    @Test
+    void lifecycleNotificationsAreCardsNotBareText() {
+        WebhookNotifier notifier = notifier("https://approvals.example.com");
+        CalloutRequest request = request();
+
+        for (Map<String, Object> payload : List.of(
+                notifier.buildDecisionPayload(request, false, "dean@flaming.ws", null),
+                notifier.buildRevokedPayload(request),
+                notifier.buildReopenedPayload(request),
+                notifier.buildNewRequestPayload(request))) {
+
+            assertEquals("message", payload.get("type"),
+                    "Power Automate needs the message envelope: " + payload);
+            assertTrue(payload.containsKey("attachments"), "expected an attachments array: " + payload);
+            assertFalse(payload.containsKey("text"),
+                    "a bare text payload is dropped by the workflow: " + payload);
+        }
+    }
+
+    @Test
+    void decisionCardCarriesTheAttribution() {
+        Map<String, Object> payload =
+                notifier("https://approvals.example.com").buildDecisionPayload(request(), false, "dean@flaming.ws", null);
+
+        assertTrue(payload.toString().contains("Rejected by dean@flaming.ws"), payload.toString());
+        assertTrue(payload.toString().contains("I Am Showcase"), payload.toString());
+    }
+
+    @Test
+    void slackKeepsBareTextAndIsNotWrapped() {
+        WebhookNotifier slack = new WebhookNotifier();
+        org.springframework.test.util.ReflectionTestUtils.setField(slack, "webhookFormat", "slack");
+
+        Map<String, Object> payload = slack.buildDecisionPayload(request(), true, "dean", null);
+        assertTrue(payload.containsKey("text"), "Slack renders a bare text payload: " + payload);
+        assertFalse(payload.containsKey("attachments"), payload.toString());
     }
 }
