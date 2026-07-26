@@ -19,7 +19,7 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Access lifecycle** — time-bound (JIT) grants that auto-expire, permanent vs temporary decline, on-demand revoke, and a reversible block ([details](docs/access-lifecycle.md))
 - **Approve from chat** — [Slack](docs/slack-approvals.md) messages and [Teams](docs/teams-approvals.md) Adaptive Cards with deep-link decision buttons: the approver signs in, so roles apply and no inbound endpoint or shared secret is needed
 - **Auto-approval rules** — wildcard app-name/group match rules and pending-expiry rules, first-match precedence; approve rules can grant time-bound access
-- **Audit trail** with the acting identity — including chat approvers — plus **CSV export**
+- **Audit trail** recording both the **acting identity** (including chat approvers) and **who the access was for**, so an entry survives the deletion of the request it describes — plus **CSV export**
 - **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats for new requests, decisions, and access-revoked / app-reopened lifecycle events
 - **Ops** — [backup & restore](docs/deployment.md#backup-and-restore) for the database and secrets, log bundle download, syslog export (UDP/TCP/TLS with client certs), health endpoint
 - **Role-based access control** — Admin / Approver / Viewer / Auditor, resolved from Omnissa Access group membership ([details](#roles))

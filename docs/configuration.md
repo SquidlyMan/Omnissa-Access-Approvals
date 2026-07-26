@@ -55,6 +55,7 @@ the client in the Access console.
 | `OMNISSA_ADMIN_OAUTH_REDIRECT_URI` | — | Must **exactly** match the redirect URI registered on the Access client: `https://<your-host>/login/oauth2/code/omnissa` (public hostname, not the backend host/port) |
 | `OMNISSA_ADMIN_OAUTH_ISSUER_URI` | — | Tenant OIDC issuer: `https://<tenant>/SAAS/auth` — the `issuer` value from `/.well-known/openid-configuration`. **Not** `/SAAS/auth/acs` or any other path |
 | `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT` | `false` | `true` = at startup, automatically disable the user-consent prompt on the OIDC client via the Access admin API (requires the service client to have admin rights). Set it after confirming OAuth2 login works |
+| `OMNISSA_ADMIN_OAUTH_SCOPE` | `openid,email,profile,group` | Scopes requested at sign-in. The **`group`** scope is what makes Access emit the `group_names` / `group_ids` claims that [roles](#roles-rbac) are resolved from. Override only if your tenant does not advertise it in `scopes_supported` — the tool works without it, users simply have no group claim to map |
 
 > **Issuer warning:** the most common OIDC failure is setting the issuer to
 > anything other than `https://<tenant>/SAAS/auth`. If the issuer in the
@@ -66,6 +67,58 @@ the client in the Access console.
 | Variable | Default | Description |
 |---|---|---|
 | `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED` | `false` | `true` hides the local username/password form entirely — OAuth2-only admin sign-in. Requires a working `OMNISSA_ADMIN_OAUTH_*` setup |
+
+## Roles (RBAC)
+
+Authorization is driven by **Omnissa Access group membership**. See
+[Roles](../README.md#roles) for the full model.
+
+| Variable | Default | Description |
+|---|---|---|
+| `OMNISSA_ROLE_MAP` | — | Comma-separated `<groupId>:<ROLE>` pairs mapping Access groups to roles. Roles: `ADMIN`, `APPROVER`, `VIEWER`, `AUDITOR`. Blank = **every** signed-in user is a Viewer |
+
+```bash
+OMNISSA_ROLE_MAP=05eb7969-…:ADMIN,63173f00-…:APPROVER,4378e8f5-…:AUDITOR
+```
+
+| Role | Can |
+|---|---|
+| `ADMIN` | Users, auto-approval rules, tenant config, log bundle, delete requests — plus everything below |
+| `APPROVER` | Decide requests: approve, reject, revoke, revoke-and-block, allow re-request |
+| `VIEWER` | Read the queue, request details, statistics, rules and the audit trail |
+| `AUDITOR` | The audit trail and its CSV export only — no live queue, no decisions |
+
+Things that bite in practice:
+
+- **It matches group *ids*, not names.** Renaming a group in Access would
+  otherwise silently drop everyone to Viewer with no error anywhere. Sign in and
+  open **`/api/auth/claims`** to read the ids — it pairs each id with its
+  display name.
+- **Requires the `group` scope** (`OMNISSA_ADMIN_OAUTH_SCOPE`, requested by
+  default). Without it Access emits no group claim at all.
+- **Viewer is a fallback, not a floor.** A user whose groups match nothing gets
+  Viewer; once any group matches, the matched roles are exactly what they hold.
+  With no map configured every user is a Viewer, so setting the map is the
+  deliberate act that grants privilege.
+- **Matched roles are additive, and the most permissive wins.**
+- **Changes apply at next sign-in.** Roles come from the token, which is a
+  snapshot — adding or removing a group does nothing until the user signs out
+  and back in.
+- **Do not combine `AUDITOR` with another role.** It is the only restrictive
+  role, so pairing it with any other silently defeats it; alongside `ADMIN` or
+  `APPROVER` it is also a separation-of-duties conflict. The tool logs a `WARN`
+  at sign-in when it sees this.
+- **Use groups created for this purpose.** Mapping an existing operational group
+  means anyone added to it for unrelated reasons silently gains the ability to
+  revoke and block entitlements in your tenant.
+- **Keep a way back in.** If the mapping is wrong or Access is unreachable, set
+  `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=false` and sign in with the bootstrap admin.
+
+Bulk export is gated separately from reading, because an export is an
+extraction rather than a read — it produces a file that leaves the tool's
+controls entirely. `/api/audit/export.csv` is `ADMIN` + `AUDITOR`;
+`/api/approvals/export.csv` is `ADMIN` + `APPROVER` + `AUDITOR`. A Viewer may
+read the audit trail on screen but not download it.
 
 ## Callout API Security
 

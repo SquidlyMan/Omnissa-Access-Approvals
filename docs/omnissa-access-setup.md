@@ -38,7 +38,12 @@ credentials.
    - **Client type:** User Access Token (**confidential**)
    - **Grant type:** `authorization_code` — PKCE enforced by Access is
      supported by the tool
-   - **Scopes:** `openid`, `email`, `profile`
+   - **Scopes:** `openid`, `email`, `profile`, `group`
+     — `group` is what makes Access emit the `group_names` / `group_ids`
+     claims that [roles](../README.md#roles) are resolved from. Without it
+     every signed-in user is a Viewer. Confirm your tenant advertises it in
+     `scopes_supported` at `https://<tenant>/SAAS/auth/.well-known/openid-configuration`;
+     if it does not, drop it and set `OMNISSA_ADMIN_OAUTH_SCOPE` to match
    - **Redirect URI:** `https://<your-host>/login/oauth2/code/omnissa`
      (the public hostname of the tool — this must match
      `OMNISSA_ADMIN_OAUTH_REDIRECT_URI` exactly)
@@ -48,6 +53,11 @@ credentials.
 3. Set `OMNISSA_ADMIN_OAUTH_ISSUER_URI` to `https://<tenant>/SAAS/auth` —
    the `issuer` value advertised in the tenant's
    `/.well-known/openid-configuration`, **not** `/acs`.
+4. **For roles**, create the groups you want to drive them — dedicated groups
+   such as *App Approval Admins* / *Approvers* / *Auditors*, not existing
+   operational groups — and map them with `OMNISSA_ROLE_MAP`. Sign in once and
+   open `/api/auth/claims` to read the group **ids**; the map matches on id, not
+   name. See [Roles](../README.md#roles).
 4. **Restrict which users may authenticate through this client** — every
    user who signs in through it receives full admin access to the tool.
 
