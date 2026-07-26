@@ -182,8 +182,8 @@ Authorization is driven by **Omnissa Access group membership**, mapped to four r
 |---|---|
 | **Admin** | Manage users, auto-approval rules, tenant configuration and the log bundle; delete requests; everything below |
 | **Approver** | Decide requests — approve, reject, revoke, revoke-and-block, allow re-request |
-| **Viewer** | Read the queue, request details, statistics, rules and the audit trail |
-| **Auditor** | The audit trail and CSV export only — no live queue, no decisions |
+| **Viewer** | Read the queue, request details, statistics, rules and the audit trail *on screen* — no CSV export |
+| **Auditor** | The audit trail only, including its CSV export — no live queue, no decisions |
 
 Configure the mapping in the env file with `OMNISSA_ROLE_MAP`, as comma-separated `<groupId>:<ROLE>` pairs:
 
@@ -197,6 +197,13 @@ Notes that matter in practice:
 - **Requires the `group` scope**, which is requested by default. Without it Access emits no group claim at all. Check your tenant advertises it in `scopes_supported` at `<issuer>/.well-known/openid-configuration`.
 - **Viewer is a fallback, not a floor.** A user whose groups match nothing gets Viewer; once *any* group matches, the matched roles are exactly what they hold. This is what makes **Auditor** meaningful — it grants *less* than Viewer, which is impossible if everyone starts as a Viewer. With no `OMNISSA_ROLE_MAP` set, every user is a Viewer, so enabling the map is the deliberate act that grants privilege.
 - **Matched roles are additive among themselves** — someone in both the approver and auditor groups holds both.
+- **The most permissive role wins.** Every rule admits any one of its listed roles, so a user holding several gets the union of their permissions.
+- **Changes apply at next sign-in.** Roles are resolved from the token, which is a snapshot — adding or removing a group has no effect until the user signs out and back in.
+- **Exporting is gated separately from reading.** A bulk export is an extraction, not a read: it produces a file that leaves the tool's controls entirely. A Viewer may read the audit trail on screen but cannot download it. The audit-trail export (`/api/audit/export.csv`) is Admin and Auditor; the request export (`/api/approvals/export.csv`) is Admin, Approver and Auditor.
+
+> **Auditor is the one *restrictive* role, so never combine it.** Because resolution is additive, pairing Auditor with any other role silently defeats it: the union applies, the user keeps full access to the live queue, and Auditor contributes nothing. Adding an approver to the auditors group *looks* like a restriction and is not one. Paired with Admin or Approver it is also a **separation-of-duties conflict** — the same identity both decides requests and audits those decisions.
+>
+> The combination is permitted rather than corrected (a group membership that *removed* access would be surprising in its own way, and could strand someone), but it is no longer invisible: a `WARN` is written at each sign-in naming the user and the roles held. Grant Auditor **on its own** when the intent is to restrict.
 - **Use groups created for this purpose.** Mapping an existing operational group (an AD *IT Admins*, say) means anyone added to it for unrelated reasons silently gains the ability to revoke and block entitlements in your tenant.
 - **Keep a way back in.** If the mapping is wrong or Access is unreachable, `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED=false` plus the bootstrap admin account is the recovery path. Note the bootstrap account is only created when the user table is empty, so its password cannot be rotated by changing the env var on an existing install.
 

@@ -8,6 +8,7 @@ import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.model.DecisionOutcome;
 import com.omnissa.access.approval.model.DecisionRequest;
 import com.omnissa.access.approval.model.Mappings;
+import com.omnissa.access.approval.util.Csv;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
 import com.omnissa.access.approval.util.AuditService;
 import com.omnissa.access.approval.util.CustomContentTypes;
@@ -396,13 +397,6 @@ public class ApprovalController {
 
     /** RFC-4180 escaping: quote fields containing comma/quote/newline, doubling inner quotes. */
     static String csvField(Object value) {
-        if (value == null) {
-            return "";
-        }
-        String text = value.toString();
-        if (text.contains(",") || text.contains("\"") || text.contains("\n") || text.contains("\r")) {
-            return "\"" + text.replace("\"", "\"\"") + "\"";
-        }
-        return text;
+        return Csv.field(value);
     }
 }

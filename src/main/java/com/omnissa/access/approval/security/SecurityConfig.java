@@ -187,10 +187,19 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "USER")
                 .requestMatchers("/api/rules", "/api/rules/**").hasRole("ADMIN")
 
-                // Historical records — the auditor's whole remit.
-                .requestMatchers("/api/audit", "/api/audit/**")
-                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
+                // Bulk export is an extraction, not a read: it produces a file that
+                // leaves the application's controls entirely and can be retained or
+                // shared without trace. Reading the trail on screen is page-by-page
+                // and stays inside the session, so the two are gated differently —
+                // a viewer may read the record but not take a copy of it.
+                // These must precede the /api/audit/** read rule below; the first
+                // matching rule wins.
+                .requestMatchers("/api/audit/export.csv").hasAnyRole("ADMIN", "AUDITOR")
                 .requestMatchers("/api/approvals/export.csv")
+                        .hasAnyRole("ADMIN", "APPROVER", "AUDITOR")
+
+                // Reading historical records — the auditor's whole remit.
+                .requestMatchers("/api/audit", "/api/audit/**")
                         .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
 
                 // Deleting a local record, or purging remote state, is destructive
@@ -323,9 +332,13 @@ public class SecurityConfig {
             Set<GrantedAuthority> authorities = new LinkedHashSet<>(user.getAuthorities());
             roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role.name())));
 
-            logger.info("OIDC login: {} in {} group(s) -> {}",
-                    user.getEmail() != null ? user.getEmail() : user.getSubject(),
-                    groupIds.size(), roles);
+            String identity = user.getEmail() != null ? user.getEmail() : user.getSubject();
+            logger.info("OIDC login: {} in {} group(s) -> {}", identity, groupIds.size(), roles);
+
+            String conflict = GroupRoleMapper.auditorConflict(roles);
+            if (conflict != null) {
+                logger.warn("Role conflict for {}: {}", identity, conflict);
+            }
 
             return new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo());
         };

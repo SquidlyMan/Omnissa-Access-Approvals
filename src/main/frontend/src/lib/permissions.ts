@@ -56,6 +56,22 @@ export function canViewAudit(user: User | null): boolean {
   return canViewQueue(user) || hasRole(user, 'AUDITOR')
 }
 
+/**
+ * Download the audit trail as CSV. Admins and auditors only.
+ *
+ * A bulk export is an extraction rather than a read: it produces a file that
+ * leaves the application's controls entirely. Reading the trail on screen stays
+ * inside the session, so a viewer may do that without being able to take a copy.
+ */
+export function canExportAudit(user: User | null): boolean {
+  return hasRole(user, 'ADMIN') || hasRole(user, 'AUDITOR')
+}
+
+/** Download the request table as CSV. Same reasoning — not viewers. */
+export function canExportRequests(user: User | null): boolean {
+  return canDecide(user) || hasRole(user, 'AUDITOR')
+}
+
 /** Short label for the highest role held, e.g. "Admin". Empty when unknown. */
 export function roleLabel(user: User | null): string {
   const held = rolesOf(user)

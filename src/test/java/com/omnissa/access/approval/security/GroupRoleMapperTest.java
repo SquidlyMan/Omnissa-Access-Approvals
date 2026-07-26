@@ -9,6 +9,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -104,6 +106,49 @@ class GroupRoleMapperTest {
         assertTrue(roles.contains(AuthorityName.ROLE_AUDITOR));
         assertFalse(roles.contains(AuthorityName.ROLE_ADMIN));
         assertFalse(roles.contains(AuthorityName.ROLE_VIEWER));
+    }
+
+    @Test
+    void auditorAloneIsNotAConflict() {
+        assertNull(GroupRoleMapper.auditorConflict(Set.of(AuthorityName.ROLE_AUDITOR)));
+        assertNull(GroupRoleMapper.auditorConflict(Set.of(AuthorityName.ROLE_ADMIN)));
+        assertNull(GroupRoleMapper.auditorConflict(Set.of()));
+        assertNull(GroupRoleMapper.auditorConflict(null));
+    }
+
+    @Test
+    void auditorWithApproverIsReportedAsSeparationOfDuties() {
+        String conflict = GroupRoleMapper.auditorConflict(
+                Set.of(AuthorityName.ROLE_AUDITOR, AuthorityName.ROLE_APPROVER));
+
+        assertNotNull(conflict);
+        assertTrue(conflict.contains("separation-of-duties"),
+                "an identity that both decides and audits must be called out: " + conflict);
+    }
+
+    @Test
+    void auditorWithAdminIsReportedAsSeparationOfDuties() {
+        String conflict = GroupRoleMapper.auditorConflict(
+                Set.of(AuthorityName.ROLE_AUDITOR, AuthorityName.ROLE_ADMIN));
+
+        assertNotNull(conflict);
+        assertTrue(conflict.contains("separation-of-duties"));
+    }
+
+    /**
+     * Viewer cannot act, so this is not a duties conflict — but it still
+     * defeats the restriction, because a viewer sees the live queue that
+     * auditor exists to withhold. It must not pass silently.
+     */
+    @Test
+    void auditorWithViewerIsReportedWithoutClaimingDutiesConflict() {
+        String conflict = GroupRoleMapper.auditorConflict(
+                Set.of(AuthorityName.ROLE_AUDITOR, AuthorityName.ROLE_VIEWER));
+
+        assertNotNull(conflict);
+        assertTrue(conflict.contains("no restrictive effect"));
+        assertFalse(conflict.contains("separation-of-duties"),
+                "a viewer cannot decide anything, so this is not a duties conflict: " + conflict);
     }
 
     @Test

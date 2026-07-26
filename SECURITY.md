@@ -71,8 +71,8 @@ matched against the OIDC `group_ids` claim):
 |---|---|
 | `ROLE_ADMIN` | Users, auto-approval rule writes, tenant config, log bundle, request deletion, remote purge — plus everything below |
 | `ROLE_APPROVER` | Decisions: approve, reject, revoke, revoke-and-block, allow re-request, pull |
-| `ROLE_VIEWER` | Read-only: queue, catalog, statistics, rules, audit |
-| `ROLE_AUDITOR` | Audit trail and CSV export only — no live queue, no decisions |
+| `ROLE_VIEWER` | Read-only *on screen*: queue, catalog, statistics, rules, audit. No CSV export |
+| `ROLE_AUDITOR` | Audit trail only, including its CSV export — no live queue, no decisions |
 
 `ROLE_USER` predates the model and is treated as `ROLE_VIEWER`.
 
@@ -85,12 +85,31 @@ they hold. Matched roles are additive among themselves. With no role map
 configured every user is a Viewer — absence of configuration is restrictive,
 not permissive.
 
+`ROLE_AUDITOR` must not be combined with another role. Resolution is additive
+and every rule admits any one of its listed roles, so the most permissive role
+wins: an auditor who also holds Approver keeps full access to the live queue and
+the auditor restriction has no effect. Alongside `ROLE_ADMIN` or
+`ROLE_APPROVER` it is additionally a separation-of-duties conflict — one
+identity deciding requests and auditing those decisions. The combination is
+reported at each sign-in with a `WARN` naming the user and roles, rather than
+silently corrected: a group membership that *removed* access would be
+surprising in its own way, and the defect worth fixing was that the conflict
+was invisible.
+
 The distinction matters for `ROLE_AUDITOR`, which grants *less* than Viewer.
 Granting Viewer unconditionally would make every role additive on top of it,
 and since Viewer already includes reading the audit trail, an auditor would
 hold Viewer's access to the live queue plus nothing extra — the opposite of the
 role's purpose. A role that restricts cannot exist in a model where everyone
 starts as a Viewer.
+
+Bulk export is gated separately from reading, because an export is an
+extraction rather than a read: it produces a file that leaves the application's
+controls entirely and can be retained or shared without trace, whereas reading
+the trail on screen is page-by-page and stays inside the session. So a Viewer
+may read the audit trail but not download it. `/api/audit/export.csv` is
+restricted to `ROLE_ADMIN` and `ROLE_AUDITOR`; `/api/approvals/export.csv` to
+`ROLE_ADMIN`, `ROLE_APPROVER` and `ROLE_AUDITOR`.
 
 Two properties are load-bearing and easy to break:
 
