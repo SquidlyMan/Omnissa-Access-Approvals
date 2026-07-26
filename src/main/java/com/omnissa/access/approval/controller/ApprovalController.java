@@ -275,7 +275,11 @@ public class ApprovalController {
                             approve, rule.getGrantTtlMinutes(), null, null);
                     auditService.record(approve ? "auto-approved" : "auto-rejected",
                             calloutRequest.getRequestId(), calloutRequest.getResourceName(), message + ttlNote);
-                    webhookNotifier.notifyDecision(calloutRequest, approve, "auto-approval-rule", "#" + rule.getId());
+                    // Re-read so the notification reports the TTL applyGrant just
+                    // persisted; calloutRequest predates it.
+                    CalloutRequest decided = approvalsRepository.findByRequestId(calloutRequest.getRequestId());
+                    webhookNotifier.notifyDecision(decided != null ? decided : calloutRequest,
+                            approve, "auto-approval-rule", "#" + rule.getId());
                     sseController.publishQueueUpdate("queue-updated");
                 }
                 case EXPIRED -> {

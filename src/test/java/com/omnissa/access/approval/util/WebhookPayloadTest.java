@@ -229,4 +229,71 @@ class WebhookPayloadTest {
         assertThat((String) p.get("text")).contains("could not be delivered")
                 .contains("Salesforce");
     }
+
+    // ── Decision detail (#57 follow-up) ──────────────────────────────────────
+    // "Rejected" alone does not distinguish a decline the user can retry from
+    // one that blocks them, and "Approved" does not say whether access is
+    // permanent or expires. Admins watching the channel need the consequence.
+
+    private CalloutRequest decided(Integer ttlMinutes, Boolean reRequestable) {
+        CalloutRequest r = request();
+        r.setAccessTtlMinutes(ttlMinutes);
+        r.setReRequestable(reRequestable);
+        return r;
+    }
+
+    @Test
+    void approvedPermanentlyIsSpelledOut() {
+        String text = (String) notifier("slack")
+                .buildDecisionPayload(decided(null, null), true, "dean", null).get("text");
+        assertThat(text).contains("Approved by dean").contains("permanent access");
+    }
+
+    @Test
+    void approvedWithTtlStatesDurationAndWhatFollows() {
+        String reRequestable = (String) notifier("slack")
+                .buildDecisionPayload(decided(5, true), true, "dean", null).get("text");
+        assertThat(reRequestable).contains("5 minutes").contains("requestable again");
+
+        String oneTime = (String) notifier("slack")
+                .buildDecisionPayload(decided(60, false), true, "dean", null).get("text");
+        assertThat(oneTime).contains("1 hour").contains("one-time");
+    }
+
+    @Test
+    void rejectionDistinguishesTemporaryFromBlocking() {
+        String temporary = (String) notifier("slack")
+                .buildDecisionPayload(decided(null, true), false, "dean", null).get("text");
+        assertThat(temporary).contains("temporary").contains("may request again");
+
+        String permanent = (String) notifier("slack")
+                .buildDecisionPayload(decided(null, false), false, "dean", null).get("text");
+        assertThat(permanent).contains("permanent").contains("blocked from re-requesting");
+    }
+
+    @Test
+    void teamsCarriesTheSameDetail() {
+        String payload = notifier("teams")
+                .buildDecisionPayload(decided(1440, true), true, "dean", null).toString();
+        assertThat(payload).contains("1 day").contains("requestable again");
+    }
+
+    @Test
+    void genericPayloadExposesTheDetailStructurally() {
+        Map<String, Object> p = notifier("generic")
+                .buildDecisionPayload(decided(5, false), true, "dean", null);
+        assertThat(p).containsEntry("accessTtlMinutes", 5)
+                .containsEntry("reRequestable", false)
+                .containsEntry("permanent", false);
+    }
+
+    @Test
+    void durationsReadNaturally() {
+        assertThat(WebhookNotifier.humanDuration(1)).isEqualTo("1 minute");
+        assertThat(WebhookNotifier.humanDuration(5)).isEqualTo("5 minutes");
+        assertThat(WebhookNotifier.humanDuration(60)).isEqualTo("1 hour");
+        assertThat(WebhookNotifier.humanDuration(480)).isEqualTo("8 hours");
+        assertThat(WebhookNotifier.humanDuration(1440)).isEqualTo("1 day");
+        assertThat(WebhookNotifier.humanDuration(10080)).isEqualTo("7 days");
+    }
 }
