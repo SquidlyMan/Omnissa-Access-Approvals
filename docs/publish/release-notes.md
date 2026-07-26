@@ -36,33 +36,49 @@ clean bill of health.
 Entries marked **⚠ Upgrade note** change configuration or remove an endpoint,
 and need action beyond pulling a new image.
 
+### Versions and container tags are not the same thing
+
+A **version** is a unit of change. A **tag** is a published container image.
+Several versions often ship inside one image, so the tag list is shorter than
+the version list — there is no `1.7.1` image, for example, because that work
+reached users inside `v1.9.1`.
+
+The right-hand column below gives the image each version first shipped in. Pull
+that tag to get everything at or below it. The mapping is stated explicitly
+because it cannot be reconstructed from the repository history: the changelog
+was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
+`v1.9.5` was already published.
+
 ---
 
 ## Release summary
 
-| Version | Theme |
-|---|---|
-| **1.19.1** | Log-noise and routing fixes |
-| **1.19.0** | Sign-in throttling, configurable password policy |
-| **1.18.0** | Operability: health, drift detection, account management |
-| **1.16.1** | Access governance: RBAC from Access groups |
-| **1.9.5** | ZimaCube tile fix, corrected CasaOS update guidance |
-| **1.9.1** | Webhook URL encoding fix |
-| **1.9.0** | Actionable Microsoft Teams approvals |
-| **1.8.0** | On-demand revoke, deployment-type preservation |
-| **1.7.2** | Slack rendering fixes |
-| **1.7.1** | Slack reject-and-block |
-| **1.7.0** | Permanent vs temporary decline |
-| **1.6.0** | JIT lifecycle notifications |
-| **1.5.7** | Actionable Slack approvals |
-| **1.5.0** | JIT / time-bound access, backup and restore |
-| **1.4.0** | Platform upgrade: Spring Boot 4, React 19, Tailwind 4 |
-| **1.3.0** | Pull from Access |
-| **1.2.1** | Configurable email sender |
-| **1.2.0** | Expired-request handling |
-| **1.1.1** | Optional Watchtower auto-update |
-| **1.1.0** | Decision webhooks, named attribution |
-| **1.0.0** | Initial public release |
+| Version | Theme | First shipped in |
+|---|---|---|
+| **1.19.1** | Log-noise and routing fixes | `v1.19.1` |
+| **1.19.0** | Sign-in throttling, configurable password policy | `v1.19.1` |
+| **1.18.0** | Operability: health, drift detection, account management | `v1.18.0` |
+| **1.16.1** | Access governance: RBAC from Access groups | `v1.16.1` |
+| **1.9.5** | ZimaCube tile fix, corrected CasaOS update guidance | `v1.9.5` |
+| **1.9.1** | Webhook URL encoding fix | `v1.9.1` |
+| **1.9.0** | Actionable Microsoft Teams approvals | `v1.9.1` |
+| **1.8.0** | On-demand revoke, deployment-type preservation | `v1.9.1` |
+| **1.7.2** | Slack rendering fixes | `v1.9.1` |
+| **1.7.1** | Slack reject-and-block | `v1.9.1` |
+| **1.7.0** | Permanent vs temporary decline | `v1.9.1` |
+| **1.6.0** | JIT lifecycle notifications | `v1.9.1` |
+| **1.5.7** | Actionable Slack approvals | `v1.9.1` |
+| **1.5.0** | JIT / time-bound access, backup and restore | `v1.5.6` |
+| **1.4.0** | Platform upgrade: Spring Boot 4, React 19, Tailwind 4 | `v1.5.6` |
+| **1.3.0** | Pull from Access | `v1.5.6` |
+| **1.2.1** | Configurable email sender | `v1.5.6` |
+| **1.2.0** | Expired-request handling | `v1.5.6` |
+| **1.1.1** | Optional Watchtower auto-update | `v1.5.6` |
+| **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
+| **1.0.0** | Initial public release | `v1.0.0` |
+
+Published images: `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+`v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 ---
 
@@ -561,6 +577,10 @@ None recorded.
   nightly timer.
 - **Version-tagged container images** (moving `major.minor` plus the exact
   version).
+- **An automated test suite enforced as a CI gate**, so a merge that breaks
+  behaviour fails before it reaches an image.
+
+*Shipped as container image `v1.5.6`.*
 
 ### Fixes
 
