@@ -89,9 +89,9 @@ public class SecurityConfig {
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilter() {
         FilterRegistrationBean<RateLimitFilter> registration =
                 new FilterRegistrationBean<>(new RateLimitFilter(apiRateLimit));
-        // Both internet-facing, unauthenticated inbound endpoints (Access callout,
-        // Slack interactions) get per-IP rate limiting.
-        registration.addUrlPatterns("/api/approvals/new", "/api/slack/interactions");
+        // The Access callout is now the only internet-facing unauthenticated
+        // endpoint — Slack approvals became deep links, so its callback is gone.
+        registration.addUrlPatterns("/api/approvals/new");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registration;
     }
@@ -119,9 +119,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                // Inbound endpoints POSTed by external systems (no browser session):
-                // Access callout + Slack interactions (Slack-signature authenticated).
-                .ignoringRequestMatchers("/api/approvals/new", "/api/slack/interactions")
+                // POSTed by Omnissa Access without a browser session.
+                .ignoringRequestMatchers("/api/approvals/new")
             )
             // Force the deferred CSRF token to resolve on every request so the
             // XSRF-TOKEN cookie is always present by the time the SPA needs it.
@@ -144,10 +143,6 @@ public class SecurityConfig {
                 // redirect-to-login there reads as "Unable to connect to the URI".
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/api/approvals/new").permitAll()
-                // Slack interaction callback — unauthenticated at the session layer,
-                // authenticated by Slack signature in SlackController (design §2).
-                .requestMatchers(HttpMethod.POST, "/api/slack/interactions").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/api/slack/interactions").permitAll()
                 // Static assets served by Vite build
                 .requestMatchers("/assets/**", "/favicon.ico", "/favicon.svg",
                         "/apple-touch-icon.png", "/vite.svg").permitAll()

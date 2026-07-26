@@ -62,11 +62,6 @@ public class WebhookNotifier {
     @Value("${app.base-url:}")
     private String appBaseUrl;
 
-    /** JIT duration menu offered in the Slack message. value = minutes ("0" = permanent). */
-    private static final String[][] SLACK_TTL_OPTIONS = {
-            {"Permanent", "0"}, {"5 minutes", "5"}, {"15 minutes", "15"}, {"1 hour", "60"},
-            {"8 hours", "480"}, {"24 hours", "1440"}, {"7 days", "10080"}, {"30 days", "43200"}
-    };
 
     private final RestTemplate restTemplate;
 
@@ -83,7 +78,7 @@ public class WebhookNotifier {
         }
         String format = resolvedFormat();
         Object payload;
-        if ("slack".equals(format) && slackActionable) {
+        if ("slack".equals(format) && slackActionable && !appBaseUrl.isBlank()) {
             payload = buildSlackActionableMessage(request);
         } else if ("teams".equals(format) && teamsActionable && !appBaseUrl.isBlank()) {
             payload = buildTeamsActionableCard(request);
@@ -146,10 +141,24 @@ public class WebhookNotifier {
     }
 
     /**
-     * Interactive Slack message (#50): request summary, a JIT duration menu, and
-     * Approve/Reject buttons. Button {@code value} carries the requestId; the
-     * duration select's current value is read from the interaction's
-     * {@code state} when a button is clicked (see SlackController).
+     * Slack message (#50) with deep-link buttons into this tool.
+     *
+     * <p>Buttons are URL buttons, not interactive callbacks. A callback is
+     * dispatched to an endpoint where no signed-in user exists — the Slack
+     * signature proves the workspace, not the person — so authorization had to
+     * come from a separate approver map, a second source of truth that failed
+     * <em>open</em>: removing someone from an approver group in Omnissa Access
+     * revoked their web access but left their Slack buttons working. Opening
+     * the tool instead means the approver signs in and the ordinary role rules
+     * apply, so the two can no longer disagree.
+     *
+     * <p>It also removes the inbound endpoint, its signing secret and its
+     * replay window, and makes a stale card harmless: the request page reads
+     * live state, so a button clicked after the request was decided simply
+     * shows the current outcome instead of attempting the decision.
+     *
+     * <p>The duration menu moves to the review dialog for the same reason a
+     * Teams card has none — a URL cannot carry the state of a Slack select.
      *
      * <p>Built from plain Map/List structures on purpose: Spring Boot 4 converts
      * request bodies with Jackson 3, which does not recognize a Jackson 2
@@ -158,8 +167,11 @@ public class WebhookNotifier {
      */
     Map<String, Object> buildSlackActionableMessage(CalloutRequest request) {
         String requester = requesterLabel(request);
+        String base = appBaseUrl.endsWith("/") ? appBaseUrl.substring(0, appBaseUrl.length() - 1) : appBaseUrl;
+        String link = base + "/requests/" + request.getRequestId();
+
         Map<String, Object> root = new LinkedHashMap<>();
-        // Fallback text — also what notifications//unfurls show.
+        // Fallback text — also what notifications and unfurls show.
         root.put("text", "New access request: " + request.getResourceName() + " (" + requester + ")");
 
         List<Object> blocks = new ArrayList<>();
@@ -168,48 +180,22 @@ public class WebhookNotifier {
                 "text", Map.of("type", "mrkdwn",
                         "text", "*New access request*\n*App:* " + request.getResourceName()
                                 + "\n*Requested by:* " + requester)));
-
-        List<Object> options = new ArrayList<>();
-        for (String[] opt : SLACK_TTL_OPTIONS) {
-            options.add(Map.of(
-                    "text", Map.of("type", "plain_text", "text", opt[0]),
-                    "value", opt[1]));
-        }
-        Map<String, Object> select = new LinkedHashMap<>();
-        select.put("type", "static_select");
-        select.put("action_id", "duration");
-        select.put("placeholder", Map.of("type", "plain_text", "text", "Access duration"));
-        select.put("options", options);
-        // initial_option must exactly match one of the options (Permanent).
-        select.put("initial_option", options.get(0));
-        blocks.add(Map.of("type", "actions", "block_id", "jit_duration",
-                "elements", List.of(select)));
+        blocks.add(Map.of(
+                "type", "context",
+                "elements", List.of(Map.of("type", "mrkdwn",
+                        "text", "Choose an action to review it in the Access Approval Tool. "
+                                + "You will be asked to sign in."))));
 
         blocks.add(Map.of("type", "actions", "block_id", "decision", "elements", List.of(
-                Map.of("type", "button", "action_id", "approve", "style", "primary",
-                        "text", Map.of("type", "plain_text", "text", "✓ Approve"),
-                        "value", request.getRequestId()),
-                Map.of("type", "button", "action_id", "reject", "style", "danger",
-                        "text", Map.of("type", "plain_text", "text", "✗ Reject"),
-                        "value", request.getRequestId()),
-                // Permanent decline (#57): rejects AND excludes the user, so the
-                // app will not reappear for them. Confirmed to avoid a mis-click.
-                Map.of("type", "button", "action_id", "reject_block",
-                        // "and", not "&": Slack HTML-escapes the ampersand and it
-                        // renders as "&amp;" (clearly visible on mobile).
-                        "text", Map.of("type", "plain_text", "text", "⛔ Reject and Block"),
-                        "value", request.getRequestId(),
-                        "confirm", Map.of(
-                                "title", Map.of("type", "plain_text", "text", "Block re-requests?"),
-                                // plain_text: mrkdwn emphasis is not rendered in a
-                                // confirm dialog and shows as literal asterisks.
-                                "text", Map.of("type", "plain_text",
-                                        "text", "This rejects the request and excludes the user from "
-                                                + request.getResourceName()
-                                                + " in Omnissa Access. The app will not reappear for them. "
-                                                + "You can undo this later from the request details."),
-                                "confirm", Map.of("type", "plain_text", "text", "Reject and Block"),
-                                "deny", Map.of("type", "plain_text", "text", "Cancel"))))));
+                Map.of("type", "button", "style", "primary",
+                        "text", Map.of("type", "plain_text", "text", "✓ Approve…"),
+                        "url", link + "?action=approve"),
+                Map.of("type", "button", "style", "danger",
+                        "text", Map.of("type", "plain_text", "text", "✗ Reject…"),
+                        "url", link + "?action=reject"),
+                Map.of("type", "button",
+                        "text", Map.of("type", "plain_text", "text", "Open request"),
+                        "url", link))));
 
         root.put("blocks", blocks);
         return root;
