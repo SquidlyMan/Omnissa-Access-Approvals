@@ -1,0 +1,850 @@
+---
+title: "Access Approval Tool for Omnissa"
+subtitle: "Release Notes — v1.19.1 and complete version history"
+author: "Dean Flaming (SquidlyMan)"
+date: "MIT License"
+---
+
+**Repository:** <https://github.com/SquidlyMan/Omnissa-Access-Approvals>
+**Container:** `ghcr.io/squidlyman/omnissa-access-approvals`
+
+> ### ⚠️ UNSUPPORTED — NON-PRODUCTION USE ONLY
+>
+> **This is not an Omnissa product and is not supported by Omnissa.** It is
+> provided **as-is, without warranty of any kind**, for testing and
+> demonstration of Omnissa Access application approvals.
+>
+> **Do not use in production or with production data.** The tool modifies real
+> application entitlements in whichever tenant it is configured against.
+>
+> **All use is entirely at your own risk.** "Omnissa" and "Workspace ONE" are
+> trademarks of Omnissa, LLC, used here only to describe interoperability.
+
+---
+
+## How to read these notes
+
+Each release lists **Key Capabilities**, **Fixes** and **Known Issues**.
+
+*Known Issues* are recorded honestly rather than retrospectively invented. For
+current releases they are live limitations. For historical releases they name a
+defect that was present in that build and say which release resolved it — so a
+reader on an older version can tell what they are exposed to and what upgrading
+buys them. Where nothing was recorded, the entry says so rather than implying a
+clean bill of health.
+
+Entries marked **⚠ Upgrade note** change configuration or remove an endpoint,
+and need action beyond pulling a new image.
+
+---
+
+## Release summary
+
+| Version | Theme |
+|---|---|
+| **1.19.1** | Log-noise and routing fixes |
+| **1.19.0** | Sign-in throttling, configurable password policy |
+| **1.18.0** | Operability: health, drift detection, account management |
+| **1.16.1** | Access governance: RBAC from Access groups |
+| **1.9.5** | ZimaCube tile fix, corrected CasaOS update guidance |
+| **1.9.1** | Webhook URL encoding fix |
+| **1.9.0** | Actionable Microsoft Teams approvals |
+| **1.8.0** | On-demand revoke, deployment-type preservation |
+| **1.7.2** | Slack rendering fixes |
+| **1.7.1** | Slack reject-and-block |
+| **1.7.0** | Permanent vs temporary decline |
+| **1.6.0** | JIT lifecycle notifications |
+| **1.5.7** | Actionable Slack approvals |
+| **1.5.0** | JIT / time-bound access, backup and restore |
+| **1.4.0** | Platform upgrade: Spring Boot 4, React 19, Tailwind 4 |
+| **1.3.0** | Pull from Access |
+| **1.2.1** | Configurable email sender |
+| **1.2.0** | Expired-request handling |
+| **1.1.1** | Optional Watchtower auto-update |
+| **1.1.0** | Decision webhooks, named attribution |
+| **1.0.0** | Initial public release |
+
+---
+
+# What's New in Access Approval Tool v1.19.1
+
+### Key Capabilities in this release
+
+This is a corrective release. It adds no new capability; both changes remove
+failure modes introduced by the role work in 1.16.1.
+
+### Fixes
+
+- **ERROR-level log noise on an expected condition.** Spring Security
+  authorizes *every* dispatch type, not only the original request.
+  `/api/approvals/stream` is a Server-Sent Events emitter, so its response is
+  committed the moment streaming begins — when the **ASYNC** dispatch was
+  re-authorized and denied, Spring Security could not write a 403 into an open
+  stream and the wrapped failure reached Tomcat as an `ERROR`. `FORWARD` and
+  `ERROR` dispatches were already exempted for exactly this reason; `ASYNC` was
+  missed, and only became reachable once role rules replaced
+  `anyRequest().authenticated()`. Reproduced and confirmed fixed: an open queue
+  tab plus a sign-out elsewhere previously produced a burst of errors at the
+  same millisecond, one per open emitter.
+- **The Users page returned 404 on refresh or a direct link.** `SpaController`
+  forwards a hand-listed set of client routes to the single-page shell, and
+  `/users` had been added to the router without being added there. The page
+  worked when navigated to in-app and failed on reload — the same shape of
+  failure that chat deep links depend on not happening.
+
+### Known Issues
+
+- **Route list is duplicated** between `SpaController` and the client router.
+  The two files now cross-reference each other, but a route added to one and
+  not the other still produces a page that works in-app and 404s on reload.
+  Scheduled for removal.
+- **Paged API responses are not wrapped in an explicit type**, so pagination
+  metadata is inferred by callers rather than declared. Scheduled.
+- The limitations listed under **Current Known Limitations** below apply.
+
+---
+
+# What's New in Access Approval Tool v1.19.0
+
+### Key Capabilities in this release
+
+- **Sign-in throttling on the local login form.** Previously the only
+  credential-accepting endpoint with no rate limiting of any kind, so the
+  break-glass admin password could be guessed at full LAN speed. Three free
+  attempts, then a doubling delay capped so a request thread is never held
+  long; an address making sustained attempts is refused with HTTP 429. Counters
+  expire on their own and clear on success.
+
+  **There is deliberately no account lockout.** Locking an account after N
+  failures would let anyone able to reach the login page disable the one
+  credential that exists for emergencies — precisely when Omnissa Access is
+  unavailable and local sign-in is the only way in. The per-address counter may
+  refuse; the **per-username counter only ever delays**, because it is shared
+  with the account's real owner and an attacker distributed across many
+  addresses could otherwise lock them out. The delay applies to correct
+  attempts too, or response timing would reveal a valid password.
+- **Configurable password policy** — `OMNISSA_PASSWORD_MIN_LENGTH`,
+  `_MIN_DISTINCT`, `_BLOCK_USERNAME`, `_BLOCKLIST_FILE`, and opt-in
+  `_REQUIRE_MIXED_CASE` / `_REQUIRE_DIGIT` / `_REQUIRE_SYMBOL`.
+
+  **⚠ Upgrade note:** minimum length is **clamped to a floor of 8** with a
+  warning. Configuration may tighten the policy, never remove it — otherwise
+  `min-length=1` would silently make the break-glass credential worthless.
+
+### Fixes
+
+- The bundled weak-password list was re-scoped to target **long-but-weak**
+  values rather than acting as a general corpus. Of the 10,000 most common
+  passwords **only 10 reach twelve characters** — the length rule alone rejects
+  the other 9,990 — so bundling a common-password list would add weight while
+  implying protection it does not give. The bundled list instead catches
+  doubled words, keyboard walks and digit runs, which also defeat composition
+  rules (`Passwordpassword1!` satisfies every character-class requirement).
+- Composition rules are documented as **not recommended** (NIST SP 800-63B):
+  people decorate rather than abandon a weak password, turning `password` into
+  `Password1!` — exactly what a cracking toolchain generates first — while
+  strong passphrases are rejected. They remain available for a compliance
+  requirement.
+
+### Known Issues
+
+- ERROR-level log noise from the SSE stream on sign-out, and the `/users` 404
+  on reload. **Both resolved in 1.19.1.**
+- If `OMNISSA_PASSWORD_MIN_LENGTH` is lowered, the bundled blocklist is no
+  longer sufficient on its own — point `OMNISSA_PASSWORD_BLOCKLIST_FILE` at a
+  real wordlist, at which point the full corpus is back in scope.
+
+---
+
+# What's New in Access Approval Tool v1.18.0
+
+*Operability: knowing when something is wrong, and being able to get back in.*
+
+### Key Capabilities in this release
+
+- **Dependency health API** for external monitoring, separating *"this
+  container is down"* from *"something it depends on is unhealthy"*.
+  `GET /api/health/deps` is public and returns an aggregate word only — no
+  tenant name, no error strings, no counts. `GET /api/health/dependencies` is
+  authenticated and returns per-component detail. Checks Omnissa Access
+  reachability, scheduler liveness, approval drift and webhook delivery.
+
+  **⚠ Upgrade note:** `/actuator/health` is unchanged and remains **liveness
+  only**. Docker, `deploy.sh`, CasaOS and the UAG all consume it, and CasaOS
+  *recreates the container* when it fails — so a third-party outage must never
+  reach it. Point dependency monitoring at the new endpoints, not at
+  `/actuator/health`.
+- **Scheduler liveness check** — the one failure with no other symptom. Every
+  scheduled job shares a single-threaded scheduler, so if the JIT sweeps wedge,
+  time-bound access silently never expires while the container, the UI and
+  every other check stay green.
+- **Approval drift detection** — requests Omnissa Access is holding that the
+  queue has no pending record of. Those requesters wait indefinitely and the
+  app never provisions, with nothing to indicate why. The queue shows a banner,
+  and **Pull from Access** recovers them.
+- **Local account management** — add, reset password, enable/disable, change
+  roles and delete, all audited, plus **self-service password change** in the
+  top bar for any locally signed-in account.
+- **Password policy** — twelve characters minimum, rejecting repeated
+  characters, well-known passwords, plain sequences, and anything containing
+  the username.
+- **The last enabled local administrator cannot be disabled, deleted or
+  demoted.** An Access user holding Admin through a group does not satisfy the
+  guard — the situations break-glass exists for are exactly those where Access
+  sign-in is unavailable.
+
+### Fixes
+
+- **`OmnissaRestClient` had no connect or read timeout**, so a hung tenant
+  pinned the calling thread indefinitely. Tolerable at one call per dashboard
+  load; fatal once polled every minute, where hung probes accumulate until the
+  pool starves — the monitoring would have caused the outage it exists to
+  detect. Now 5s/5s.
+- **Deleting a pending request is refused** (HTTP 409). Omnissa Access holds an
+  approval open until it receives a decision, so deleting the local record left
+  the requester waiting permanently on a decision that could never be given.
+  Five requests sat stuck this way and presented as an Access provisioning
+  fault. Decline it first; deleting a decided record is unchanged.
+- **Account creation accepted a 4-character password** while password *change*
+  required twelve — so a weak password could be set at creation and then not be
+  replaceable with an equally weak one.
+- The connectivity probe is now shared between the dashboard tile and health,
+  rather than each polling the tenant independently.
+- `troubleshooting.md` corrected: *"Health endpoint shows DOWN"* claimed
+  `/actuator/health` aggregates component health including mail; it is
+  liveness-only and mail health has long been disabled.
+
+### Known Issues
+
+- **`OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` cannot rotate a password.** The
+  bootstrap runs only when the user table is empty, so changing it on an
+  existing install does nothing, silently. Use **Reset password** on the Users
+  page. Documented in this release; behaviour unchanged by design.
+- **The local login form had no rate limiting**, so the break-glass password
+  could be guessed at full speed. **Resolved in 1.19.0.**
+- A healthy `notifications` status means the endpoint **accepted** the request,
+  not that the message arrived — Power Automate returns `202 Accepted`.
+
+---
+
+# What's New in Access Approval Tool v1.16.1
+
+*Access governance: the tool now decides **who may act**, not just what happens.*
+
+### Key Capabilities in this release
+
+- **Role-based access control**, resolved from **Omnissa Access group
+  membership** — `ADMIN`, `APPROVER`, `VIEWER`, `AUDITOR`. Configure with
+  `OMNISSA_ROLE_MAP` as `<groupId>:<ROLE>` pairs; `GET /api/auth/claims` shows
+  your tenant's group ids paired with their names.
+
+  Matched on **ids, not names**, so renaming a group in Access cannot silently
+  drop everyone to Viewer. Viewer is a **fallback, not a floor**: with no map
+  configured every user is a Viewer, so enabling the map is the deliberate act
+  that grants privilege.
+
+  **⚠ Upgrade note:** requires the **`group`** scope on the OIDC client.
+  Without it Access emits no group claim at all and every user silently becomes
+  a Viewer.
+- **Audit-trail CSV export.** The audit tab's export previously downloaded the
+  *request* table — a different dataset — so the trail itself had no export at
+  all. Bulk export is gated separately from reading: a Viewer may read the
+  record on screen but not take a copy of it.
+- **The requester is recorded on every audit event.** The trail stored who
+  *acted* but never who the access was *for*; combined with **Delete request**,
+  that made the subject of an entry unrecoverable. 176 historical events were
+  backfilled, and the count that could not be recovered is logged rather than
+  left blank.
+- **Decisions state their consequence** in Slack and Teams — *permanent
+  access*, *5 minutes, then requestable again*, *1 hour, then gone for good*,
+  *temporary: the user may request again*, *permanent: the user is blocked from
+  re-requesting*.
+- **Warning when Auditor is combined with another role.** Auditor is the only
+  restrictive role, so pairing it with any other silently defeats it; alongside
+  Admin or Approver it is also a separation-of-duties conflict. Reported at
+  sign-in rather than corrected.
+- **Slack approvals became deep links**, matching Teams.
+
+  **⚠ Upgrade note:** this removes `POST /api/slack/interactions` (an
+  internet-facing unauthenticated endpoint), its signing secret and replay
+  window, and `SLACK_APPROVER_MAP`. `SLACK_ACTIONABLE` now requires
+  `APP_BASE_URL`. Setup drops from six steps to four.
+
+  Decisions previously happened inside an interaction callback where no
+  signed-in user exists — a Slack signature proves the *workspace*, not the
+  *person* — so authority came from a second source of truth that failed
+  **open**: revoking someone in Access left their Slack buttons working.
+
+### Fixes
+
+- **Teams never received decision, expiry, revoke or reopen notifications.**
+  Those payloads used Slack's bare `{"text": …}`, which the retired Office 365
+  connector accepted but a Power Automate workflow silently drops. Only the
+  new-request card worked, because it alone was built as a card. Two tests were
+  asserting the broken shape.
+- **Chat deep links lost their decision and their destination.** The review
+  dialog opened with nothing selected — the action parameter was cleared in the
+  same render that opened it — and signing in discarded the saved destination,
+  landing approvers on the dashboard. Approve and Reject were therefore no
+  different from Open request, on both platforms.
+- **The Auditor role granted nothing.** Viewer was added as a floor, so an
+  auditor was also a viewer — and since Viewer already includes reading the
+  audit trail, the role was a guaranteed no-op.
+- **`GET /api/users` returned bcrypt password hashes**, and **`POST /api/users`
+  accepted an `authorities` array**, letting any authenticated caller mint
+  themselves an admin.
+- **Delete request** was rendered for every role but is admin-only, so an
+  approver clicking it received a 403.
+- `/api/**` now returns a **JSON 401** instead of redirecting to the login
+  page, and **403** returns JSON instead of framework HTML. An expired session
+  previously looked like a successful empty response to the client.
+
+### Known Issues
+
+- **Role changes apply only at next sign-in.** Roles come from the token, which
+  is a snapshot. By design; documented.
+- **Channel membership is not authorization.** A chat message is posted to a
+  channel, so every member of it can read the request details regardless of
+  role, or of whether they have an account at all. Roles govern who may *act*,
+  never who may *see*.
+- ERROR-level log noise on the SSE stream, introduced here by replacing
+  `anyRequest().authenticated()` with role rules. **Resolved in 1.19.1.**
+- The local login form had no rate limiting. **Resolved in 1.19.0.**
+- `OmnissaRestClient` had no timeouts. **Resolved in 1.18.0.**
+
+---
+
+# What's New in Access Approval Tool v1.9.5
+
+### Key Capabilities in this release
+
+- **`WEBUI_SCHEME` / `WEBUI_HOSTNAME` / `WEBUI_PORT`** in the ZimaCube compose
+  environment point the CasaOS tile at the public URL instead of
+  `http://<nas>:8081`.
+
+  **⚠ Upgrade note:** CasaOS builds the link as `scheme://hostname:port_map/`
+  and **always appends the port**, so all three must be set together. Worth
+  setting: admin OAuth2 login only works on the registered redirect URI, and a
+  plain-HTTP link is blocked as mixed content from an HTTPS dashboard. Left
+  unset, behaviour is unchanged.
+- In-app Help gained condensed **six-step Slack** and **four-step Teams** setup
+  walkthroughs, so chat approvals can be configured without leaving the app.
+
+### Fixes
+
+- **Clicking the app's tile in ZimaOS recreated the container instead of
+  opening it.** Before opening an app, CasaOS probes it at
+  `<scheme>://<hostname>:<port_map>/`; with the port published only on the LAN
+  address, that probe resolved to `http://127.0.0.1:8081/` and was refused, so
+  CasaOS concluded the app was down and fell into its start/repair path — a
+  silent pull and re-create. Port 8081 is now published on loopback as well;
+  network exposure and the LAN-only firewall rule are unchanged.
+- `deploy.sh` wrote the compose environment file with a truncating redirect, so
+  every run discarded the image-tag pin and the new tile settings — silently
+  unpinning the image and reverting the CasaOS tile.
+- **Corrected the CasaOS update guidance, which was wrong in both directions.**
+
+### Known Issues
+
+- **CasaOS "Check and then update" does not work for this container, and no
+  image tag changes that.** ZimaOS resolves *"is an update available?"* by
+  looking the app up in a CasaOS **AppStore**; an externally-managed Compose
+  app is never found there, so the check reports "latest version" without ever
+  contacting the registry. Verified against a live NAS with the container
+  pinned to an older digest than the registry tag. Use `compose pull`, or the
+  opt-in Watchtower profile. **Open — this is a CasaOS behaviour, not a defect
+  in the tool.**
+- Teams received no decision, expiry, revoke or reopen notifications.
+  **Resolved in 1.16.1.**
+
+---
+
+# What's New in Access Approval Tool v1.9.1
+
+### Key Capabilities in this release
+
+None — corrective release.
+
+### Fixes
+
+- **Webhook posts were rejected with 401, so Teams notifications silently never
+  arrived.** The HTTP client was given the URL as a string, which it treats as
+  a URI *template* and re-encodes. A Power Automate workflow URL carries an
+  already-encoded, signature-protected query, so `%2F` became `%252F` and the
+  signature no longer matched. The URL is now passed as a URI. Applied to the
+  Slack response post as well.
+
+### Known Issues
+
+- Teams received only the new-request card; decision, expiry, revoke and reopen
+  notifications were still dropped for a different reason (payload shape).
+  **Resolved in 1.16.1.**
+
+---
+
+# What's New in Access Approval Tool v1.9.0
+
+### Key Capabilities in this release
+
+- **Actionable Microsoft Teams approvals** (`TEAMS_ACTIONABLE`) — new requests
+  post an **Adaptive Card** through a Power Automate workflow, with buttons
+  that open the request in the tool with the decision pre-selected.
+
+  Buttons are deep links rather than callbacks: Office 365 connectors (which
+  supported inline HTTP actions) are retired, and a Power Automate callback
+  requires the **premium** HTTP connector. This also means no inbound endpoint,
+  no shared secret, and approvers authenticate with the tool's own OIDC login.
+
+  **⚠ Upgrade note:** requires `APP_BASE_URL`.
+
+### Fixes
+
+None recorded.
+
+### Known Issues
+
+- Webhook posts to Power Automate were rejected with 401 because of URL
+  re-encoding. **Resolved in 1.9.1.**
+- Only the new-request card reached Teams; all lifecycle notifications were
+  dropped. **Resolved in 1.16.1.**
+- Deep-link buttons did not carry their decision or destination through
+  sign-in. **Resolved in 1.16.1.**
+
+---
+
+# What's New in Access Approval Tool v1.8.0
+
+### Key Capabilities in this release
+
+- **Revoke an active grant on demand**, without waiting for a TTL: *Revoke
+  access* (the app returns to a requestable state after a short hold) or
+  *Revoke and block* (the user stays excluded until an administrator lifts it).
+  Both confirmation-gated.
+- **Allow re-request** now also covers revoked-and-blocked requests, so a
+  permanent revoke has a recovery path in the interface.
+
+### Fixes
+
+- The user's **Deployment Type** is now captured at grant time and written back
+  on restore. A restore previously always forced *User-Activated*, silently
+  converting an *Automatic* assignment.
+
+### Known Issues
+
+None recorded.
+
+---
+
+# What's New in Access Approval Tool v1.7.2
+
+### Key Capabilities in this release
+
+None — corrective release.
+
+### Fixes
+
+- The Slack block button rendered as `Reject &amp; Block`, because Slack
+  HTML-escapes the ampersand.
+- The confirmation dialog showed literal asterisks, because a Slack confirm
+  object does not render markup.
+
+### Known Issues
+
+None recorded.
+
+---
+
+# What's New in Access Approval Tool v1.7.1
+
+### Key Capabilities in this release
+
+- Slack **Reject and Block** button — a confirmation-gated permanent decline.
+
+### Fixes
+
+- Clicking a Slack button after the request had already been decided reported
+  *"Omnissa Access is unreachable"*. The card is simply stale; it now says so
+  plainly.
+
+### Known Issues
+
+- Slack button and confirm-dialog text rendered with escaped markup.
+  **Resolved in 1.7.2.**
+
+---
+
+# What's New in Access Approval Tool v1.7.0
+
+### Key Capabilities in this release
+
+- **Permanent vs temporary decline.** A temporary decline (the default) rejects
+  only that request; a permanent decline excludes the user so the app does not
+  reappear. New **Allow re-request** action reverses a block.
+- **A permanent decline that cannot be enforced is not recorded as permanent** —
+  an `access-block-failed` event is audited instead, so the trail never claims
+  an exclusion that Access did not accept.
+
+### Fixes
+
+None recorded.
+
+### Known Issues
+
+None recorded.
+
+---
+
+# What's New in Access Approval Tool v1.6.0
+
+### Key Capabilities in this release
+
+- **JIT lifecycle notifications** — `access.revoked` when a timed grant expires
+  and `access.reopened` when the app becomes requestable again, so an approver
+  who granted from chat learns that it ended. Toggle with
+  `WEBHOOK_NOTIFY_LIFECYCLE`.
+
+### Fixes
+
+None recorded.
+
+### Known Issues
+
+- On Teams, these lifecycle payloads used Slack's message shape and were
+  silently dropped. **Resolved in 1.16.1.**
+
+---
+
+# What's New in Access Approval Tool v1.5.7
+
+### Key Capabilities in this release
+
+- **Actionable Slack approvals** (`SLACK_ACTIONABLE`) — an interactive message
+  with an access-duration menu and Approve/Reject buttons; the message updates
+  in place with the outcome. The inbound endpoint verifies the **Slack
+  signature** (HMAC-SHA256, five-minute replay window) before any state change,
+  and requires the clicking user to appear in `SLACK_APPROVER_MAP` — a valid
+  signature proves the workspace, not that the clicker may approve.
+- Decisions from every channel now run through a shared decision service, so a
+  chat decision and an interface decision behave identically and carry a
+  resolved approver identity.
+
+### Fixes
+
+None recorded.
+
+### Known Issues
+
+- **`SLACK_APPROVER_MAP` is a second source of truth for authority, and it
+  fails open.** Revoking someone in Omnissa Access removes their web access
+  immediately but leaves their Slack buttons working. **Resolved in 1.16.1** by
+  replacing callbacks with deep links, which removed the map, the signing
+  secret and the inbound endpoint entirely.
+
+---
+
+# What's New in Access Approval Tool v1.5.0
+
+### Key Capabilities in this release
+
+- **JIT / time-bound access.** Approve for five minutes to thirty days; access
+  is automatically revoked at expiry, which genuinely deprovisions the app in
+  Omnissa Access. Choose what happens afterwards: **re-requestable** (the app
+  returns after a short hold) or **one-time** (it stays gone). Auto-approval
+  rules can grant timed access.
+- **Revocation works for group-provisioned and directly-assigned apps alike**,
+  using a per-user **exclusion** that overrides group access without touching
+  the group entitlement.
+- **Delete request** — administrator cleanup for stale local records; two-step
+  confirmation, fully audited, and never touches Omnissa Access.
+- **Backup and restore** for the database and environment file: verified
+  archives, retention, a manifest recording the running image digest, and a
+  nightly timer.
+- **Version-tagged container images** (moving `major.minor` plus the exact
+  version).
+
+### Fixes
+
+- Decision delivery reported a false *"Could not reach Omnissa Access"* when
+  the decision had in fact been delivered — the unused response body was parsed
+  into a strict type and the failure was misclassified.
+- SCIM `userName` lookups matched nobody because the filter was double-encoded.
+- Notifications named the requester by a numeric id instead of their name or
+  email, and chat decisions were audited as `system` rather than the real
+  approver.
+
+### Known Issues
+
+- **Deleting a pending request orphaned the live approval in Access.** Access
+  holds the approval open until it receives a decision, so the requester waited
+  permanently. **Resolved in 1.18.0**, which refuses the deletion.
+- A restore always forced *User-Activated*, converting *Automatic* assignments.
+  **Resolved in 1.8.0.**
+
+---
+
+# What's New in Access Approval Tool v1.4.0
+
+### Key Capabilities in this release
+
+No functional change. Platform upgrade only.
+
+- Backend: Spring Boot 3.5 → **4.1** (Spring Framework 7, Spring Security 7,
+  Jakarta EE 11) and springdoc-openapi 2.8 → 3.0.
+- Frontend: React 18 → **19**, Vite 5 → **8**, Tailwind CSS 3 → **4**,
+  TypeScript 5 → **6**. Tailwind 4 moved to CSS-first configuration; the custom
+  navy palette migrated to a CSS theme block with utility class names
+  unchanged. The build's pinned Node version moved to 22 to satisfy Vite 8.
+
+### Fixes
+
+- Security 7 migration: the removed `AntPathRequestMatcher` was replaced with
+  `PathPatternRequestMatcher` for the logout and authentication-entry-point
+  matchers, and the TLS-redirect connector moved to its relocated factory
+  class.
+
+### Known Issues
+
+None recorded. No runtime behaviour, interface behaviour or visual change was
+intended or observed.
+
+---
+
+# What's New in Access Approval Tool v1.3.0
+
+### Key Capabilities in this release
+
+- **Pull from Access** on the Awaiting Review tab — manually ingests any
+  requests Omnissa Access is holding but never pushed, such as a callout that
+  hit a container restart or a transient network gap. Access does not retry on
+  its own.
+
+### Fixes
+
+- The custom decision message now reaches the requester's email. The review
+  dialog sent the note under the wrong field name, so it was dropped before
+  being saved or templated.
+
+### Known Issues
+
+- Drift between Access and the queue had to be noticed by a human before **Pull
+  from Access** was any use. Automatic detection arrived in **1.18.0**.
+
+---
+
+# What's New in Access Approval Tool v1.2.1
+
+### Key Capabilities in this release
+
+- Configurable sender address for requester email notifications via
+  `SPRING_MAIL_FROM`.
+
+  **⚠ Upgrade note:** previously hardcoded to `no-reply@example.com`, which
+  most relays — including Office 365 — reject outright.
+
+### Fixes
+
+None recorded.
+
+### Known Issues
+
+None recorded.
+
+---
+
+# What's New in Access Approval Tool v1.2.0
+
+### Key Capabilities in this release
+
+- **Expired-request handling.** When an administrator or auto-rule decides a
+  request that Omnissa Access no longer knows about, the request is no longer
+  left stuck in Awaiting Review. It moves to the Deactivated tab with an
+  **Expired** badge, a `decision-undeliverable` event is recorded in the audit
+  trail, and the webhook emits `request.expired`. The decision endpoint now
+  returns a real outcome — delivered, expired or unreachable — and the review
+  dialog shows matching notices, with transient outages leaving the request
+  pending for retry rather than marking it expired.
+
+### Fixes
+
+None recorded.
+
+### Known Issues
+
+None recorded.
+
+---
+
+# What's New in Access Approval Tool v1.1.1
+
+### Key Capabilities in this release
+
+- **Optional Watchtower auto-update** for the ZimaCube/Docker deployment,
+  behind a compose profile. **Disabled by default**; when explicitly enabled it
+  checks the registry daily and recreates only the label-scoped approvals
+  container. Documented including the Docker-socket security trade-off.
+
+### Fixes
+
+- **`curl` restored in the runtime image.** The base image dropped it after the
+  21-JRE release, which silently broke the container healthcheck.
+
+### Known Issues
+
+None recorded.
+
+---
+
+# What's New in Access Approval Tool v1.1.0
+
+### Key Capabilities in this release
+
+- **Decision webhook notifications** — the webhook now fires on every approval
+  and rejection, naming the deciding administrator or, for auto-decisions, the
+  rule number.
+- **Named attribution in audit and syslog decision messages** — decision lines
+  now read "Approved by *admin*" / "Rejected by *admin*" with the reviewer's
+  note when present, "… (bulk action)" for bulk decisions, and
+  "Auto-approved/Auto-rejected by rule #N" for rule decisions.
+- **The ZimaCube deployment pulls the published registry image** instead of
+  building locally on the NAS.
+
+### Fixes
+
+- **Corrected declined-request documentation.** A declined request is listed as
+  Rejected in the tool, the user's Pending state is dropped, and the
+  application returns to a locked option in the Access catalog — the user may
+  request it again. It was previously documented as deactivating the
+  application.
+
+### Known Issues
+
+- The audit trail recorded who *acted* but never who the access was *for*, so
+  deleting a request made the subject of its history unrecoverable. **Resolved
+  in 1.16.1**, with historical events backfilled.
+
+---
+
+# What's New in Access Approval Tool v1.0.0
+
+*Initial public release.*
+
+### Key Capabilities in this release
+
+- **Approval queue** with live updates via Server-Sent Events — incoming
+  requests appear without refreshing.
+- **Omnissa Access callout integration** — receives approval callouts, natively
+  parses the Access messaging envelope, and posts decisions back through the
+  service client API.
+- **Administrator sign-in** — local username/password with a first-run
+  bootstrap account, and *Sign in with Omnissa Access* via OIDC
+  (authorization code with PKCE), plus an optional OAuth-only mode.
+- **Consent screen auto-disable** — optional startup call to the Access admin
+  API to turn off the user-consent prompt on the OIDC client.
+- **Audit trail** recording every incoming request, decision and auto-rule
+  action, also written to the application log.
+- **Auto-approval rules** — match rules on application-name wildcard and/or
+  Access group, and expiry rules that auto-reject requests pending longer than
+  N days; the first matching enabled rule wins.
+- **Webhook notifications** for new requests in generic, Slack or Teams
+  formats.
+- **Email notifications** to requesters over SMTP.
+- **CSV export** of request history including decision makers.
+- **Connectivity status tile** showing whether the service client can obtain a
+  tenant token.
+- **Log bundle download** from the administrator interface.
+- **Syslog export** over UDP, TCP or TLS, including mutual-TLS client
+  certificates and private CA bundles.
+- **API security** — optional HTTP Basic authentication on the callout endpoint
+  and per-IP rate limiting.
+- **In-app Help page** documenting setup and the full configuration reference.
+- **Deployment options** — Docker Compose with automatic TLS, standalone TLS,
+  behind-your-own-reverse-proxy, and a one-script ZimaCube/CasaOS deployment.
+
+### Fixes
+
+Not applicable — initial release.
+
+### Known Issues
+
+- **Every authenticated administrator held full rights.** There were no
+  reviewer or read-only roles, so anyone who could sign in could decide, delete
+  and reconfigure. **Resolved in 1.16.1.**
+- **Approvals were permanent only.** There was no way to grant access for a
+  bounded period. **Resolved in 1.5.0.**
+- **A decision that Access could not accept left the request stuck** in
+  Awaiting Review with no indication why. **Resolved in 1.2.0.**
+
+---
+
+# Current Known Limitations
+
+These apply to v1.19.1 and are design boundaries rather than defects.
+
+- **Single tenant** — one Omnissa Access tenant per deployment.
+- **Embedded file database** — right for proof-of-concept scale; no clustering
+  and no external-database option.
+- **Not an ITSM system** — no multi-stage approval chains, no delegation, and
+  no SLA escalation beyond expiry rules.
+- **Slack and Teams are notification channels, not decision surfaces.** Every
+  decision is made in the tool's own interface after sign-in. This is
+  deliberate: it is what keeps authority in one place.
+- **Channel membership is not authorization.** Everyone in an approvals channel
+  can read request details regardless of role. Roles govern who may act, never
+  who may see.
+- **Teams delivery cannot be confirmed.** Power Automate returns `202
+  Accepted`, meaning queued — not delivered.
+- **Role changes apply at next sign-in**, because roles come from the token.
+- **The Access entitlements API is not guaranteed to be a complete view** of
+  what Access uses for authorization. A divergence has been observed once and
+  was resolved by recreating the application in Access.
+- **CasaOS "Check and then update" cannot detect updates** for an
+  externally-managed Compose application. Use `compose pull` or the opt-in
+  Watchtower profile.
+
+---
+
+# What's Coming
+
+Planned work, in the order it is likely to land. No commitment to dates.
+
+## Key Capabilities
+
+- **Delegation and escalation.** A request that nobody attends to currently has
+  exactly one outcome — the blunt auto-reject expiry rule. The missing middle
+  is *"nobody looked at this, tell someone else"*: notify on timeout, and
+  reassign to a named approver or group. This also lays the groundwork the next
+  item needs.
+- **Multi-stage approvals.** Sequential chains, where a request must clear one
+  approver or group before reaching the next. The largest planned change, and
+  the one most likely to reshape how a request is stored; it follows delegation
+  rather than preceding it.
+- **Full configuration from the CasaOS / ZimaCube application settings**, so a
+  ZimaCube deployment can be changed without editing an environment file over
+  SSH. This means working *with* the CasaOS adopt-and-recreate behaviour rather
+  than around it.
+
+## Fixes
+
+- **Remove the duplicated route list.** `SpaController` and the client router
+  each carry their own copy. They now cross-reference each other, but a route
+  added to one and not the other still produces a page that works in-app and
+  404s on reload — and chat deep links depend on that not happening. The
+  duplication itself needs to go.
+- **Wrap paged API responses in an explicit type**, so pagination metadata is
+  declared rather than inferred by callers.
+- **A short demonstration recording** for the repository landing page.
+
+## Under consideration, not committed
+
+- **An external-database option** is *not* currently planned. It contradicts
+  what the tool is for — one tenant, one container, an embedded database,
+  deliberately simple — and would make it harder to stand up for exactly the
+  audience it targets. If a real need appears, this will be revisited.
+
+---
+
+> ### ⚠️ ONE MORE TIME
+>
+> **Unsupported. As-is. No warranty. Not an Omnissa product.**
+> **Testing and demonstration only — never production, never production data.**
+> **Entirely at your own risk.**

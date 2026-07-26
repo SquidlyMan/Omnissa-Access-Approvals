@@ -69,7 +69,7 @@ if changed:
 PY
 
 DOCS=("${@:-}")
-[ -z "${DOCS[0]}" ] && DOCS=(blog-post documentation)
+[ -z "${DOCS[0]}" ] && DOCS=(blog-post documentation release-notes)
 
 for doc in "${DOCS[@]}"; do
   [ -f "$doc.md" ] || { echo "no such document: $doc.md"; exit 1; }
@@ -88,8 +88,16 @@ for doc in "${DOCS[@]}"; do
 import re, sys
 path = sys.argv[1]
 html = open(path, encoding="utf-8").read()
+
 html = re.sub(r'<blockquote>(\s*<h[1-6][^>]*>[^<]*⚠)',
               r'<blockquote class="danger">\1', html)
+
+# Tag paragraphs that are ENTIRELY italic as captions. This has to happen here
+# rather than in CSS: `p > em:only-child` also matches a paragraph that merely
+# begins with italics, because text nodes are not counted by :only-child.
+html = re.sub(r'<p><em>((?:(?!</em>|<p[ >]).)*?)</em></p>',
+              r'<p class="caption"><em>\1</em></p>', html, flags=re.S)
+
 open(path, "w", encoding="utf-8").write(html)
 PY
 

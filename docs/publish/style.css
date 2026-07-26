@@ -89,9 +89,11 @@ img {
   border-radius: 4px;
 }
 
-/* Emphasised paragraph immediately after an image = figure caption. */
-img + em, p > em:only-child {
-  display: block;
+/* A paragraph that is ENTIRELY italic is a caption. build.sh tags these, because
+   CSS cannot express it: `p > em:only-child` also matches a paragraph that
+   merely *starts* with italics, since text nodes do not count for :only-child —
+   which silently turned body prose into centred grey captions. */
+p.caption {
   font-size: 8.5pt;
   color: #6b7a89;
   text-align: center;

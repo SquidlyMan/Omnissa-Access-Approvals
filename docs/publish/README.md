@@ -15,6 +15,7 @@ change.
 |---|---|
 | `blog-post.md` | Introductory blog post — leads with the unsupported / non-production disclaimer |
 | `documentation.md` | Complete reference: features, deployment, tenant setup, configuration, POC walkthrough |
+| `release-notes.md` | Per-version capabilities, fixes and known issues, plus what is planned. No dates — versions, not calendars |
 | `style.css` | Shared print/screen styling, so both documents look like one product |
 | `assets/` | Diagrams and screenshots referenced by both documents |
 | `out/` | Generated HTML, PDF and DOCX (git-ignored) |
