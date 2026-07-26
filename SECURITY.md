@@ -71,8 +71,8 @@ matched against the OIDC `group_ids` claim):
 |---|---|
 | `ROLE_ADMIN` | Users, auto-approval rule writes, tenant config, log bundle, request deletion, remote purge — plus everything below |
 | `ROLE_APPROVER` | Decisions: approve, reject, revoke, revoke-and-block, allow re-request, pull |
-| `ROLE_VIEWER` | Read-only: queue, catalog, statistics, rules, audit |
-| `ROLE_AUDITOR` | Audit trail and CSV export only — no live queue, no decisions |
+| `ROLE_VIEWER` | Read-only *on screen*: queue, catalog, statistics, rules, audit. No CSV export |
+| `ROLE_AUDITOR` | Audit trail only, including its CSV export — no live queue, no decisions |
 
 `ROLE_USER` predates the model and is treated as `ROLE_VIEWER`.
 
@@ -102,6 +102,14 @@ and since Viewer already includes reading the audit trail, an auditor would
 hold Viewer's access to the live queue plus nothing extra — the opposite of the
 role's purpose. A role that restricts cannot exist in a model where everyone
 starts as a Viewer.
+
+Bulk export is gated separately from reading, because an export is an
+extraction rather than a read: it produces a file that leaves the application's
+controls entirely and can be retained or shared without trace, whereas reading
+the trail on screen is page-by-page and stays inside the session. So a Viewer
+may read the audit trail but not download it. `/api/audit/export.csv` is
+restricted to `ROLE_ADMIN` and `ROLE_AUDITOR`; `/api/approvals/export.csv` to
+`ROLE_ADMIN`, `ROLE_APPROVER` and `ROLE_AUDITOR`.
 
 Two properties are load-bearing and easy to break:
 

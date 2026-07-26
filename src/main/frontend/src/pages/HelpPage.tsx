@@ -249,15 +249,15 @@ export default function HelpPage() {
                 <tr>
                   <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-800">Viewer</td>
                   <td className="px-3 py-2 border-b border-gray-100">
-                    Read the queue, request details, statistics, rules and the audit trail. Changes
-                    nothing
+                    Read the queue, request details, statistics, rules and the audit trail on
+                    screen. Changes nothing, and cannot export
                   </td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 font-medium text-gray-800">Auditor</td>
                   <td className="px-3 py-2">
-                    The audit trail and CSV export <span className="font-medium">only</span> — no
-                    live queue, no request details, no decisions
+                    The audit trail <span className="font-medium">only</span>, including its CSV
+                    export — no live queue, no request details, no decisions
                   </td>
                 </tr>
               </tbody>
@@ -302,6 +302,14 @@ export default function HelpPage() {
             decides requests and audits those decisions. The combination is permitted but a warning
             is written to the log at each sign-in; grant Auditor{' '}
             <span className="font-medium">on its own</span> when the intent is to restrict.
+          </p>
+          <p>
+            <span className="font-medium text-gray-800">Exporting is gated separately from
+            reading.</span> A bulk export is an extraction rather than a read — it produces a file
+            that leaves the tool's controls entirely and can be retained or shared without trace —
+            so <span className="font-medium text-gray-800">Viewers can read the audit trail on
+            screen but cannot download it</span>. The audit-trail export is available to Admins and
+            Auditors; the request export to Admins, Approvers and Auditors.
           </p>
           <p>
             Sign-in method and permissions are separate concerns:{' '}

@@ -182,8 +182,8 @@ Authorization is driven by **Omnissa Access group membership**, mapped to four r
 |---|---|
 | **Admin** | Manage users, auto-approval rules, tenant configuration and the log bundle; delete requests; everything below |
 | **Approver** | Decide requests — approve, reject, revoke, revoke-and-block, allow re-request |
-| **Viewer** | Read the queue, request details, statistics, rules and the audit trail |
-| **Auditor** | The audit trail and CSV export only — no live queue, no decisions |
+| **Viewer** | Read the queue, request details, statistics, rules and the audit trail *on screen* — no CSV export |
+| **Auditor** | The audit trail only, including its CSV export — no live queue, no decisions |
 
 Configure the mapping in the env file with `OMNISSA_ROLE_MAP`, as comma-separated `<groupId>:<ROLE>` pairs:
 
@@ -199,6 +199,7 @@ Notes that matter in practice:
 - **Matched roles are additive among themselves** — someone in both the approver and auditor groups holds both.
 - **The most permissive role wins.** Every rule admits any one of its listed roles, so a user holding several gets the union of their permissions.
 - **Changes apply at next sign-in.** Roles are resolved from the token, which is a snapshot — adding or removing a group has no effect until the user signs out and back in.
+- **Exporting is gated separately from reading.** A bulk export is an extraction, not a read: it produces a file that leaves the tool's controls entirely. A Viewer may read the audit trail on screen but cannot download it. The audit-trail export (`/api/audit/export.csv`) is Admin and Auditor; the request export (`/api/approvals/export.csv`) is Admin, Approver and Auditor.
 
 > **Auditor is the one *restrictive* role, so never combine it.** Because resolution is additive, pairing Auditor with any other role silently defeats it: the union applies, the user keeps full access to the live queue, and Auditor contributes nothing. Adding an approver to the auditors group *looks* like a restriction and is not one. Paired with Admin or Approver it is also a **separation-of-duties conflict** — the same identity both decides requests and audits those decisions.
 >

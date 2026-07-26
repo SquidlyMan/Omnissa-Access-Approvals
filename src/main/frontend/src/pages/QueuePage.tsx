@@ -8,7 +8,7 @@ import ApprovalDialog from '../components/ApprovalDialog'
 import type { Page, CalloutRequest, AuditPage, AuditAction } from '../types'
 import { getCsrfToken } from '../utils/csrf'
 import { requesterLabel } from '../utils/requester'
-import { canDecide, canViewAudit, canViewQueue, FORBIDDEN_MESSAGE } from '../lib/permissions'
+import { canDecide, canExportAudit, canExportRequests, canViewAudit, canViewQueue, FORBIDDEN_MESSAGE } from '../lib/permissions'
 
 const STATE_TABS = [
   { key: 'pending',     label: 'Awaiting Review' },
@@ -173,15 +173,32 @@ export default function QueuePage() {
       {/* Audit trail */}
       {!noAccess && activeState === 'audit' && (
         <>
-        <div className="flex justify-end mb-3">
-          <a
-            href="/api/approvals/export.csv"
-            download
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            Export CSV
-          </a>
+        {(canExportAudit(user) || canExportRequests(user)) && (
+        <div className="flex justify-end gap-2 mb-3">
+          {/* This tab previously offered only /api/approvals/export.csv, which
+              exports the request table — so the audit trail itself had no
+              export at all. Both are offered here now, named for what they
+              actually contain. */}
+          {canExportAudit(user) && (
+            <a
+              href="/api/audit/export.csv"
+              download
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Export audit trail
+            </a>
+          )}
+          {canExportRequests(user) && (
+            <a
+              href="/api/approvals/export.csv"
+              download
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Export requests
+            </a>
+          )}
         </div>
+        )}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {!auditPage || auditPage.content.length === 0 ? (
             <p className="text-sm text-gray-400 px-5 py-8 text-center">No audit events recorded yet.</p>

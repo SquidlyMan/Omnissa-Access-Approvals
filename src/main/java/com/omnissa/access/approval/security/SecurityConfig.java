@@ -187,10 +187,19 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "USER")
                 .requestMatchers("/api/rules", "/api/rules/**").hasRole("ADMIN")
 
-                // Historical records — the auditor's whole remit.
-                .requestMatchers("/api/audit", "/api/audit/**")
-                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
+                // Bulk export is an extraction, not a read: it produces a file that
+                // leaves the application's controls entirely and can be retained or
+                // shared without trace. Reading the trail on screen is page-by-page
+                // and stays inside the session, so the two are gated differently —
+                // a viewer may read the record but not take a copy of it.
+                // These must precede the /api/audit/** read rule below; the first
+                // matching rule wins.
+                .requestMatchers("/api/audit/export.csv").hasAnyRole("ADMIN", "AUDITOR")
                 .requestMatchers("/api/approvals/export.csv")
+                        .hasAnyRole("ADMIN", "APPROVER", "AUDITOR")
+
+                // Reading historical records — the auditor's whole remit.
+                .requestMatchers("/api/audit", "/api/audit/**")
                         .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
 
                 // Deleting a local record, or purging remote state, is destructive
