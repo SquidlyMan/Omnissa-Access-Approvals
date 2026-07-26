@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { canAdminister } from '../lib/permissions'
 
@@ -6,12 +7,88 @@ interface HelpSectionProps {
   children: React.ReactNode
 }
 
+/** Stable anchor from a section title: "Roles and Permissions" -> "roles-and-permissions". */
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 function HelpSection({ title, children }: HelpSectionProps) {
   return (
-    <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+    <section
+      id={slugify(title)}
+      data-help-section={title}
+      className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 scroll-mt-6"
+    >
       <h2 className="font-semibold text-gray-800 text-lg mb-3">{title}</h2>
       <div className="text-sm text-gray-600 space-y-3">{children}</div>
     </section>
+  )
+}
+
+/**
+ * Contents, read from the rendered sections rather than a hand-kept list.
+ *
+ * The page gains sections regularly — three were added in one day — and a
+ * duplicated list would quietly fall out of step with them. Reading the DOM
+ * means a new HelpSection appears here automatically and can never be missed.
+ */
+function HelpContents() {
+  const [entries, setEntries] = useState<{ id: string; title: string }[]>([])
+
+  useEffect(() => {
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-help-section]'))
+    setEntries(sections.map(el => ({ id: el.id, title: el.dataset.helpSection ?? '' })))
+  }, [])
+
+  if (entries.length === 0) return null
+
+  return (
+    <nav aria-label="Help contents" className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mb-6">
+      <h2 className="font-semibold text-gray-800 text-lg mb-3">Contents</h2>
+      <ol className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+        {entries.map((entry, i) => (
+          <li key={entry.id} className="flex gap-2">
+            <span className="text-gray-400 tabular-nums w-5 shrink-0 text-right">{i + 1}.</span>
+            <a href={`#${entry.id}`} className="text-omnissa hover:underline">
+              {entry.title}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  )
+}
+
+/** Appears once the contents list has scrolled out of reach. */
+function BackToTop() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 400)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <button
+      type="button"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-label="Back to contents"
+      title="Back to contents"
+      className="fixed bottom-6 right-6 z-40 rounded-full bg-omnissa text-white shadow-lg
+                 w-11 h-11 flex items-center justify-center hover:opacity-90 transition-opacity"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <path fillRule="evenodd" clipRule="evenodd"
+              d="M10 17a1 1 0 0 1-1-1V6.41L5.7 9.7a1 1 0 0 1-1.4-1.42l5-5a1 1 0 0 1 1.4 0l5 5a1 1 0 1 1-1.4 1.42L11 6.41V16a1 1 0 0 1-1 1Z" />
+      </svg>
+    </button>
   )
 }
 
@@ -85,6 +162,10 @@ export default function HelpPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Help</h1>
+
+      <div className="max-w-4xl">
+        <HelpContents />
+      </div>
 
       <div className="space-y-6 max-w-4xl">
         <HelpSection title="Overview">
@@ -901,6 +982,8 @@ export default function HelpPage() {
           </div>
         </HelpSection>
       </div>
+
+      <BackToTop />
     </div>
   )
 }

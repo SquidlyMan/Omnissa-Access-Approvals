@@ -3,6 +3,15 @@
 /* Custom Omnissa navy palette — Tailwind 4 CSS-first theme.
    Generates the bg-omnissa / text-omnissa / border-omnissa / ring-omnissa /
    accent-omnissa (+ -dark / -light) utility classes used across the UI. */
+/* Anchor jumps on the Help contents list glide rather than teleport, so it is
+   clear the page moved rather than swapped. Respects a reduced-motion
+   preference, where an instant jump is the accessible behaviour. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 @theme {
   --color-omnissa: #132250;
   --color-omnissa-dark: #0c1636;
