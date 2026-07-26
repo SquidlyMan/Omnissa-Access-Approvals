@@ -1,5 +1,19 @@
 package com.omnissa.access.approval.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Service;
+
+import jakarta.annotation.PostConstruct;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -7,61 +21,102 @@ import java.util.Set;
 /**
  * What makes a local password acceptable.
  *
- * <p>Deliberately <strong>no composition rules</strong> — no "must contain an
- * uppercase letter, a digit and a symbol". Those requirements are widely
- * discouraged (NIST SP 800-63B) because they push people towards predictable
- * shapes like {@code Password1!} while adding little real entropy, and they
- * block genuinely strong passphrases. Length plus a check against obviously
- * weak values is more effective and less irritating.
+ * <p>Deliberately <strong>no composition rules by default</strong> — no "must
+ * contain an uppercase letter, a digit and a symbol". Those are discouraged
+ * (NIST SP 800-63B) because they push people towards predictable shapes like
+ * {@code Password1!} while adding little real entropy and rejecting strong
+ * passphrases. They can be switched on for a compliance requirement, but the
+ * default is off and the documentation says why.
  *
- * <p>What is enforced instead:
- * <ul>
- *   <li><strong>Length</strong> — 12 minimum. This is a standing credential for
- *       an interface that can revoke entitlements in a live tenant.</li>
- *   <li><strong>Variety</strong> — {@code aaaaaaaaaaaa} is twelve characters and
- *       would otherwise pass.</li>
- *   <li><strong>Not derived from the username</strong> — the one string an
- *       attacker always knows.</li>
- *   <li><strong>Not a well-known password</strong>, and not a straight run of
- *       sequential characters.</li>
- * </ul>
+ * <p><strong>On the blocklist, and why it is small.</strong> A general
+ * common-password corpus is close to useless at this length: of the 10,000 most
+ * common passwords, only ten reach twelve characters — the length rule alone
+ * rejects the other 9,990. Bundling such a list would add weight while implying
+ * protection it does not provide. The built-in list therefore targets the gap
+ * that actually exists: values long enough to pass the minimum yet still
+ * trivially guessable, such as doubled words, keyboard walks and digit runs.
+ *
+ * <p>That calculus reverses if {@code min-length} is lowered. Anyone who does so
+ * should point {@code blocklist-file} at a real corpus, and the documentation
+ * links the two settings for that reason.
  */
-public final class PasswordPolicy {
+@Service
+public class PasswordPolicy {
 
-    public static final int MIN_LENGTH = 12;
-    public static final int MAX_LENGTH = 200;
-
-    /** Twelve identical characters is length without strength. */
-    private static final int MIN_DISTINCT_CHARACTERS = 5;
+    private static final Logger logger = LoggerFactory.getLogger(PasswordPolicy.class);
 
     /**
-     * The values actually tried first. Not a substitute for a breach corpus —
-     * a full check would mean calling an external service, which a self-hosted
-     * tool should not require to change a password — but it catches the cases
-     * that matter most for a small deployment.
+     * Configuration may tighten the policy; it must not be able to remove it.
+     * Without a floor, {@code min-length=1} would silently render the
+     * break-glass admin credential worthless.
      */
-    private static final Set<String> WELL_KNOWN = Set.of(
-            "password", "password1", "password123", "passw0rd", "p@ssw0rd", "p@ssword",
-            "administrator", "administrator1", "adminadmin", "admin123456",
-            "123456789012", "1234567890123", "111111111111", "000000000000",
-            "qwertyuiop12", "qwertyuiopas", "letmein12345", "welcome12345",
-            "changeme1234", "iloveyou1234", "monkey123456", "dragon123456",
-            "abcdefghijkl", "aaaaaaaaaaaa", "secretpassword", "trustno1234");
+    public static final int ABSOLUTE_MIN_LENGTH = 8;
+    public static final int MAX_LENGTH = 200;
 
-    private PasswordPolicy() {
+    private static final String BUNDLED_LIST = "weak-passwords.txt";
+
+    @Value("${omnissa.password.min-length:12}")
+    private int configuredMinLength;
+
+    @Value("${omnissa.password.min-distinct:5}")
+    private int minDistinct;
+
+    @Value("${omnissa.password.block-username:true}")
+    private boolean blockUsername;
+
+    @Value("${omnissa.password.blocklist-file:}")
+    private String blocklistFile;
+
+    @Value("${omnissa.password.require-mixed-case:false}")
+    private boolean requireMixedCase;
+
+    @Value("${omnissa.password.require-digit:false}")
+    private boolean requireDigit;
+
+    @Value("${omnissa.password.require-symbol:false}")
+    private boolean requireSymbol;
+
+    private int minLength;
+    private Set<String> blocked = Set.of();
+
+    @PostConstruct
+    void load() {
+        minLength = Math.max(configuredMinLength, ABSOLUTE_MIN_LENGTH);
+        if (configuredMinLength < ABSOLUTE_MIN_LENGTH) {
+            logger.warn("omnissa.password.min-length={} is below the {}-character floor and has "
+                            + "been raised. Configuration can tighten this policy, not remove it.",
+                    configuredMinLength, ABSOLUTE_MIN_LENGTH);
+        }
+
+        Set<String> entries = new HashSet<>(readBundled());
+        int bundled = entries.size();
+
+        if (blocklistFile != null && !blocklistFile.isBlank()) {
+            List<String> extra = readFile(Path.of(blocklistFile.trim()));
+            entries.addAll(extra);
+            // Logged rather than silent: a mistyped path must not leave an
+            // operator believing a corpus is loaded when it is not.
+            logger.info("Password blocklist: {} bundled + {} from {} = {} entries",
+                    bundled, extra.size(), blocklistFile, entries.size());
+        } else {
+            logger.info("Password blocklist: {} bundled entries. Set "
+                    + "omnissa.password.blocklist-file to add a wordlist — worth doing if you "
+                    + "lower omnissa.password.min-length below 12.", bundled);
+        }
+        blocked = Set.copyOf(entries);
     }
 
     /**
      * @return a human explanation of the first problem found, or {@code null}
-     *         when the password is acceptable. A single clear reason beats a
-     *         list of unmet rules.
+     *         when the password is acceptable. One clear reason beats a list of
+     *         unmet rules.
      */
-    public static String validate(String password, String username) {
+    public String validate(String password, String username) {
         if (password == null || password.isBlank()) {
             return "Enter a password.";
         }
-        if (password.length() < MIN_LENGTH) {
-            return "Password must be at least " + MIN_LENGTH + " characters. "
+        if (password.length() < minLength) {
+            return "Password must be at least " + minLength + " characters. "
                     + "A passphrase of a few unrelated words is easier to remember and stronger "
                     + "than a short complex one.";
         }
@@ -71,25 +126,38 @@ public final class PasswordPolicy {
 
         String lower = password.toLowerCase(Locale.ROOT);
 
-        if (password.chars().distinct().count() < MIN_DISTINCT_CHARACTERS) {
+        if (password.chars().distinct().count() < minDistinct) {
             return "Password repeats too few characters. Use a longer, more varied passphrase.";
         }
-        if (WELL_KNOWN.contains(lower)) {
+        if (blocked.contains(lower)) {
             return "That password is well known and among the first an attacker tries.";
         }
         if (isSequentialRun(lower)) {
             return "Password is a simple sequence of characters. Use something less predictable.";
         }
-        if (username != null && username.length() >= 3
+        if (blockUsername && username != null && username.length() >= 3
                 && lower.contains(username.toLowerCase(Locale.ROOT))) {
             return "Password must not contain the username.";
+        }
+
+        // Off by default; available for a compliance requirement.
+        if (requireMixedCase
+                && (password.chars().noneMatch(Character::isUpperCase)
+                    || password.chars().noneMatch(Character::isLowerCase))) {
+            return "Password must contain both uppercase and lowercase letters.";
+        }
+        if (requireDigit && password.chars().noneMatch(Character::isDigit)) {
+            return "Password must contain a digit.";
+        }
+        if (requireSymbol && password.chars().allMatch(Character::isLetterOrDigit)) {
+            return "Password must contain a symbol.";
         }
         return null;
     }
 
-    /** True when every character steps by one, e.g. {@code abcdefghijkl} or {@code 987654321098}. */
+    /** True when every character steps by one, e.g. {@code abcdefghijkl}. */
     private static boolean isSequentialRun(String value) {
-        if (value.length() < MIN_LENGTH) {
+        if (value.length() < 8) {
             return false;
         }
         int direction = Integer.signum(value.charAt(1) - value.charAt(0));
@@ -104,12 +172,62 @@ public final class PasswordPolicy {
         return true;
     }
 
-    /** For surfacing the rules in the UI without duplicating the wording. */
-    public static List<String> describe() {
-        return List.of(
-                "At least " + MIN_LENGTH + " characters",
-                "Not a well-known password or a simple sequence",
-                "Must not contain the username",
-                "No uppercase/digit/symbol requirement — a passphrase is fine");
+    /** The active rules, for surfacing in the UI without duplicating wording. */
+    public List<String> describe() {
+        List<String> rules = new ArrayList<>();
+        rules.add("At least " + minLength + " characters");
+        rules.add("Not a well-known password or a simple sequence");
+        if (blockUsername) {
+            rules.add("Must not contain the username");
+        }
+        if (requireMixedCase) {
+            rules.add("Must mix uppercase and lowercase");
+        }
+        if (requireDigit) {
+            rules.add("Must contain a digit");
+        }
+        if (requireSymbol) {
+            rules.add("Must contain a symbol");
+        }
+        if (!requireMixedCase && !requireDigit && !requireSymbol) {
+            rules.add("No uppercase/digit/symbol requirement — a passphrase is fine");
+        }
+        return rules;
+    }
+
+    public int minLength() {
+        return minLength;
+    }
+
+    int blocklistSize() {
+        return blocked.size();
+    }
+
+    private List<String> readBundled() {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new ClassPathResource(BUNDLED_LIST).getInputStream(), StandardCharsets.UTF_8))) {
+            return parse(reader.lines().toList());
+        } catch (Exception e) {
+            logger.warn("Could not read the bundled weak-password list: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<String> readFile(Path path) {
+        try {
+            return parse(Files.readAllLines(path, StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            logger.warn("Could not read password blocklist '{}': {}. Continuing with the bundled "
+                    + "list only.", path, e.getMessage());
+            return List.of();
+        }
+    }
+
+    private static List<String> parse(List<String> lines) {
+        return lines.stream()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                .map(line -> line.toLowerCase(Locale.ROOT))
+                .toList();
     }
 }

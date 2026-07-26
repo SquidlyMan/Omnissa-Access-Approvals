@@ -159,20 +159,57 @@ break-glass exists for are exactly those where Access sign-in is unavailable.
 
 ### Password rules
 
-- At least **12 characters**
-- Not built from a handful of repeated characters
-- Not a well-known password, and not a plain ascending/descending sequence
-- Must not contain the username
+| Variable | Default | Purpose |
+|---|---|---|
+| `OMNISSA_PASSWORD_MIN_LENGTH` | `12` | Minimum length. **Clamped to a floor of 8** — configuration may tighten this policy, not remove it. A lower value is raised and a warning logged |
+| `OMNISSA_PASSWORD_MIN_DISTINCT` | `5` | Distinct characters required, so `aaaaaaaaaaaa` is not merely "long" |
+| `OMNISSA_PASSWORD_BLOCK_USERNAME` | `true` | Reject a password containing the username |
+| `OMNISSA_PASSWORD_BLOCKLIST_FILE` | — | Extra wordlist, one entry per line, merged with the bundled list |
+| `OMNISSA_PASSWORD_REQUIRE_MIXED_CASE` | `false` | Composition rule — see below |
+| `OMNISSA_PASSWORD_REQUIRE_DIGIT` | `false` | Composition rule |
+| `OMNISSA_PASSWORD_REQUIRE_SYMBOL` | `false` | Composition rule |
 
-There is deliberately **no uppercase/digit/symbol requirement**. Such rules are
-discouraged (NIST SP 800-63B) because they push people towards predictable
-shapes like `Password1!` while adding little entropy and rejecting strong
-passphrases — `correct horse battery staple` is accepted here and is stronger
-than most passwords that satisfy a composition policy.
+**Composition rules are off by default and are not recommended.** They are
+discouraged (NIST SP 800-63B) because people decorate rather than abandon a weak
+password — `password` becomes `Password1!`, which satisfies every rule while
+being exactly what a cracking toolchain generates first. They also reject strong
+passphrases: `correct horse battery staple` fails a digit-and-symbol
+requirement. They are provided for compliance requirements, not because they
+help.
 
-The built-in weak-password list is small and is not a breach corpus. Making the
-policy configurable, including loading a real wordlist from a mounted file, is
-tracked separately.
+#### Why the bundled blocklist is small, and when to replace it
+
+A general common-password corpus is nearly useless at a 12-character minimum:
+of the **10,000 most common passwords, only 10 reach 12 characters** — the
+length rule alone rejects the other 9,990. Bundling such a list would add weight
+while implying protection it does not give.
+
+The bundled list therefore targets the gap that actually exists: values long
+enough to pass the minimum yet still trivially guessable — doubled words
+(`passwordpassword`), keyboard walks (`qwertyuiopasdf`), digit runs and stock
+phrases. Note these also defeat composition rules: `Passwordpassword1!`
+satisfies every character-class requirement.
+
+**That calculus reverses if you lower `OMNISSA_PASSWORD_MIN_LENGTH`.** At 8
+characters the whole corpus is back in scope, and you should point
+`OMNISSA_PASSWORD_BLOCKLIST_FILE` at a real wordlist — for example SecLists'
+`10k-most-common.txt` mounted into `/app/data`. The entry count is logged at
+startup, so a mistyped path is visible rather than silently leaving you with the
+bundled list.
+
+### Sign-in throttling
+
+Repeated failed local sign-ins are slowed progressively — roughly a doubling
+delay after three failures, capped so a request thread is never held long — and
+an address making sustained attempts is refused outright with HTTP 429.
+
+**There is deliberately no account lockout.** Locking an account after N
+failures would let anyone who can reach the login page disable the break-glass
+credential at will, precisely when Omnissa Access is unavailable and it is the
+only way in. So the per-address counter may refuse, but the per-username counter
+only ever delays: an attacker spread across many addresses cannot lock out the
+real administrator. Counters expire on their own and clear on a successful
+sign-in; nothing needs resetting by hand.
 
 ## Callout API Security
 

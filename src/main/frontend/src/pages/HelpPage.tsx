@@ -438,7 +438,15 @@ export default function HelpPage() {
             Use <span className="font-medium text-gray-800">Reset password</span> on the Users page
             instead.
           </p>
-          <p>Password rules:</p>
+          <p>
+            <span className="font-medium text-gray-800">Repeated failed sign-ins are slowed
+            progressively</span>, and an address making sustained attempts is refused for a while.
+            There is deliberately <span className="font-medium text-gray-800">no account
+            lockout</span> — locking an account would let anyone who can reach the login page
+            disable the break-glass credential exactly when it is needed. Counters clear
+            themselves, and a successful sign-in resets them.
+          </p>
+          <p>Password rules (defaults — see <Code>docs/configuration.md</Code> to adjust):</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>At least <span className="font-medium text-gray-800">12 characters</span></li>
             <li>Not made of a handful of repeated characters</li>
@@ -446,10 +454,11 @@ export default function HelpPage() {
             <li>Must not contain the username</li>
             <li>
               <span className="font-medium text-gray-800">No uppercase / digit / symbol
-              requirement</span> — a passphrase such as{' '}
+              requirement</span> by default — a passphrase such as{' '}
               <Code>correct horse battery staple</Code> is accepted and is stronger than a short
-              complex one. Composition rules mostly produce predictable shapes like{' '}
-              <Code>Password1!</Code> without adding real strength.
+              complex one. Composition rules mostly turn <Code>password</Code> into{' '}
+              <Code>Password1!</Code>, which is exactly what a cracking tool generates first. They
+              can be switched on for a compliance requirement.
             </li>
           </ul>
         </HelpSection>

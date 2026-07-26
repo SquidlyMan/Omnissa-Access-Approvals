@@ -143,6 +143,22 @@ the set of people who should know who is requesting what, that is settled
 through channel membership; the tool cannot enforce it. Treat an approvals
 channel as having the same audience as the request queue itself.
 
+## Sign-in Throttling
+
+Repeated failed local sign-ins are delayed progressively and, from a single
+address making sustained attempts, eventually refused with HTTP 429. Counters
+expire on their own and clear on success.
+
+**There is deliberately no account lockout.** Locking an account after N
+failures would let anyone able to reach the login page disable the break-glass
+credential at will — precisely when Omnissa Access is unavailable and local
+sign-in is the only way in. The per-address counter may refuse; the
+per-username counter only ever delays, so an attacker distributed across many
+addresses cannot lock out the real administrator.
+
+Before this, the local login form was the only credential-accepting endpoint
+with no rate limiting of any kind.
+
 ## Hardening Options
 
 - `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD` — require HTTP Basic auth

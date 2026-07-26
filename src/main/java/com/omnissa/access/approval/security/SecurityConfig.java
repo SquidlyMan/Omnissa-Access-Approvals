@@ -38,6 +38,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
@@ -79,6 +80,9 @@ public class SecurityConfig {
     /** {@code <groupId>:<ROLE>} pairs matched against the OIDC group_ids claim. */
     @Value("${omnissa.rbac.role-map:}")
     private String roleMap;
+
+    @Autowired
+    private LoginThrottle loginThrottle;
 
     @Value("${omnissa.api.rate-limit:60}")
     private int apiRateLimit;
@@ -265,9 +269,26 @@ public class SecurityConfig {
         // Form login — local username/password fallback. Skipped entirely in
         // OAuth-only mode so POST /login/local no longer authenticates.
         if (!localLoginDisabled) {
+            // Delay (and eventually refuse) repeated failures before the password
+            // is checked. The local form was the only credential-accepting
+            // endpoint with no rate limiting, so the break-glass admin password
+            // could be guessed at full speed.
+            http.addFilterBefore(new LoginThrottleFilter(loginThrottle),
+                    UsernamePasswordAuthenticationFilter.class);
             http.formLogin(form -> form
                 .loginPage("/login")
                 .loginProcessingUrl("/login/local")
+                .failureHandler((request, response, exception) -> {
+                    loginThrottle.recordFailure(clientIp(request), request.getParameter("username"));
+                    response.sendRedirect("/login?error=true");
+                })
+                .successHandler((request, response, authentication) -> {
+                    loginThrottle.recordSuccess(clientIp(request), authentication.getName());
+                    // Honour a saved destination, matching defaultSuccessUrl("/")
+                    // without alwaysUse — see the OAuth2 handler above.
+                    var saved = navigationRequestCache().getRequest(request, response);
+                    response.sendRedirect(saved != null ? saved.getRedirectUrl() : "/");
+                })
                 .defaultSuccessUrl("/")
                 .failureUrl("/login?error=true")
                 .permitAll()
@@ -362,6 +383,15 @@ public class SecurityConfig {
 
             return new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo());
         };
+    }
+
+    /** First X-Forwarded-For value when behind a reverse proxy, else the socket address. */
+    private static String clientIp(jakarta.servlet.http.HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     /**

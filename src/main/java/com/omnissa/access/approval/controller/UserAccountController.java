@@ -40,6 +40,9 @@ public class UserAccountController {
     @Autowired
     private LocalAccountService localAccounts;
 
+    @Autowired
+    private PasswordPolicy passwordPolicy;
+
     /**
      * Creates a local account. The request model carries no {@code authorities}
      * and no {@code enabled} flag — both are set here — so a caller cannot
@@ -53,7 +56,7 @@ public class UserAccountController {
                     .body(Map.of("error", "A user with that username already exists"));
         }
 
-        String weakness = PasswordPolicy.validate(request.password(), request.username());
+        String weakness = passwordPolicy.validate(request.password(), request.username());
         if (weakness != null) {
             return ResponseEntity.badRequest().body(Map.of("error", weakness));
         }
@@ -131,7 +134,7 @@ public class UserAccountController {
                     .body(Map.of("error", "Current password is incorrect."));
         }
 
-        String weakness = PasswordPolicy.validate(request.newPassword(), user.getUsername());
+        String weakness = passwordPolicy.validate(request.newPassword(), user.getUsername());
         if (weakness != null) {
             return ResponseEntity.badRequest().body(Map.of("error", weakness));
         }
@@ -151,7 +154,7 @@ public class UserAccountController {
         if (user == null) {
             return ResponseEntity.notFound().build();
         }
-        String weakness = PasswordPolicy.validate(request.newPassword(), user.getUsername());
+        String weakness = passwordPolicy.validate(request.newPassword(), user.getUsername());
         if (weakness != null) {
             return ResponseEntity.badRequest().body(Map.of("error", weakness));
         }
