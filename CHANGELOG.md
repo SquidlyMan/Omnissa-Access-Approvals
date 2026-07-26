@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.1] - 2026-07-26
+
+Access governance: the tool now decides **who may act**, not just what happens.
+
+### Added
+- **Role-based access control**, resolved from **Omnissa Access group membership** — `ADMIN`, `APPROVER`, `VIEWER`, `AUDITOR`. Configure with `OMNISSA_ROLE_MAP` as `<groupId>:<ROLE>` pairs; `GET /api/auth/claims` shows your tenant's group ids paired with their names. Matched on **ids, not names**, so renaming a group in Access cannot silently drop everyone to Viewer. Viewer is a **fallback, not a floor**: with no map configured every user is a Viewer, so enabling the map is the deliberate act that grants privilege. Requires the `group` scope, now requested by default.
+- **Audit-trail CSV export** (`/api/audit/export.csv`). The audit tab's export previously downloaded the *request* table — a different dataset — so the trail itself had no export at all. Bulk export is gated separately from reading: a Viewer may read the record on screen but not take a copy of it.
+- **The requester is recorded on every audit event.** The trail stored who *acted* but never who the access was *for*; combined with **Delete request**, that made the subject of an entry unrecoverable. 176 historical events were backfilled, and the count that could not be recovered is logged rather than left blank.
+- **Decisions state their consequence** in Slack and Teams — *permanent access*, *5 minutes, then requestable again*, *1 hour, then gone for good*, *temporary: the user may request again*, *permanent: the user is blocked from re-requesting*. The `generic` format gains `permanent`, `accessTtlMinutes` and `reRequestable` as structured fields.
+- **Warning when `ROLE_AUDITOR` is combined with another role.** Auditor is the only restrictive role, so pairing it with any other silently defeats it; alongside Admin or Approver it is also a separation-of-duties conflict. Reported at sign-in rather than corrected.
+
+### Changed
+- **Slack approvals are now deep links**, matching Teams. Decisions previously happened inside an interaction callback where no signed-in user exists — a Slack signature proves the *workspace*, not the *person* — so authority came from `SLACK_APPROVER_MAP`, a second source of truth that failed **open**: revoking someone in Access left their Slack buttons working. This removes `POST /api/slack/interactions` (an internet-facing unauthenticated endpoint), its signing secret and replay window, and `SLACK_APPROVER_MAP`. `SLACK_ACTIONABLE` now requires `APP_BASE_URL`. Setup drops from six steps to four.
+- `/api/**` returns a **JSON 401** instead of redirecting to the login page, and **403** returns JSON instead of Boot's Whitelabel HTML. An expired session previously looked like a successful empty response to the SPA.
+- The SPA hides controls a role cannot use; auditors route to the audit view rather than an empty queue.
+
+### Fixed
+- **Teams never received decision, expiry, revoke or reopen notifications.** Those payloads used Slack's bare `{"text": …}`, which the retired Office 365 connector accepted but a Power Automate workflow silently drops. Only the new-request card worked, because it alone was built as a card. Two tests were asserting the broken shape.
+- **Chat deep links lost their decision and their destination.** The review dialog opened with nothing selected — the `?action=` parameter was cleared in the same render that opened it — and signing in discarded the saved destination, landing approvers on the dashboard. Approve and Reject were therefore no different from Open request, on both platforms, since #55.
+- **The Auditor role granted nothing.** `ROLE_VIEWER` was added as a floor, so an auditor was also a viewer — and since Viewer already includes reading the audit trail, the role was a guaranteed no-op.
+- **`GET /api/users` returned bcrypt password hashes**, and **`POST /api/users` accepted an `authorities` array**, letting any authenticated caller mint themselves an admin.
+- **Delete request** was rendered for every role but is admin-only, so an approver clicking it got a 403.
+
+### Documentation
+- A **Roles** section in the README, `SECURITY.md` and the in-app Help (which had no role documentation at all), including the traps: ids not names, additive matching, changes applying only at next sign-in, and not mapping an existing operational group.
+- Both chat guides now state that **channel membership is not authorization** — roles govern who may *act*, never who may *see*.
+- The re-request note now separates the two **Deployment Type** paths: *Automatic* re-provisions immediately with no request involved, while *User-Activated* makes the app requestable again and an auto-approval rule acts only on the next request.
+
 ## [1.9.5] - 2026-07-25
 
 ### Fixed
