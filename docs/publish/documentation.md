@@ -75,9 +75,20 @@ review. A tenant status tile performs a live service-client token check against
 your Access tenant (cached for sixty seconds) and displays Connected or
 Unreachable — catching expired client secrets before they cause silent failures.
 
+![](assets/queue-dashboard.png)
+
+*Figure 2 — the Dashboard (top) with the tenant tile and state counts, and the
+Queue (bottom) with its five tabs.*
+
 ### 2.3 Access Lifecycle
 
 This is the heart of the tool beyond simple approve/reject.
+
+![](assets/review-dialog.png)
+
+*Figure 3 — the Review dialog: approve or reject, an access duration from
+permanent through 5 minutes to 30 days, and an optional message returned to the
+requester.*
 
 **Time-bound (JIT) grants.** An approval can be permanent or time-bound —
 5 minutes through 30 days. When the TTL elapses, a sweep running every minute
@@ -88,18 +99,44 @@ application for that user.
 exclusion is lifted after a short hold and the app returns to the catalog as
 requestable) or *one-time* (the exclusion stays and the app does not reappear).
 
+![](assets/approved-time-bound.png)
+
+*Figure 4 — choosing a duration reveals the after-expiry policy. Ticked, the app
+becomes requestable again shortly after expiry; cleared, the grant is one-time
+and the app does not return.*
+
 **Decline modes.** A plain **Reject** is temporary — the user may request the
 app again. **Reject and block** additionally excludes the user in Access so the
 application does not reappear for them.
+
+![](assets/reject-options.png)
+
+*Figure 5 — the two decline modes. The wording states the consequence rather
+than the direction of the decision.*
 
 **On-demand revoke.** Any approved request can be revoked without waiting for a
 TTL: **Revoke access** (the app returns to a requestable state after a short
 hold) or **Revoke and block** (the exclusion stays until an administrator lifts
 it).
 
+![](assets/approved-revoke.png)
+
+*Figure 6 — revoke controls on an approved request, and the separate local-only
+Delete request action (2.12).*
+
+![](assets/revoke-and-block.png)
+
+*Figure 7 — Revoke and block spells out that the exclusion persists, and names
+the control that undoes it.*
+
 **Allow re-request.** Any blocked record — from a permanent decline, a revoke
 and block, or a one-time grant that expired — offers **Allow re-request**, which
 removes the exclusion and lets the user request the app again.
+
+![](assets/allow-re-request.png)
+
+*Figure 8 — Allow re-request on a deactivated record: the recovery path out of
+any blocked state.*
 
 **How revocation actually works.** Access does not offer a "remove this user's
 access" call that works for group-entitled applications. The tool instead writes
@@ -183,6 +220,12 @@ configured syslog destination.
 action, request, application, requester, message). `Export requests` downloads
 the request table. Both are on the Audit tab; both are restricted — see 2.4.
 
+![](assets/audit-trail.png)
+
+*Figure 9 — the Audit tab. Note the separate ADMIN and REQUESTED FOR columns,
+`system` as the actor for rule and sweep decisions, and messages that state the
+consequence rather than the direction.*
+
 ### 2.6 Auto-Approval Rules
 
 The Rules page manages two rule types:
@@ -200,12 +243,28 @@ The Rules page manages two rule types:
 first enabled matching rule wins and later rules are ignored. All rule decisions
 appear in the audit trail and fire decision webhooks with rule attribution.
 
+![](assets/rules.png)
+
+*Figure 10 — the Rules page. Rules carry their evaluation number, may be
+disabled without deleting, and the Add Rule panel switches between the match
+form (left) and the expiry form (right).*
+
 ### 2.7 Chat Approvals — Slack and Teams
 
 New requests can post to Slack or Microsoft Teams with **Approve**, **Reject**
 and **Open request** buttons. On both platforms those buttons are **deep links**:
 they open the request in the tool with the decision pre-selected, the approver
 signs in, and the ordinary role rules apply.
+
+![](assets/chat-slack.png)
+
+*Figure 11 — Slack. New requests carry the three buttons; lifecycle events
+(auto-approval, decisions, expiry, exclusions lifting) post as follow-up
+messages stating the consequence.*
+
+![](assets/chat-teams.png)
+
+*Figure 12 — the same flow in Microsoft Teams via a Power Automate workflow.*
 
 **Why deep links rather than deciding in chat.** A Slack interaction callback
 arrives at an endpoint where no signed-in user exists — the signature proves the
@@ -286,6 +345,11 @@ password, enable/disable, change roles, delete. Any locally signed-in user can
 change their own password from the top bar, without needing an administrator.
 All of these are audited.
 
+![](assets/users.png)
+
+*Figure 13 — the Users page. New accounts always start as Viewer; raising that
+is a separate, deliberate step.*
+
 > **The bootstrap variables cannot rotate a password.**
 > `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` is read only when the user table is empty,
 > so changing it on an existing install does nothing — silently. Use **Reset
@@ -349,6 +413,11 @@ unhealthy.
 Administrators can delete a local request record — for cleanup after testing.
 This is two-step confirmed, fully audited, and **never touches Omnissa Access**.
 
+![](assets/delete-confirm.png)
+
+*Figure 14 — deletion is two-step: acknowledge the consequence, then type
+DELETE. Both steps restate that Access is not contacted.*
+
 **Deleting a request that is still pending is refused** (HTTP 409). Access holds
 the approval open until it receives a decision, so deleting the local record
 would leave the requester waiting permanently on a decision that could never be
@@ -388,7 +457,13 @@ and prompt a retry instead.
 
 The Help page documents everything in this section from inside the app, with a
 contents list for navigation — tenant setup, roles, the access lifecycle,
-configuration reference, webhook examples, monitoring, update paths.
+configuration reference, webhook examples, monitoring, update paths. It is
+readable by every role, including Auditor.
+
+![](assets/help-contents.png)
+
+*Figure 15 — the Help page and its nineteen-section contents list. Each entry
+jumps to its section, and each section offers a back-to-top link.*
 
 ---
 
@@ -470,7 +545,7 @@ the backup/restore scripts.
 
 ![](assets/access-service-client.png)
 
-*Figure 2 — service client in Omnissa Access (Service Client Token, admin scope).*
+*Figure 16 — service client in Omnissa Access (Service Client Token, admin scope).*
 
 ### 5.2 OIDC Admin Login Client
 
@@ -491,7 +566,7 @@ the backup/restore scripts.
 
 ![](assets/access-oidc-client.png)
 
-*Figure 3 — OIDC admin login client (authorization code + PKCE). Note: the scope
+*Figure 17 — OIDC admin login client (authorization code + PKCE). Note: the scope
 list must also include `group` for role resolution.*
 
 ### 5.3 Approvals Settings
@@ -504,7 +579,7 @@ DNS, TLS, or reachability problems (Section 9).
 
 ![](assets/access-approvals-settings.png)
 
-*Figure 4 — Settings → Approvals: REST API engine pointed at the callout URI.*
+*Figure 18 — Settings → Approvals: REST API engine pointed at the callout URI.*
 
 ### 5.4 Putting Applications Behind Approval
 
@@ -517,11 +592,11 @@ recorded in the tool.
 
 ![](assets/access-license-approval.png)
 
-*Figure 5 — License Approval Required on an application.*
+*Figure 19 — License Approval Required on an application.*
 
 ![](assets/access-assignment.png)
 
-*Figure 6 — assignment deployment type selection (User-Activated / Automatic).*
+*Figure 20 — assignment deployment type selection (User-Activated / Automatic).*
 
 ---
 
@@ -627,7 +702,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 
 ![](assets/hub-pending.png)
 
-*Figure 7 — the user side: PENDING until somebody, or a rule, says yes.*
+*Figure 21 — the user side: PENDING until somebody, or a rule, says yes.*
 
 ---
 

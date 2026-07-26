@@ -75,11 +75,18 @@ pre {
 }
 pre code { background: none; color: inherit; padding: 0; }
 
+/* The height cap is not cosmetic. A portrait dialog capture (e.g. 900x1394)
+   scaled to the full text column is taller than the printable area of a Letter
+   page, so it would be clipped. Capping the height keeps the aspect ratio and
+   also lets a figure fit in whatever space is left on the current page instead
+   of pushing to the next one and leaving a hole. */
 img {
+  display: block;
   max-width: 100%;
+  max-height: 15cm;
+  margin: 8px auto 2px;
   border: 1px solid #d7e3ec;
   border-radius: 4px;
-  margin: 8px 0 2px;
 }
 
 /* Emphasised paragraph immediately after an image = figure caption. */

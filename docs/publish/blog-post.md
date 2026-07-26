@@ -48,6 +48,11 @@ tenant's approval callout at it and you get a live queue of requests, a review
 dialog that works from a phone, and decisions flowing straight back into Access
 through the tenant API.
 
+![](assets/queue-dashboard.png)
+
+*A dashboard that counts what is waiting, and a queue that fills itself — new
+requests arrive over Server-Sent Events, so nothing needs refreshing.*
+
 Around that core loop it now carries a fair amount:
 
 **Time-bound access.** Approve for five minutes, or eight hours, or thirty days.
@@ -55,6 +60,10 @@ When the clock runs out the tool revokes the entitlement in Access, which
 genuinely deprovisions the app — the tile disappears from the user's catalog. You
 choose what happens next: the app becomes requestable again after a short hold,
 or it is a one-time grant that does not come back.
+
+![](assets/approved-time-bound.png)
+
+*Two controls, one decision. How long, and what happens when the clock runs out.*
 
 **A decline that means something.** *Reject* is temporary — the user may ask
 again. *Reject and block* excludes them from the application entirely, and stays
@@ -66,6 +75,12 @@ block* does not.
 Approve / Reject buttons. Those buttons are deep links — they open the request in
 the tool, you sign in, and the decision is attributed to you. That is a
 deliberate choice I will come back to.
+
+![](assets/chat-slack.png)
+
+*Slack. The channel also gets the follow-ups — auto-approvals, expiries, and
+exclusions lifting — each stating what actually happened, not just that
+something did.*
 
 **Roles from your Access groups.** Administrator, Approver, Viewer, Auditor —
 resolved from Omnissa Access group membership at sign-in, so there is no second

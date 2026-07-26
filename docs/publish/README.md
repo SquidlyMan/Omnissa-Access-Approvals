@@ -35,6 +35,14 @@ brew install pandoc weasyprint
   after conversion, since pandoc cannot express the distinction.
 - **Titles live in YAML frontmatter**, not as an `# H1` in the body — otherwise
   pandoc stacks its own title block above the heading.
+- **`documentation.md` numbers its figures sequentially in document order.**
+  Inserting a figure means renumbering every later caption; the blog post is
+  short enough to use unnumbered captions instead.
+- **Images are capped at 15 cm tall** in `style.css`. This is not cosmetic — a
+  portrait dialog capture scaled to the full text column is taller than the
+  printable area of a Letter page and would be clipped. Screenshots wider than
+  they are tall need no attention; very tall captures should be cropped at
+  build-prep time rather than relying on the cap alone.
 
 ## Keeping them honest
 
