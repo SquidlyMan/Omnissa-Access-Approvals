@@ -77,14 +77,13 @@ public class RuleScheduler {
                             "Auto-rejected: pending longer than " + rule.getExpiryDays() + " days"));
                     switch (outcome) {
                         case DELIVERED -> {
-                            auditService.record("auto-rejected", request.getRequestId(), request.getResourceName(),
+                            auditService.recordFor("auto-rejected", request,
                                     "Auto-rejected by rule #" + rule.getId()
                                             + " (pending longer than " + rule.getExpiryDays() + " days)");
                             webhookNotifier.notifyDecision(request, false, "auto-approval-rule", "#" + rule.getId());
                         }
                         case EXPIRED -> {
-                            auditService.record("decision-undeliverable",
-                                    request.getRequestId(), request.getResourceName(),
+                            auditService.recordFor("decision-undeliverable", request,
                                     "Decision by auto-approval-rule #" + rule.getId()
                                             + " could not be delivered — request no longer exists in Omnissa Access");
                             webhookNotifier.notifyExpired(request);
@@ -143,8 +142,7 @@ public class RuleScheduler {
                                 : "JIT access expired — user was already excluded in Omnissa Access")
                                 + (request.getAccessTtlMinutes() != null ? " (TTL " + request.getAccessTtlMinutes() + " min)" : "")
                                 + (reRequestable ? "; app will re-open for request shortly" : "; permanent (not re-requestable)");
-                        auditService.record("access-revoked", request.getRequestId(),
-                                request.getResourceName(), detail);
+                        auditService.recordFor("access-revoked", request, detail);
                         webhookNotifier.notifyRevoked(fresh);
                         anyRevoked = true;
                     }
@@ -189,7 +187,7 @@ public class RuleScheduler {
                     fresh.setRestoreAt(null);
                     fresh.setRestoredAt(new Date());
                     approvalsRepository.save(fresh);
-                    auditService.record("access-reopened", request.getRequestId(), request.getResourceName(),
+                    auditService.recordFor("access-reopened", request,
                             "JIT hold elapsed — exclusion lifted; app is requestable again ("
                             + ("USER".equals(request.getAssignmentType()) ? "re-provisioned direct user" : "group entitlement reapplies") + ")");
                     webhookNotifier.notifyReopened(fresh);

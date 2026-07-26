@@ -91,8 +91,7 @@ public class ApprovalController {
                     }
                     req.setState("pending");
                     approvalsRepository.save(req);
-                    auditService.record("request-received", req.getRequestId(),
-                            req.getResourceName(), "Pulled from Omnissa Access (manual sync)");
+                    auditService.recordFor("request-received", req, "Pulled from Omnissa Access (manual sync)");
                     sseController.publishNewRequest(req);
                     pulled++;
                 }
@@ -149,7 +148,7 @@ public class ApprovalController {
                 + ", received=" + isoDate(request.getReceivedDate())
                 + ", decidedBy=" + request.getDecidedBy() + "]";
         // Audit BEFORE deletion so the record survives even if the delete races.
-        auditService.record("request-deleted", requestId, request.getResourceName(), detail);
+        auditService.recordFor("request-deleted", request, detail);
         logger.warn("LOCAL REQUEST DELETED by {}: requestId={} resourceName={} state={} operation={}",
                 admin, requestId, request.getResourceName(), request.getState(), request.getOperation());
         approvalsRepository.delete(request);
@@ -216,9 +215,8 @@ public class ApprovalController {
         calloutRequest.setState(deactivation ? "deactivated" : "pending");
 
         approvalsRepository.save(calloutRequest);
-        auditService.record(deactivation ? "deactivation-received" : "request-received",
-                calloutRequest.getRequestId(), calloutRequest.getResourceName(),
-                "Callout received for user " + calloutRequest.getUserId());
+        auditService.recordFor(deactivation ? "deactivation-received" : "request-received",
+                calloutRequest, "Callout received");
         sseController.publishNewRequest(calloutRequest);
         if (!deactivation) {
             webhookNotifier.notifyNewRequest(calloutRequest);
@@ -273,8 +271,8 @@ public class ApprovalController {
                     // decider=null → keep the decidedBy set during delivery (not a human).
                     String ttlNote = decisionService.applyGrant(calloutRequest.getRequestId(),
                             approve, rule.getGrantTtlMinutes(), null, null);
-                    auditService.record(approve ? "auto-approved" : "auto-rejected",
-                            calloutRequest.getRequestId(), calloutRequest.getResourceName(), message + ttlNote);
+                    auditService.recordFor(approve ? "auto-approved" : "auto-rejected",
+                            calloutRequest, message + ttlNote);
                     // Re-read so the notification reports the TTL applyGrant just
                     // persisted; calloutRequest predates it.
                     CalloutRequest decided = approvalsRepository.findByRequestId(calloutRequest.getRequestId());
@@ -283,8 +281,7 @@ public class ApprovalController {
                     sseController.publishQueueUpdate("queue-updated");
                 }
                 case EXPIRED -> {
-                    auditService.record("decision-undeliverable",
-                            calloutRequest.getRequestId(), calloutRequest.getResourceName(),
+                    auditService.recordFor("decision-undeliverable", calloutRequest,
                             "Decision by auto-approval-rule #" + rule.getId()
                                     + " could not be delivered — request no longer exists in Omnissa Access");
                     webhookNotifier.notifyExpired(calloutRequest);
@@ -336,14 +333,12 @@ public class ApprovalController {
                         new CalloutResponse(request.getRequestId(), approved, "bulk action"));
                 switch (outcome) {
                     case DELIVERED -> {
-                        auditService.record(approved ? "approved" : "rejected",
-                                request.getRequestId(), request.getResourceName(), message);
+                        auditService.recordFor(approved ? "approved" : "rejected", request, message);
                         webhookNotifier.notifyDecision(request, approved, admin, null);
                         mailNotification.sendEmailNotification(request.getRequestId(), approved);
                     }
                     case EXPIRED -> {
-                        auditService.record("decision-undeliverable",
-                                request.getRequestId(), request.getResourceName(),
+                        auditService.recordFor("decision-undeliverable", request,
                                 (approved ? "Approval by " : "Rejection by ") + admin
                                         + " could not be delivered — request no longer exists in Omnissa Access");
                         webhookNotifier.notifyExpired(request);

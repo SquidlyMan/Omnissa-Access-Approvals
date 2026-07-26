@@ -201,22 +201,9 @@ public class WebhookNotifier {
         return root;
     }
 
-    /** Human label for the requester: prefer real name/email from callout attributes, else userId. */
+    /** Human label for the requester — see {@link Requester#shortLabel()}. */
     private static String requesterLabel(CalloutRequest request) {
-        var attrs = request.getUserAttributes();
-        if (attrs != null) {
-            String first = firstAttr(attrs.get("firstName"));
-            String last = firstAttr(attrs.get("lastName"));
-            String name = ((first == null ? "" : first) + " " + (last == null ? "" : last)).trim();
-            if (!name.isBlank()) return name;
-            String email = firstAttr(attrs.get("email"));
-            if (email != null) return email;
-        }
-        return "user " + request.getUserId();
-    }
-
-    private static String firstAttr(java.util.List<String> vals) {
-        return (vals != null && !vals.isEmpty() && vals.get(0) != null && !vals.get(0).isBlank()) ? vals.get(0) : null;
+        return Requester.from(request).shortLabel();
     }
 
     /**

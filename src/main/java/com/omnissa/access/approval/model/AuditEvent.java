@@ -35,6 +35,19 @@ public class AuditEvent {
 
     private String resourceName;
 
+    /**
+     * Who the access was for — distinct from {@link #adminUsername}, which is
+     * who acted. Stored on the event rather than resolved through
+     * {@link #requestId} because a request record can be deleted by an admin
+     * while its audit history remains: without this the trail would survive but
+     * the subject of every entry would be unrecoverable.
+     */
+    private String requesterId;
+
+    private String requesterName;
+
+    private String requesterEmail;
+
     @Column(length = 1000)
     private String message;
 
@@ -42,6 +55,15 @@ public class AuditEvent {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getRequesterId() { return requesterId; }
+    public void setRequesterId(String requesterId) { this.requesterId = requesterId; }
+
+    public String getRequesterName() { return requesterName; }
+    public void setRequesterName(String requesterName) { this.requesterName = requesterName; }
+
+    public String getRequesterEmail() { return requesterEmail; }
+    public void setRequesterEmail(String requesterEmail) { this.requesterEmail = requesterEmail; }
 
     public Date getTimestamp() { return timestamp; }
     public void setTimestamp(Date timestamp) { this.timestamp = timestamp; }

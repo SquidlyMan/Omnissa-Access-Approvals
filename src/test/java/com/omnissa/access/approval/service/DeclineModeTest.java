@@ -76,7 +76,7 @@ class DeclineModeTest {
         assertThat(request.getReRequestable()).isFalse();
         assertThat(request.getRevokedAt()).isNotNull();
         assertThat(note).contains("permanent");
-        verify(audit).record(eq("access-blocked"), eq("req-1"), anyString(), anyString(), eq("dean"));
+        verify(audit).recordFor(eq("access-blocked"), any(CalloutRequest.class), anyString(), eq("dean"));
     }
 
     @Test
@@ -96,7 +96,7 @@ class DeclineModeTest {
 
         assertThat(request.getReRequestable()).isTrue();
         assertThat(note).contains("could NOT be applied");
-        verify(audit).record(eq("access-block-failed"), eq("req-1"), anyString(), anyString(), eq("dean"));
+        verify(audit).recordFor(eq("access-block-failed"), any(CalloutRequest.class), anyString(), eq("dean"));
     }
 
     // ---- manual revoke of an active grant (no TTL wait) ----
@@ -153,7 +153,7 @@ class DeclineModeTest {
         assertThat(outcome).isEqualTo(RevokeOutcome.REVOKED);
         assertThat(request.getReRequestable()).isTrue();
         assertThat(request.getRestoredAt()).isNotNull();
-        verify(audit).record(eq("access-reopened"), eq("req-1"), anyString(), anyString(), eq("dean"));
+        verify(audit).recordFor(eq("access-reopened"), any(CalloutRequest.class), anyString(), eq("dean"));
         verify(webhooks).notifyReopened(request);
     }
 

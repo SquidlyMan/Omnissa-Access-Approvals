@@ -57,7 +57,8 @@ public class AuditController {
      */
     @GetMapping("/export.csv")
     public ResponseEntity<String> exportCsv() {
-        StringBuilder csv = new StringBuilder("timestamp,actor,action,requestId,resourceName,message\n");
+        StringBuilder csv = new StringBuilder(
+                "timestamp,actor,action,requestId,resourceName,requesterId,requesterName,requesterEmail,message\n");
         for (AuditEvent event : auditEventRepository.findAll(Sort.by(Sort.Direction.DESC, "id"))) {
             csv.append(Csv.field(event.getTimestamp() == null
                             ? null : event.getTimestamp().toInstant().toString())).append(',')
@@ -65,6 +66,9 @@ public class AuditController {
                .append(Csv.field(event.getAction())).append(',')
                .append(Csv.field(event.getRequestId())).append(',')
                .append(Csv.field(event.getResourceName())).append(',')
+               .append(Csv.field(event.getRequesterId())).append(',')
+               .append(Csv.field(event.getRequesterName())).append(',')
+               .append(Csv.field(event.getRequesterEmail())).append(',')
                .append(Csv.field(event.getMessage())).append('\n');
         }
 
