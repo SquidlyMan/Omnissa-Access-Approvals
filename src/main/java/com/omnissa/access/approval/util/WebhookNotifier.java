@@ -291,6 +291,50 @@ public class WebhookNotifier {
         return envelope;
     }
 
+    /**
+     * Human duration for a TTL in minutes: "5 minutes", "1 hour", "7 days".
+     */
+    static String humanDuration(int minutes) {
+        if (minutes % 1440 == 0) {
+            int days = minutes / 1440;
+            return days + (days == 1 ? " day" : " days");
+        }
+        if (minutes % 60 == 0) {
+            int hours = minutes / 60;
+            return hours + (hours == 1 ? " hour" : " hours");
+        }
+        return minutes + (minutes == 1 ? " minute" : " minutes");
+    }
+
+    /**
+     * The consequence of a decision, in words — so someone watching the channel
+     * learns what actually happened without opening the tool. "Rejected" alone
+     * does not distinguish a decline the user can retry from one that blocks
+     * them, and "Approved" does not say whether access is permanent or expires.
+     *
+     * <p>Read from the PERSISTED entity rather than the requested parameters:
+     * a permanent decline whose exclusion could not be applied in Omnissa Access
+     * must not be announced as a block that took effect.
+     */
+    static String decisionDetail(CalloutRequest request, boolean approved) {
+        if (request == null) {
+            return "";
+        }
+        if (approved) {
+            Integer ttl = request.getAccessTtlMinutes();
+            if (ttl == null || ttl <= 0) {
+                return " — permanent access";
+            }
+            return " — " + humanDuration(ttl) + ", then "
+                    + (Boolean.FALSE.equals(request.getReRequestable())
+                        ? "gone for good (one-time grant)"
+                        : "requestable again");
+        }
+        return Boolean.FALSE.equals(request.getReRequestable())
+                ? " — permanent: the user is blocked from re-requesting"
+                : " — temporary: the user may request again";
+    }
+
     Map<String, Object> buildRevokedPayload(CalloutRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         String format = resolvedFormat();
@@ -399,7 +443,7 @@ public class WebhookNotifier {
                     ? (approved ? "Auto-Approved by rule " : "Auto-Rejected by rule ") + ruleLabel
                     : (approved ? "Approved by " : "Rejected by ") + decidedBy;
             String text = attribution + ": " + request.getResourceName()
-                    + " (" + requesterLabel(request) + ")";
+                    + " (" + requesterLabel(request) + ")" + decisionDetail(request, approved);
             if ("teams".equals(format)) {
                 return teamsTextMessage(text);
             }
@@ -411,6 +455,11 @@ public class WebhookNotifier {
             payload.put("userId", request.getUserId());
             payload.put("requester", requesterLabel(request));
             payload.put("decision", approved ? "approved" : "rejected");
+            payload.put("permanent", approved
+                    ? request.getAccessTtlMinutes() == null || request.getAccessTtlMinutes() <= 0
+                    : Boolean.FALSE.equals(request.getReRequestable()));
+            payload.put("accessTtlMinutes", request.getAccessTtlMinutes());
+            payload.put("reRequestable", request.getReRequestable());
             payload.put("decidedBy", decidedBy);
             if (ruleLabel != null) {
                 payload.put("rule", ruleLabel);

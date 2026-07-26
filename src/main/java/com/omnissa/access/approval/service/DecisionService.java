@@ -58,7 +58,14 @@ public class DecisionService {
                         request != null ? request.getResourceName() : null,
                         (approved ? "Approved by " : "Rejected by ") + decider + note + ttlNote,
                         decider);
-                webhookNotifier.notifyDecision(request, approved, decider, null);
+                // Re-read: applyGrant/applyDecline persist the TTL and re-request
+                // policy on their own instance, so `request` — loaded before the
+                // decision was applied — still has none of it. The notification
+                // states the consequence, so it must reflect what was actually
+                // saved rather than what was asked for.
+                CalloutRequest decided = approvalsRepository.findByRequestId(requestId);
+                webhookNotifier.notifyDecision(decided != null ? decided : request,
+                        approved, decider, null);
                 mailNotification.sendEmailNotification(requestId, approved);
                 sseController.publishQueueUpdate("queue-updated");
             }
