@@ -69,7 +69,7 @@ if changed:
 PY
 
 DOCS=("${@:-}")
-[ -z "${DOCS[0]}" ] && DOCS=(blog-post documentation release-notes)
+[ -z "${DOCS[0]}" ] && DOCS=(blog-post documentation release-notes feature-summary)
 
 for doc in "${DOCS[@]}"; do
   [ -f "$doc.md" ] || { echo "no such document: $doc.md"; exit 1; }

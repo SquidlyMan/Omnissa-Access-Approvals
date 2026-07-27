@@ -80,6 +80,9 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 Published images: `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
+For everything added since v1.2 grouped by capability rather than by release,
+see the companion **Feature Summary** document.
+
 ---
 
 # What's New in Access Approval Tool v1.19.1
