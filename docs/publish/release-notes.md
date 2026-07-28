@@ -129,11 +129,13 @@ None. Both changes remove a class of failure rather than add behaviour.
 - The limitations listed under **Current Known Limitations** below apply.
 
 > **⚠ Upgrade note — check your reverse proxy.**
-> The server no longer enforces a route list, so an enumerating proxy pattern
-> becomes the *only* thing that does, and it goes stale on every release that
-> adds a page. If your gateway allow-lists individual page paths, replace it
-> with `(/.*)`. Narrow the pattern by what must be internet-reachable —
-> `/api/approvals/new` — not by which pages happen to exist.
+> The server no longer enforces a route list, so a default-deny proxy pattern
+> is now the only place valid paths are enumerated. Two entries need attention:
+> add **`/users(/.*)?`**, which was missing and makes that page 404 on refresh
+> or from a direct link, and remove **`/settings(/.*)?`**, which matches a route
+> the application does not have. The deployment guide publishes the current
+> valid path set, and a build-time check now verifies it against the routes the
+> application actually declares, so the pattern cannot silently fall behind.
 
 ---
 
