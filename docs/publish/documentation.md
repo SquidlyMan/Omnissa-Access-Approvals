@@ -511,9 +511,27 @@ proxy in front. All persistent state lives under `/app/data`.
   them, OAuth redirect URIs generate as `http://` and login fails.
 - Server-Sent Events power the live queue: on nginx, add a location for
   `/api/approvals/stream` with `proxy_buffering off`.
-- Expose only the paths you need externally; the repository's deployment guide
-  documents a strict path allow-list suitable for reverse proxies enforcing
-  pattern matching.
+- **Allow-list the paths that exist.** A gateway that matches a pattern — the
+  Unified Access Gateway's `proxyPattern` is the common one — should be
+  default-deny. It decides what reaches an internal system at all, and it is the
+  only control still standing if the container is misconfigured or a later
+  release exposes something unnoticed. The current valid set:
+
+```
+(/|/login(/.*)?|/logout|/oauth2(/.*)?|/dashboard|/queue|/rules|/users(/.*)?|/help|/requests(/.*)?|/assets(/.*)?|/favicon\.ico|/api(/.*)?)
+```
+
+  `/requests(/.*)?` must accept a child path — chat approval buttons are deep
+  links of the form `/requests/{id}?action=approve`. `/login(/.*)?` and
+  `/oauth2(/.*)?` carry the OAuth redirect and callback. `/actuator/health` is
+  deliberately absent: a UAG health monitor connects directly to the internal
+  resource and does not traverse the pattern.
+
+  Keeping the list accurate is the real work, and the failure is quiet — a page
+  added to the application but not the gateway works when clicked, because the
+  browser never asks the proxy, and 404s on refresh or from a chat link. The
+  build verifies the published pattern against the routes the application
+  declares, so it cannot silently fall behind.
 
 ### 4.3 Opinionated NAS Deployment (ZimaCube)
 
