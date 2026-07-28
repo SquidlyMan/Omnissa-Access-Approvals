@@ -428,19 +428,20 @@ running?" — check it there, not in CasaOS.
 
 #### `OMNISSA_IMAGE_TAG`
 
-CI publishes a moving **`major.minor`** tag (e.g. `1.9`) that advances on every
-`main` merge, plus the immutable full version (e.g. `1.9.4`). Pinning is still
+CI publishes a moving **`major.minor`** tag (e.g. `1.19`) that advances on every
+`main` merge, plus the immutable full version (e.g. `1.19.2`). Pinning is still
 worth doing — it makes deployments deterministic and keeps you on one minor
 line — but it is **not** a fix for the CasaOS button. Set it in the compose
 project's `.env` (next to the compose file, i.e.
 `/media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/.env`):
 
 ```bash
-OMNISSA_IMAGE_TAG=1.9
+OMNISSA_IMAGE_TAG=1.19
 ```
 
-Bump it to the new minor — `1.10`, `1.11`, … — when the minor version
-increments. Compare what you are running against the registry with:
+Bump it only when the **minor** increments — `1.20`, `1.21`, …. A patch
+release such as 1.19.1 → 1.19.2 moves the `1.19` tag, so a `compose pull`
+picks it up with no pin change. Compare what you are running against the registry with:
 
 ```bash
 docker image inspect ghcr.io/squidlyman/omnissa-access-approvals:1.9 \
