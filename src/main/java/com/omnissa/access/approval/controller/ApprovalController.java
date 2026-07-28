@@ -1,5 +1,6 @@
 package com.omnissa.access.approval.controller;
 
+import com.omnissa.access.approval.dto.PagedResponse;
 import com.omnissa.access.approval.interfaces.ApprovalsInterface;
 import com.omnissa.access.approval.model.AutoRule;
 import com.omnissa.access.approval.model.CalloutOperation;
@@ -19,7 +20,6 @@ import com.omnissa.access.approval.util.WebhookNotifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
@@ -107,16 +107,17 @@ public class ApprovalController {
     }
 
     @GetMapping("/requests")
-    public ResponseEntity<Page<CalloutRequest>> getLocalApprovals(
+    public ResponseEntity<PagedResponse<CalloutRequest>> getLocalApprovals(
             @RequestParam(required = false) String state, Pageable pageable) {
         String filter = state != null ? state : "pending";
         if ("deactivated".equals(filter)) {
             // Expired (decision undeliverable) and revoked (JIT access torn down)
             // requests ride in the Deactivated tab.
-            return ResponseEntity.ok(approvalsRepository.findByStateInOrderByIdDesc(
-                    List.of("deactivated", "expired", "revoked"), pageable));
+            return ResponseEntity.ok(PagedResponse.from(approvalsRepository.findByStateInOrderByIdDesc(
+                    List.of("deactivated", "expired", "revoked"), pageable)));
         }
-        return ResponseEntity.ok(approvalsRepository.findByStateOrderByIdDesc(filter, pageable));
+        return ResponseEntity.ok(PagedResponse.from(
+                approvalsRepository.findByStateOrderByIdDesc(filter, pageable)));
     }
 
     @GetMapping(value = "/requests/{requestId}", produces = MediaType.APPLICATION_JSON_VALUE)
