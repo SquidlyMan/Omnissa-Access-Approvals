@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
 import ApprovalDialog from '../components/ApprovalDialog'
-import type { Page, CalloutRequest, AuditPage, AuditAction, AuditEvent } from '../types'
+import type { Page, CalloutRequest, AuditAction, AuditEvent } from '../types'
 import { getCsrfToken } from '../utils/csrf'
 import { requesterLabel } from '../utils/requester'
 import { canDecide, canExportAudit, canExportRequests, canViewAudit, canViewQueue, FORBIDDEN_MESSAGE } from '../lib/permissions'
@@ -73,7 +73,7 @@ export default function QueuePage() {
   const [pageNum, setPageNum] = useState(0)
   const [pendingLiveUpdate, setPendingLiveUpdate] = useState(false)
   const [dialogReq, setDialogReq] = useState<CalloutRequest | null>(null)
-  const [auditPage, setAuditPage] = useState<AuditPage | null>(null)
+  const [auditPage, setAuditPage] = useState<Page<AuditEvent> | null>(null)
 
   const load = useCallback(() => {
     // Which tab is active depends on the user's roles — wait for them.
