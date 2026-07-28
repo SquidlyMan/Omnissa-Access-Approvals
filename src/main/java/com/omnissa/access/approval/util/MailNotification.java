@@ -7,6 +7,7 @@ import freemarker.template.TemplateException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
@@ -20,13 +21,37 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Notifies the requester by e-mail once their request has been decided.
+ *
+ * <p>Mail is optional, and this class has to hold that as an invariant rather
+ * than an assumption. Spring Boot auto-configures a {@link JavaMailSender} only
+ * when {@code spring.mail.host} is set, so injecting one as a required
+ * dependency made an unset SMTP relay a startup failure — <em>"Field mailSender
+ * ... required a bean of type 'JavaMailSender' that could not be found"</em> —
+ * for an install that had simply never been given a relay. That also
+ * contradicted {@code management.health.mail.enabled=false}, which exists
+ * precisely so an absent relay does not affect health.
+ *
+ * <p>So the sender is resolved per call, and a missing one is <em>announced</em>
+ * rather than swallowed: a decision still succeeds, and the log says plainly
+ * that the requester was not told and which property would fix it. Silence
+ * would be worse than the crash it replaced — an approver would believe the
+ * requester had been notified.
+ */
 @Service
 public class MailNotification {
 
     private static final Logger logger = LoggerFactory.getLogger(MailNotification.class);
 
+    /**
+     * Absent unless {@code spring.mail.host} is configured. An
+     * {@link ObjectProvider} rather than {@code @Autowired(required = false)}
+     * so that "no relay" is a value this code has to handle at the point of
+     * use, not a null field that reads as an oversight.
+     */
     @Autowired
-    private JavaMailSender mailSender;
+    private ObjectProvider<JavaMailSender> mailSender;
 
     @Autowired
     private Configuration freeMarkerConfig;
@@ -40,11 +65,18 @@ public class MailNotification {
     private String fromAddress;
 
     public void sendEmailNotification(String requestId, boolean approved) {
+        JavaMailSender sender = mailSender.getIfAvailable();
+        if (sender == null) {
+            logger.warn("No e-mail sent for requestId={}: mail is not configured. Set "
+                    + "spring.mail.host (SPRING_MAIL_HOST) to notify requesters of decisions.",
+                    requestId);
+            return;
+        }
         CalloutRequest calloutRequest = approvalsRepository.findByRequestId(requestId);
         String template = approved ? "approved.ftl" : "denied.ftl";
         MimeMessagePreparator preparator = getMessagePreparator(calloutRequest, template);
         try {
-            mailSender.send(preparator);
+            sender.send(preparator);
         } catch (MailException e) {
             logger.error("Failed to send email notification for requestId={}", requestId, e);
         }
