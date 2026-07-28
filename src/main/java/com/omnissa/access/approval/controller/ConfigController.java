@@ -1,14 +1,17 @@
 package com.omnissa.access.approval.controller;
 
+import com.omnissa.access.approval.config.AdminOAuthEnvironmentPostProcessor;
 import com.omnissa.access.approval.model.Mappings;
 import com.omnissa.access.approval.service.TenantStatusService;
 import com.omnissa.access.approval.model.OmnissaServer;
 import com.omnissa.access.approval.repository.OmnissaServerRepository;
 import com.omnissa.access.approval.util.OmnissaRestClient;
 import com.omnissa.access.approval.util.RestPreconditions;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -30,18 +33,31 @@ public class ConfigController {
     @Value("${omnissa.auth.local-login-disabled:false}")
     private boolean localLoginDisabled;
 
-    @Value("${omnissa.admin-oauth.client-id:}")
-    private String adminOauthClientId;
+    /**
+     * Present only when an admin OIDC client is configured — see
+     * {@link AdminOAuthEnvironmentPostProcessor}.
+     */
+    @Autowired
+    private ObjectProvider<ClientRegistrationRepository> clientRegistrations;
 
     /**
      * Public (unauthenticated) auth-mode discovery so the login page knows
      * which sign-in options to render.
+     *
+     * <p>{@code oauthEnabled} asks the registration itself rather than reading
+     * {@code omnissa.admin-oauth.client-id}, so the button is offered exactly
+     * when the security chain can service it. A client id set without the
+     * tenant's OIDC endpoints yields no registration, and would otherwise
+     * render a "Sign in with Omnissa Access" button that lands on a 404.
      */
     @GetMapping("/auth")
     public ResponseEntity<?> getAuthConfig() {
+        ClientRegistrationRepository registrations = clientRegistrations.getIfAvailable();
+        boolean oauthEnabled = registrations != null && registrations.findByRegistrationId(
+                AdminOAuthEnvironmentPostProcessor.REGISTRATION_ID) != null;
         return ResponseEntity.ok(Map.of(
                 "localLoginDisabled", localLoginDisabled,
-                "oauthEnabled", !adminOauthClientId.isBlank()
+                "oauthEnabled", oauthEnabled
         ));
     }
 

@@ -1,0 +1,6 @@
+# Runs before the application context exists, which is the only place the
+# OAuth2 client registration properties can be *withheld* — see
+# AdminOAuthEnvironmentPostProcessor. By the time a @Configuration class could
+# look at them, Boot has already bound and rejected a blank client id.
+org.springframework.boot.EnvironmentPostProcessor=\
+com.omnissa.access.approval.config.AdminOAuthEnvironmentPostProcessor

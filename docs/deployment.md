@@ -115,30 +115,48 @@ With **Nginx Proxy Manager**, create a proxy host pointing at
 `/api/approvals/stream` settings as a *Custom Location* if live updates
 stall.
 
-### Do not allow-list individual page paths
+### Restrict the proxy to known paths
 
-Proxy the whole site (`location /`, as above). Some gateways instead take a
-regular expression of permitted paths — the Unified Access Gateway's
-`proxyPattern` is the common one — and it is tempting to enumerate the pages:
+The proxy pattern is a **security control**. It decides what reaches an
+internal system at all, and it is the only control that still applies if the
+container is misconfigured, compromised, or exposes something a future release
+adds without anyone noticing. Treat it as default-deny: enumerate what is
+valid, reject everything else.
+
+Do **not** widen it to `(/.*)` to save maintenance. That delegates the entire
+decision to the application and assumes the application is correct — which is
+exactly the assumption a defence-in-depth layer exists to avoid making.
+
+The current valid path set:
 
 ```
-(/|/login(/.*)?|/logout|/oauth2(/.*)?|/dashboard|/queue|/rules|/help|/requests(/.*)?|/assets(/.*)?|/api(/.*)?)
+(/|/login(/.*)?|/logout|/oauth2(/.*)?|/dashboard|/queue|/rules|/users(/.*)?|/help|/requests(/.*)?|/assets(/.*)?|/favicon\.ico|/api(/.*)?)
 ```
 
-**Do not.** That list is a copy of the application's page structure kept in a
-system that has no way of knowing when the application changes. Every release
-that adds a page silently breaks it: the page works when clicked in the UI —
-the browser never asks the proxy, React Router just renders it — and 404s when
-the same URL is refreshed, bookmarked or opened from a Slack or Teams approval
-button. The tool used to keep a matching list server-side and it drifted twice
-in one release; a list held in a gateway you update by hand will drift further.
+Notes on that pattern:
 
-The server no longer needs telling which paths are pages: anything that is not
-an API call, an asset or an actuator endpoint is served the SPA. A pattern of
-`(/.*)` — or simply proxying everything — is therefore both correct and
-permanently correct. If policy demands a narrow pattern, narrow it by what must
-be *reachable from outside*, not by what pages exist: only
-`/api/approvals/new` has to be internet-facing (see below).
+- `/requests(/.*)?` must stay, and must accept a child path — Slack and Teams
+  approval buttons are deep links of the form `/requests/{id}?action=approve`.
+- `/oauth2(/.*)?` and `/login(/.*)?` cover the authorization redirect and the
+  `/login/oauth2/code/omnissa` callback. OAuth login breaks without both.
+- **Remove `/settings(/.*)?` if your pattern still carries it.** No such route
+  exists in the application. An allow-listed path that resolves to nothing is
+  the kind of entry this approach is meant to eliminate.
+- `/actuator/health` is deliberately absent — see below.
+
+**Keeping it accurate is the hard part**, and it is a real risk rather than a
+theoretical one: a page added to the application but not to the pattern works
+when clicked in the UI, because React Router renders it client-side and the
+browser never asks the proxy, and 404s when the same URL is refreshed,
+bookmarked, or opened from a chat approval button. The server-side copy of this
+list drifted twice in one release before it was removed.
+
+So the list is verified rather than remembered. `ProxyPatternCoverageTest`
+extracts the routes the application actually declares and asserts that the
+pattern above matches every one of them, failing the build when a new page is
+added without updating this document. Update the pattern here, and the test
+tells you whether it is complete before the release ships — not after an
+approver clicks a link that 404s.
 
 Note that `/actuator/health` does **not** belong in the pattern for the UAG's
 own health monitor — that connects directly to the internal resource. See
