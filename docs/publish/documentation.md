@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.19.1 • July 26, 2026 • MIT License"
+date: "Version 1.19.2 • MIT License"
 ---
 
 **Repository:** <https://github.com/SquidlyMan/Omnissa-Access-Approvals>
@@ -325,6 +325,12 @@ never blocks request ingestion or decisions.
 - **Consent auto-disable** — after confirming OIDC login works, the tool can
   disable the Access consent prompt on its own client through the tenant admin
   API.
+- **Access sign-in is genuinely optional.** Leave the admin OAuth client-id
+  unset and the tool starts on local sign-in alone, with no OAuth button
+  advertised. This is the supported first-run state: stand the container up,
+  confirm it serves, then add the tenant. A client-id set without an issuer
+  also starts, logging an error naming the missing property — failing to start
+  is not recoverable, running with one sign-in method is.
 
 **Sign-in throttling.** Repeated failed local sign-ins are progressively delayed,
 and an address making sustained attempts is refused with HTTP 429. Counters
@@ -474,7 +480,9 @@ jumps to its section, and each section offers a back-to-top link.*
 | Omnissa Access tenant | Administrator access to create OAuth clients and enable approvals |
 | Container host | Any Docker/Compose host; ~1 GB RAM is comfortable |
 | Inbound HTTPS | One path — `/api/approvals/new` — must be reachable from the internet with valid public TLS and public DNS, because the Access cloud POSTs callouts to it. The admin UI may remain LAN-only |
-| Reverse proxy | TLS termination with X-Forwarded headers passed through. For live queue updates behind nginx, disable proxy buffering on `/api/approvals/stream` |
+| Reverse proxy | TLS termination with X-Forwarded headers passed through. For live queue updates behind nginx, disable proxy buffering on `/api/approvals/stream`. If your gateway allow-lists paths, see 4.2 — it is the only place valid paths are enumerated |
+| SMTP | **Optional.** Without `SPRING_MAIL_HOST` the tool runs normally and logs a warning when a decision would have e-mailed the requester |
+| Omnissa Access OAuth clients | **Optional at first run.** The tool starts without them, on local sign-in, so you can verify the deployment before configuring the tenant |
 
 ---
 

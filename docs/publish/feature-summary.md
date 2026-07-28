@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.19.1"
+subtitle: "What was built between v1.2 and v1.19.2"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -16,7 +16,7 @@ Omnissa Access, showed them in a list, and posted approve or reject back. Every
 administrator who could sign in could do everything. Every approval was
 permanent.
 
-The list below is what was added between then and v1.19.1, grouped by what it
+The list below is what was added between then and v1.19.2, grouped by what it
 does rather than by the release it arrived in. The version each item shipped in
 is given in brackets.
 
@@ -118,6 +118,20 @@ is given in brackets.
   TypeScript 6, with no intended behaviour or visual change [1.4.0]
 - **In-app Help** gained condensed Slack and Teams setup walkthroughs [1.9.5]
   and a navigable contents list with back-to-top links
+
+## Getting it running
+
+- **It starts before you configure anything.** Omnissa Access OAuth and SMTP are
+  both genuinely optional: stand the container up, sign in locally, confirm it
+  serves, then point it at the tenant. Neither was optional before — a missing
+  client-id or mail host prevented start-up outright, despite the configuration
+  reference documenting the blank client-id as the way to run local-only
+  [1.19.2]
+- **Pages survive a refresh and a chat link.** Client routes were declared in
+  two places that drifted, so a page could work when clicked and 404 when
+  reloaded or opened from a Slack or Teams approval button. The server now
+  serves the app to anything no controller, actuator or asset claimed, rather
+  than matching a hand-kept list [1.19.2]
 
 ## The shape of it
 
