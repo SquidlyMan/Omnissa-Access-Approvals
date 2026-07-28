@@ -47,24 +47,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         // In-memory, so the suite neither reads nor writes the deployment's
         // ./data H2 files.
         "spring.datasource.url=jdbc:h2:mem:spa-routing;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        // MailNotification autowires JavaMailSender as a required dependency,
-        // and Boot only auto-configures one when a host is set — without this
-        // the context cannot start. Nothing is ever sent: no test posts a
-        // decision, and the host is never contacted at startup.
-        "spring.mail.host=localhost"
+        "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 class SpaRoutingTest {
 
     /**
-     * {@code oauth2Login} is configured unconditionally, so the security chain
-     * needs a {@link ClientRegistrationRepository} whatever the tenant
-     * properties say. Supplying one here takes Boot's auto-configured
-     * repository out of the picture, which keeps the suite offline: the
-     * registration is spelled out endpoint by endpoint, where an
-     * {@code issuer-uri} would send the context to fetch
-     * {@code /.well-known/openid-configuration} at startup and make every test
-     * depend on a reachable tenant. No test performs a login.
+     * Puts these routing rules under the OAuth2-configured filter chain, which
+     * is the arrangement the live deployment runs and the one where
+     * {@code /oauth2/**} and {@code /login/oauth2/**} are consumed before MVC
+     * sees them. (The unconfigured chain is covered by
+     * {@code FirstRunStartupTest}.)
+     *
+     * <p>Supplying a repository directly takes Boot's auto-configured one out
+     * of the picture, which keeps the suite offline: the registration is
+     * spelled out endpoint by endpoint, where an {@code issuer-uri} would send
+     * the context to fetch {@code /.well-known/openid-configuration} at startup
+     * and make every test depend on a reachable tenant. No test performs a
+     * login.
      */
     @TestConfiguration(proxyBeanMethods = false)
     static class StubTenant {

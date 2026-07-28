@@ -75,6 +75,18 @@ the client in the Access console.
 > tenant's discovery document does not match this value exactly, login fails
 > at startup or with an `invalid_id_token` error.
 
+**Optional means optional.** With `OMNISSA_ADMIN_OAUTH_CLIENT_ID` blank — the
+shipped default — no OAuth2 client is registered at all: nothing contacts a
+tenant at startup, `/oauth2/**` is not in the filter chain, and the sign-in
+page offers only the local form.
+
+A client id set *without* either `OMNISSA_ADMIN_OAUTH_ISSUER_URI` or manually
+configured `spring.security.oauth2.client.provider.omnissa.*` endpoints is a
+half-configuration. The tool starts anyway on local sign-in, logs an **error**
+naming which of the two to set, and keeps the OAuth2 button hidden rather than
+offering one that leads nowhere. Grep the log for `Admin OAuth2 login` to see
+which state you are in.
+
 ## Authentication Options
 
 | Variable | Default | Description |
@@ -228,7 +240,11 @@ sign-in; nothing needs resetting by hand.
 ## Email Notifications (SMTP)
 
 Outbound mail for approval decision notifications to requestors. Blank host
-= disabled.
+= disabled: no mail sender is created, health is unaffected, and decisions
+work exactly as before — each one logs a **warning** naming
+`spring.mail.host` instead of e-mailing the requester. Nothing fails
+silently, so a decision that looks successful never leaves you assuming a
+notification went out that did not.
 
 | Variable | Default | Description |
 |---|---|---|

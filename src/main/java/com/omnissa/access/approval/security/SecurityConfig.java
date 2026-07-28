@@ -1,5 +1,6 @@
 package com.omnissa.access.approval.security;
 
+import com.omnissa.access.approval.config.AdminOAuthEnvironmentPostProcessor;
 import com.omnissa.access.approval.model.security.AuthorityName;
 import com.omnissa.access.approval.repository.UserAccountRepository;
 import jakarta.servlet.DispatcherType;
@@ -13,6 +14,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -65,8 +67,14 @@ public class SecurityConfig {
     @Autowired
     private UserAccountRepository userAccountRepository;
 
-    @Value("${omnissa.admin-oauth.client-id:}")
-    private String adminClientId;
+    /**
+     * Read only to tell "no OIDC client was ever configured" apart from "one was
+     * named but its tenant endpoints are missing" when logging why OAuth2 login
+     * is not available. Whether it <em>is</em> available is decided by the
+     * presence of a {@link ClientRegistrationRepository}, never by this value.
+     */
+    @Autowired
+    private Environment environment;
 
     @Value("${omnissa.api.username:}")
     private String apiUsername;
@@ -259,9 +267,16 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "USER")
 
                 .anyRequest().authenticated()
-            )
-            // OAuth2 login — only wired when an admin OAuth2 client-id is configured
-            .oauth2Login(oauth2 -> {
+            );
+        // OAuth2 login — only wired when a client registration actually exists.
+        // The registration properties are contributed by
+        // AdminOAuthEnvironmentPostProcessor and only when an admin OIDC client
+        // is configured, so no repository means no tenant to sign in against.
+        // Configuring oauth2Login regardless used to leave /oauth2/authorization/omnissa
+        // in the filter chain pointing at nothing.
+        ClientRegistrationRepository repo = clientRegistrations.getIfAvailable();
+        if (repo != null) {
+            http.oauth2Login(oauth2 -> {
                 oauth2
                     .loginPage("/login")
                     // No alwaysUse: a chat deep link (/requests/{id}?action=approve)
@@ -275,14 +290,14 @@ public class SecurityConfig {
                     );
                 // Omnissa Access enforces PKCE even for confidential clients; Spring
                 // only sends code_challenge for public clients unless opted in here.
-                ClientRegistrationRepository repo = clientRegistrations.getIfAvailable();
-                if (repo != null) {
-                    var resolver = new DefaultOAuth2AuthorizationRequestResolver(
-                        repo, OAuth2AuthorizationRequestRedirectFilter.DEFAULT_AUTHORIZATION_REQUEST_BASE_URI);
-                    resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
-                    oauth2.authorizationEndpoint(authz -> authz.authorizationRequestResolver(resolver));
-                }
+                var resolver = new DefaultOAuth2AuthorizationRequestResolver(
+                    repo, OAuth2AuthorizationRequestRedirectFilter.DEFAULT_AUTHORIZATION_REQUEST_BASE_URI);
+                resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+                oauth2.authorizationEndpoint(authz -> authz.authorizationRequestResolver(resolver));
             });
+        } else {
+            logWhyOAuthIsNotWired();
+        }
         // Form login — local username/password fallback. Skipped entirely in
         // OAuth-only mode so POST /login/local no longer authenticates.
         if (!localLoginDisabled) {
@@ -354,6 +369,35 @@ public class SecurityConfig {
                 )
             );
         return http.build();
+    }
+
+    /**
+     * Says, once, why "Sign in with Omnissa Access" is not on offer.
+     *
+     * <p>Silence here is expensive: an operator who sets the OIDC variables and
+     * still sees only the password form has nothing to go on, and the two
+     * reasons need different fixes. Naming which one applies is the whole point
+     * of logging it.
+     */
+    private void logWhyOAuthIsNotWired() {
+        if (!AdminOAuthEnvironmentPostProcessor.clientIdConfigured(environment)) {
+            logger.info("Admin OAuth2 login is not configured (omnissa.admin-oauth.client-id is "
+                    + "blank) — local username/password sign-in only.");
+        } else {
+            // Half-configured. This used to be a startup failure reading
+            // "issuer cannot be empty", which named neither the property nor
+            // the tool. Running with local sign-in is recoverable; not starting
+            // is not.
+            logger.error("Admin OAuth2 login is DISABLED: omnissa.admin-oauth.client-id is set but "
+                    + "the tenant's OIDC endpoints are not. Set omnissa.admin-oauth.issuer-uri to "
+                    + "https://<tenant>/SAAS/auth, or spell the endpoints out with "
+                    + "spring.security.oauth2.client.provider.omnissa.* . Local sign-in still works.");
+        }
+        if (localLoginDisabled) {
+            logger.error("No sign-in method is available: OAuth2 login is not configured and "
+                    + "omnissa.auth.local-login-disabled=true. Nobody can log in until one of the "
+                    + "two is changed.");
+        }
     }
 
     /**
