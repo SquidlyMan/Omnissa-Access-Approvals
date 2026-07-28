@@ -49,8 +49,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Adding a route here also needs adding to SpaController's forward list,
-            or it will work in-app but 404 on refresh or a direct link. */}
+        {/* This is the only place client routes are declared. The server serves
+            the SPA shell for any unmatched, non-API page request (SpaController),
+            so a route added here survives a refresh or a direct link with no
+            backend change. A path-based allow-list on an external reverse proxy
+            is the one thing that can still 404 it — see docs/deployment.md. */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={
           <ProtectedRoute>
@@ -64,6 +67,11 @@ export default function App() {
           <Route path="rules" element={<QueueRoute><RulesPage /></QueueRoute>} />
           <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
           <Route path="help" element={<HelpPage />} />
+          {/* Unknown paths reach the client now that the server hands the shell
+              to anything that is not an API call or an asset, so the router owns
+              the mistyped URL. Without this it renders as a blank page inside
+              the chrome, which reads as a broken app rather than a bad link. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

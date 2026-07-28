@@ -1,10 +1,10 @@
 package com.omnissa.access.approval.controller;
 
+import com.omnissa.access.approval.dto.PagedResponse;
 import com.omnissa.access.approval.model.AuditEvent;
 import com.omnissa.access.approval.repository.AuditEventRepository;
 import com.omnissa.access.approval.util.Csv;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
@@ -31,13 +31,13 @@ public class AuditController {
     AuditEventRepository auditEventRepository;
 
     @GetMapping
-    public ResponseEntity<Page<AuditEvent>> getAuditEvents(
+    public ResponseEntity<PagedResponse<AuditEvent>> getAuditEvents(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
         int safePage = Math.max(page, 0);
         int safeSize = size > 0 ? Math.min(size, 500) : 25;
-        return ResponseEntity.ok(
-                auditEventRepository.findAllByOrderByIdDesc(PageRequest.of(safePage, safeSize)));
+        return ResponseEntity.ok(PagedResponse.from(
+                auditEventRepository.findAllByOrderByIdDesc(PageRequest.of(safePage, safeSize))));
     }
 
     /**

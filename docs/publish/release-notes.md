@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.19.1 and complete version history"
+subtitle: "Release Notes — v1.19.2 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -55,6 +55,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.19.2** | SPA route fallback, declared paged contract | `v1.19.2` |
 | **1.19.1** | Log-noise and routing fixes | `v1.19.1` |
 | **1.19.0** | Sign-in throttling, configurable password policy | `v1.19.1` |
 | **1.18.0** | Operability: health, drift detection, account management | `v1.18.0` |
@@ -77,11 +78,62 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.19.2
+
+### Key Capabilities in this release
+
+None. Both changes remove a class of failure rather than add behaviour.
+
+### Fixes
+
+- **The SPA is served as a fallback rather than from a list of routes.** Client
+  routes were declared twice — once in the backend forwarder, once in the
+  router — so adding a page to one and not the other produced a route that
+  worked in-app and 404'd on refresh or a direct link. 1.19.1 fixed the
+  `/users` instance but left the duplication, which had **already drifted
+  again**: the backend forwarded a `/settings/**` that the router does not
+  define. The backend now recognises "nothing else claimed this request" rather
+  than enumerating pages, so `/api/**`, `/actuator/**`, `/oauth2/**`,
+  `/logout`, `/assets/**` and `/error` are excluded by construction instead of
+  by list. A path whose last segment contains a `.` still 404s, so a missing
+  asset fails loudly rather than returning HTML.
+
+  This mattered beyond refresh: Slack and Teams buttons are deep links of the
+  form `/requests/{id}?action=approve`.
+- **Paged API responses are declared instead of inferred.** Two endpoints
+  returned Spring Data's internal page type directly, making its JSON an
+  accidental public contract — one the framework warns about on every response.
+  The shape is now an explicit type. **The wire format is unchanged, field for
+  field**, captured from the running endpoints before the change and confirmed
+  after.
+
+### Known Issues
+
+- **The application cannot start with a blank OAuth client-id**, which the
+  configuration reference documents as the supported way to disable OAuth
+  sign-in and run local-only. It fails with *"Client id of registration
+  'omnissa' must not be empty"*. Setting a client-id but leaving the issuer
+  blank fails differently. Every existing deployment configures OAuth, so this
+  is only reachable on a first run with no tenant. **Open.**
+- **The application also requires `spring.mail.host` to be set**, despite mail
+  health being disabled by default, or startup fails on a missing mail sender.
+  **Open.**
+- The limitations listed under **Current Known Limitations** below apply.
+
+> **⚠ Upgrade note — check your reverse proxy.**
+> The server no longer enforces a route list, so an enumerating proxy pattern
+> becomes the *only* thing that does, and it goes stale on every release that
+> adds a page. If your gateway allow-lists individual page paths, replace it
+> with `(/.*)`. Narrow the pattern by what must be internet-reachable —
+> `/api/approvals/new` — not by which pages happen to exist.
 
 ---
 
@@ -113,12 +165,12 @@ failure modes introduced by the role work in 1.16.1.
 
 ### Known Issues
 
-- **Route list is duplicated** between `SpaController` and the client router.
-  The two files now cross-reference each other, but a route added to one and
-  not the other still produces a page that works in-app and 404s on reload.
-  Scheduled for removal.
-- **Paged API responses are not wrapped in an explicit type**, so pagination
-  metadata is inferred by callers rather than declared. Scheduled.
+- **The route list was still duplicated** between the backend forwarder and
+  the client router; 1.19.1 only made the two cross-reference each other.
+  **Resolved in 1.19.2.**
+- **Paged API responses were not wrapped in an explicit type**, so pagination
+  metadata was inferred by callers rather than declared. **Resolved in
+  1.19.2.**
 - The limitations listed under **Current Known Limitations** below apply.
 
 ---
@@ -801,7 +853,7 @@ Not applicable — initial release.
 
 # Current Known Limitations
 
-These apply to v1.19.1 and are design boundaries rather than defects.
+These apply to v1.19.2 and are design boundaries rather than defects.
 
 - **Single tenant** — one Omnissa Access tenant per deployment.
 - **Embedded file database** — right for proof-of-concept scale; no clustering
@@ -848,13 +900,11 @@ Planned work, in the order it is likely to land. No commitment to dates.
 
 ## Fixes
 
-- **Remove the duplicated route list.** `SpaController` and the client router
-  each carry their own copy. They now cross-reference each other, but a route
-  added to one and not the other still produces a page that works in-app and
-  404s on reload — and chat deep links depend on that not happening. The
-  duplication itself needs to go.
-- **Wrap paged API responses in an explicit type**, so pagination metadata is
-  declared rather than inferred by callers.
+- **Allow the application to start with OAuth sign-in disabled.** The
+  configuration reference documents a blank client-id as the way to run
+  local-only, but that configuration currently fails to start — as does any
+  deployment without `spring.mail.host` set. The documented path and the code
+  need to agree.
 - **A short demonstration recording** for the repository landing page.
 
 ## Under consideration, not committed

@@ -167,6 +167,12 @@ Only `health` is exposed today (`management.endpoints.web.exposure.include=healt
 but a broad pattern would silently publish anything enabled later, and other
 actuator endpoints expose configuration and heap contents.
 
+The opposite advice applies to the pages: never enumerate them in
+`proxyPattern`. A page list held in the gateway goes stale on the next release
+and the symptom is a page that works in-app but 404s on refresh or from a chat
+approval link — see
+[Do not allow-list individual page paths](deployment.md#do-not-allow-list-individual-page-paths).
+
 ## Runbook
 
 ### `omnissaAccess` degraded

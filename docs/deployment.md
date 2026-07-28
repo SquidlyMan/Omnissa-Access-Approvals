@@ -115,6 +115,35 @@ With **Nginx Proxy Manager**, create a proxy host pointing at
 `/api/approvals/stream` settings as a *Custom Location* if live updates
 stall.
 
+### Do not allow-list individual page paths
+
+Proxy the whole site (`location /`, as above). Some gateways instead take a
+regular expression of permitted paths — the Unified Access Gateway's
+`proxyPattern` is the common one — and it is tempting to enumerate the pages:
+
+```
+(/|/login(/.*)?|/logout|/oauth2(/.*)?|/dashboard|/queue|/rules|/help|/requests(/.*)?|/assets(/.*)?|/api(/.*)?)
+```
+
+**Do not.** That list is a copy of the application's page structure kept in a
+system that has no way of knowing when the application changes. Every release
+that adds a page silently breaks it: the page works when clicked in the UI —
+the browser never asks the proxy, React Router just renders it — and 404s when
+the same URL is refreshed, bookmarked or opened from a Slack or Teams approval
+button. The tool used to keep a matching list server-side and it drifted twice
+in one release; a list held in a gateway you update by hand will drift further.
+
+The server no longer needs telling which paths are pages: anything that is not
+an API call, an asset or an actuator endpoint is served the SPA. A pattern of
+`(/.*)` — or simply proxying everything — is therefore both correct and
+permanently correct. If policy demands a narrow pattern, narrow it by what must
+be *reachable from outside*, not by what pages exist: only
+`/api/approvals/new` has to be internet-facing (see below).
+
+Note that `/actuator/health` does **not** belong in the pattern for the UAG's
+own health monitor — that connects directly to the internal resource. See
+[Monitoring](monitoring.md#unified-access-gateway).
+
 ## Inbound Connectivity
 
 Only **one** path must be reachable from the internet:

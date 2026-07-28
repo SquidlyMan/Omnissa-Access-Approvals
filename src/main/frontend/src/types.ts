@@ -51,12 +51,27 @@ export interface CalloutRequest {
   restoredAt: string | null
 }
 
+/**
+ * Every paged endpoint's response body — the mirror of the backend's
+ * PagedResponse DTO (#64). One declaration for all of them: the audit trail
+ * used to carry its own near-identical copy, so the two drifted (only one knew
+ * about `first`/`last`) and a backend field change had two places to be missed.
+ *
+ * `pageable` and `sort` are also on the wire but are Spring Data's internals
+ * and nothing here reads them, so they are left undeclared rather than
+ * invited into the UI.
+ */
 export interface Page<T> {
   content: T[]
   totalElements: number
   totalPages: number
+  /** Zero-based — the UI shows `number + 1`. */
   number: number
   size: number
+  numberOfElements: number
+  first: boolean
+  last: boolean
+  empty: boolean
 }
 
 export interface Stats {
@@ -92,15 +107,6 @@ export interface AuditEvent {
   requesterName: string | null
   requesterEmail: string | null
   message: string
-}
-
-export interface AuditPage {
-  content: AuditEvent[]
-  totalElements: number
-  totalPages: number
-  number: number
-  last: boolean
-  first: boolean
 }
 
 export interface Rule {
