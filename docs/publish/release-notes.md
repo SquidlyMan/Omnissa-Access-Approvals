@@ -114,18 +114,26 @@ None. Both changes remove a class of failure rather than add behaviour.
   The shape is now an explicit type. **The wire format is unchanged, field for
   field**, captured from the running endpoints before the change and confirmed
   after.
+- **A first-run install could not start.** The configuration reference
+  documented a blank client-id as the way to disable OAuth sign-in, shipped
+  that as the default, and then refused to boot. The claim was unachievable as
+  written — a placeholder with an empty default still *defines* the property,
+  so the framework saw an invalid registration. The properties are now
+  contributed only when a client-id is present, so the documented behaviour and
+  the actual behaviour agree. Mail is optional in the same way: a missing SMTP
+  host no longer prevents start-up.
+- **The reverse-proxy guidance was wrong and has been corrected.** An earlier
+  draft of the deployment guide recommended widening the gateway pattern to
+  `(/.*)`. That treats the application as the only control. The guide now
+  publishes an explicit allow-list, and a build-time check verifies it against
+  the routes the application declares.
 
 ### Known Issues
 
-- **The application cannot start with a blank OAuth client-id**, which the
-  configuration reference documents as the supported way to disable OAuth
-  sign-in and run local-only. It fails with *"Client id of registration
-  'omnissa' must not be empty"*. Setting a client-id but leaving the issuer
-  blank fails differently. Every existing deployment configures OAuth, so this
-  is only reachable on a first run with no tenant. **Open.**
-- **The application also requires `spring.mail.host` to be set**, despite mail
-  health being disabled by default, or startup fails on a missing mail sender.
-  **Open.**
+- None outstanding for this release. The two startup defects found while
+  building it — a blank OAuth client-id preventing start-up despite being the
+  documented way to run local-only, and a missing `spring.mail.host` doing the
+  same — are **fixed in this release**, listed under Fixes above.
 - The limitations listed under **Current Known Limitations** below apply.
 
 > **⚠ Upgrade note — check your reverse proxy.**
