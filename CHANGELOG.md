@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.2] - 2026-07-27
+
+### Changed
+- **The SPA is served as a fallback rather than from a list of routes.** `SpaController` hand-listed client routes and `App.tsx` declared the same routes independently; adding a page to one and not the other produced a route that worked in-app and 404'd on refresh or a direct link. 1.19.1 fixed the `/users` instance of this but only made the two files cross-reference each other in comments, so the duplication survived — and had already drifted again in the other direction, with `SpaController` forwarding a `/settings/**` that has no route in the router. This matters beyond refresh: Slack and Teams buttons are deep links of the form `/requests/{id}?action=approve`.
+
+  Implemented as a **fallback, not a catch-all**. A catch-all `@RequestMapping` runs at order 0, ahead of static resource handling, so it would swallow `/assets/**` and `/favicon.ico` and require a second enumeration to exclude them — trading one list for another. `SpaController` instead handles `NoResourceFoundException`, thrown by the lowest-precedence mapping: reaching it *means* every controller, the actuator and the resource handler already declined, so `/api/**`, `/actuator/**`, `/oauth2/**`, `/logout`, `/assets/**` and `/error` are excluded by construction rather than by list. Backend prefixes keep their real 404, and a path whose last segment contains a `.` is treated as a file so a missing bundle fails loudly instead of returning HTML. `App.tsx` gains a `path="*"` route, since mistyped URLs now reach the client.
+
+  **Deployment note:** the server no longer enforces a route list, which makes an enumerating reverse proxy the only thing that does — and it goes stale on every new page. `docs/deployment.md` now recommends `(/.*)`, and explains that a narrow pattern should be narrowed by what must be internet-reachable (`/api/approvals/new`), not by which pages exist.
+- **Paged API responses are declared instead of inferred.** `ApprovalController` and `AuditController` returned Spring Data's `Page<T>` straight out of a `@RestController`, so the wire format was whatever `PageImpl` happened to serialize to — an implementation detail acting as a public contract, and one Spring Boot warns about at runtime on every response (`Serializing PageImpl instances as-is is not supported`). A new generic `PagedResponse<T>` record carries the same fields; **the wire format is unchanged, field for field**, captured from the running controllers before the change and re-confirmed after. `spring.data.web.pageable.serialization-mode=VIA_DTO` was rejected as the fix because it nests the counts under a `page` object, moving `totalElements` and `totalPages` and breaking the queue's paging controls. On the frontend, `types.ts` declared the paged shape twice; `Page<T>` is now the single shared generic.
+
+### Tests
+- 220 → 242. The routing test requests a route that exists nowhere, and was confirmed to fail against the old controller rather than pass vacuously; companion tests prove `/api/**` and `/actuator/health` are still not forwarded to the SPA. The paged tests assert the serialized JSON — exact key set at every nesting level, every value for a known page, and the empty-result case — plus a classpath scan that fails if any `@RestController` returns `Page` or `Slice` again.
+
 ## [1.19.1] - 2026-07-26
 
 ### Fixed
