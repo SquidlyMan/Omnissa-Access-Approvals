@@ -38,6 +38,7 @@ COPY = {
     "reject-options.png":           "app_rejection_options.png",
     "allow-re-request.png":         "app_allow_re-request.png",
     "rules.png":                    "tool-rules.png",
+    "expiry-rule.png":              "app_expiry_rule.png",
     "chat-slack.png":               "app_slack_messages.png",
     "chat-teams.png":               "app_teams_messages.png",
     "users.png":                    "tool-users.png",
