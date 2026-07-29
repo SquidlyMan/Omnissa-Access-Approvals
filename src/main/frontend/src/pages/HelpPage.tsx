@@ -750,7 +750,9 @@ export default function HelpPage() {
             </li>
             <li>
               <span className="font-medium text-gray-800">Expiry rules</span> auto-reject requests
-              that stay pending longer than N days (checked hourly).
+              that stay pending longer than N days (checked hourly). They accept the same optional
+              application-name pattern and Access group as a match rule — leave both blank, which
+              is the usual case, to expire every stale request.
             </li>
           </ul>
           <p className="font-medium text-gray-800">Wildcard matching</p>
