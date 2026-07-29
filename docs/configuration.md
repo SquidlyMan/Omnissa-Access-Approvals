@@ -254,6 +254,15 @@ notification went out that did not.
 | `SPRING_MAIL_PASSWORD` | — | SMTP authentication password |
 | `SPRING_MAIL_FROM` | `no-reply@example.com` | Sender (From) address for requester emails — must be an address the relay accepts (Office 365: an accepted-domain address matching the sending account) |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | `false` | `true` for SMTP servers requiring STARTTLS (e.g. Gmail on 587) |
+| `SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT` | `10000` | Connect timeout, milliseconds |
+| `SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT` | `10000` | Read timeout, milliseconds |
+| `SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT` | `10000` | Write timeout, milliseconds |
+
+Mail is sent synchronously, and Jakarta Mail's own default for all three
+timeouts is **infinite** — so leave them set. A relay that silently drops
+packets rather than refusing the connection, which is what a firewalled port 25
+does, would otherwise hold the sending thread until the process restarts. Raise
+them if a slow relay is timing out legitimately; do not remove them.
 
 ## Webhook Notifications
 
