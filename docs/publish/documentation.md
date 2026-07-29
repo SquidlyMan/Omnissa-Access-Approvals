@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.19.3 • MIT License"
+date: "Version 1.19.4 • MIT License"
 ---
 
 **Repository:** <https://github.com/SquidlyMan/Omnissa-Access-Approvals>
@@ -695,7 +695,7 @@ All settings are container environment values. Required rows are marked ●.
 | `WEBHOOK_NOTIFY_LIFECYCLE` | `true` | Also notify on revoke/re-open events |
 | `SLACK_ACTIONABLE` | `false` | Add deep-link decision buttons to Slack messages |
 | `TEAMS_ACTIONABLE` | `false` | Post an Adaptive Card with deep-link buttons |
-| `SPRING_MAIL_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` / `SPRING_MAIL_FROM` | — | Optional SMTP for requester notifications |
+| `SPRING_MAIL_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` / `SPRING_MAIL_FROM` | — | Optional SMTP for requester notifications. Connect, read and write timeouts default to 10s — Jakarta Mail's own default is infinite, and mail is sent synchronously |
 | `SYSLOG_HOST` / `_PORT` / `_PROTOCOL` | —/514/udp | Syslog forwarding; `udp`, `tcp`, or `tls` |
 | `SYSLOG_CLIENT_CERT_FILE` / `_KEY_FILE` / `CA_FILE` | — | Mutual-TLS syslog (file paths preferred; PEM-inline variants also exist) |
 

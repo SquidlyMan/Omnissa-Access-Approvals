@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.19.3 and complete version history"
+subtitle: "Release Notes — v1.19.4 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -55,6 +55,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.19.4** | Bounded SMTP timeouts | `v1.19.4` |
 | **1.19.3** | Expiry rules honour their own criteria | `v1.19.3` |
 | **1.19.2** | SPA route fallback, declared paged contract | `v1.19.2` |
 | **1.19.1** | Log-noise and routing fixes | `v1.19.1` |
@@ -79,11 +80,38 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.19.4
+
+### Key Capabilities in this release
+
+None. A single corrective change.
+
+### Fixes
+
+- **SMTP operations are now bounded.** Mail is sent synchronously and no
+  timeouts were configured; Jakarta Mail defaults connect, read and write to
+  **infinite**. A relay that silently drops packets rather than refusing the
+  connection — what a firewalled port 25 does — held the sending thread until
+  the process restarted. All three are now 10 seconds.
+
+  The affected thread belongs to the request that made a decision, so the
+  visible damage was one stuck response. It is worth fixing now because every
+  scheduled job shares a single thread: the same hang reached from a background
+  sweep would also stop time-bound access from expiring, silently, while every
+  health check stayed green.
+
+### Known Issues
+
+- None outstanding for this release.
+- The limitations listed under **Current Known Limitations** below apply.
 
 ---
 
@@ -899,7 +927,7 @@ Not applicable — initial release.
 
 # Current Known Limitations
 
-These apply to v1.19.3 and are design boundaries rather than defects.
+These apply to v1.19.4 and are design boundaries rather than defects.
 
 - **Single tenant** — one Omnissa Access tenant per deployment.
 - **Embedded file database** — right for proof-of-concept scale; no clustering

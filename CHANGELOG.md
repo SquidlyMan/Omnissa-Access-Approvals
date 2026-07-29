@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.4] - 2026-07-28
+
+### Fixed
+- **SMTP operations were unbounded.** `MailNotification` sends synchronously and `application.properties` set none of `mail.smtp.connectiontimeout`, `mail.smtp.timeout` or `mail.smtp.writetimeout` — Jakarta Mail defaults all three to **infinite**. A relay that silently drops packets rather than refusing the connection, which is what a firewalled port 25 does and is ordinary rather than exotic, parked the sending thread with no recovery short of a restart. A refused connection fails fast and was never the problem; a blackholed one is.
+
+  All three are now 10 seconds. Today the affected thread belongs to the request that made a decision, so the damage was one stuck response — bad but survivable, and visible to the person waiting. The reason this is worth fixing ahead of the feature that prompted it: every `@Scheduled` job shares a single thread, so the same hang reached from a sweep would also stop JIT expiry, and time-bound access would silently never expire while every health check stayed green.
+
+  Asserted against the configured `JavaMailSender` rather than against the properties file, because those are different claims — a misspelled key, a move to a profile-specific file, or a hand-built sender bean would each leave the properties present and the sender unbounded.
+
+### Tests
+- 267 → 269.
+
 ## [1.19.3] - 2026-07-28
 
 ### Fixed
