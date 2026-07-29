@@ -251,6 +251,12 @@ appear in the audit trail and fire decision webhooks with rule attribution.
 disabled without deleting, and the Add Rule panel switches between the match
 form (left) and the expiry form (right).*
 
+![](assets/expiry-rule.png)
+
+*Figure 11 — the expiry form close up. Application pattern and group are
+optional and scope which stale requests the rule rejects; leaving both blank —
+the usual case — expires every one of them.*
+
 ### 2.7 Chat Approvals — Slack and Teams
 
 New requests can post to Slack or Microsoft Teams with **Approve**, **Reject**
@@ -260,13 +266,13 @@ signs in, and the ordinary role rules apply.
 
 ![](assets/chat-slack.png)
 
-*Figure 11 — Slack. New requests carry the three buttons; lifecycle events
+*Figure 12 — Slack. New requests carry the three buttons; lifecycle events
 (auto-approval, decisions, expiry, exclusions lifting) post as follow-up
 messages stating the consequence.*
 
 ![](assets/chat-teams.png)
 
-*Figure 12 — the same flow in Microsoft Teams via a Power Automate workflow.*
+*Figure 13 — the same flow in Microsoft Teams via a Power Automate workflow.*
 
 **Why deep links rather than deciding in chat.** A Slack interaction callback
 arrives at an endpoint where no signed-in user exists — the signature proves the
@@ -355,7 +361,7 @@ All of these are audited.
 
 ![](assets/users.png)
 
-*Figure 13 — the Users page. New accounts always start as Viewer; raising that
+*Figure 14 — the Users page. New accounts always start as Viewer; raising that
 is a separate, deliberate step.*
 
 > **The bootstrap variables cannot rotate a password.**
@@ -423,7 +429,7 @@ This is two-step confirmed, fully audited, and **never touches Omnissa Access**.
 
 ![](assets/delete-confirm.png)
 
-*Figure 14 — deletion is two-step: acknowledge the consequence, then type
+*Figure 15 — deletion is two-step: acknowledge the consequence, then type
 DELETE. Both steps restate that Access is not contacted.*
 
 **Deleting a request that is still pending is refused** (HTTP 409). Access holds
@@ -470,7 +476,7 @@ readable by every role, including Auditor.
 
 ![](assets/help-contents.png)
 
-*Figure 15 — the Help page and its nineteen-section contents list. Each entry
+*Figure 16 — the Help page and its nineteen-section contents list. Each entry
 jumps to its section, and each section offers a back-to-top link.*
 
 ---
@@ -573,7 +579,7 @@ the backup/restore scripts.
 
 ![](assets/access-service-client.png)
 
-*Figure 16 — service client in Omnissa Access (Service Client Token, admin scope).*
+*Figure 17 — service client in Omnissa Access (Service Client Token, admin scope).*
 
 ### 5.2 OIDC Admin Login Client
 
@@ -594,7 +600,7 @@ the backup/restore scripts.
 
 ![](assets/access-oidc-client.png)
 
-*Figure 17 — OIDC admin login client (authorization code + PKCE). Note: the scope
+*Figure 18 — OIDC admin login client (authorization code + PKCE). Note: the scope
 list must also include `group` for role resolution.*
 
 ### 5.3 Approvals Settings
@@ -607,7 +613,7 @@ DNS, TLS, or reachability problems (Section 9).
 
 ![](assets/access-approvals-settings.png)
 
-*Figure 18 — Settings → Approvals: REST API engine pointed at the callout URI.*
+*Figure 19 — Settings → Approvals: REST API engine pointed at the callout URI.*
 
 ### 5.4 Putting Applications Behind Approval
 
@@ -620,11 +626,11 @@ recorded in the tool.
 
 ![](assets/access-license-approval.png)
 
-*Figure 19 — License Approval Required on an application.*
+*Figure 20 — License Approval Required on an application.*
 
 ![](assets/access-assignment.png)
 
-*Figure 20 — assignment deployment type selection (User-Activated / Automatic).*
+*Figure 21 — assignment deployment type selection (User-Activated / Automatic).*
 
 ---
 
@@ -730,7 +736,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 
 ![](assets/hub-pending.png)
 
-*Figure 21 — the user side: PENDING until somebody, or a rule, says yes.*
+*Figure 22 — the user side: PENDING until somebody, or a rule, says yes.*
 
 ---
 
