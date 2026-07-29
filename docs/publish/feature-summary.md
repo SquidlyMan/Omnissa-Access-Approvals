@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.19.2"
+subtitle: "What was built between v1.2 and v1.19.3"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -16,7 +16,7 @@ Omnissa Access, showed them in a list, and posted approve or reject back. Every
 administrator who could sign in could do everything. Every approval was
 permanent.
 
-The list below is what was added between then and v1.19.2, grouped by what it
+The list below is what was added between then and v1.19.3, grouped by what it
 does rather than by the release it arrived in. The version each item shipped in
 is given in brackets.
 

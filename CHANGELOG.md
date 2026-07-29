@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.3] - 2026-07-28
+
+### Fixed
+- **Expiry rules ignored `appPattern` and `groupName` entirely.** `RuleScheduler.runApplyExpiryRules()` selected requests by age alone, so a rule reading *"auto-reject Finance\* pending over 3 days"* rejected **every** pending request past three days, whatever the application or group. An unadvertised auto-reject, acting on real entitlement decisions, on an hourly schedule. The sweep now applies the rule's criteria.
+
+  **The obvious fix would have been worse than the bug.** Reusing the arrival-path matcher looked right and is wrong: `RuleEngine` returns *no match* for a rule carrying neither criterion, and a rule carrying neither criterion is the ordinary expiry rule — the form creates it and `RulesController.validate` explicitly permits it. Every such rule would have silently stopped rejecting anything while sitting enabled and green, and requesters would have waited indefinitely on approvals Access holds open until it receives a decision. 1.18.0 already recorded that failure shape: *"five requests sat stuck this way and presented as an Access provisioning fault."*
+
+  So the two paths now state opposite meanings for an empty rule, deliberately and in their javadoc: `matchesMatchRule` treats it as matching **nothing** (an unfinished rule must not auto-decide everything on arrival), `matchesExpiryRule` as matching **everything** (that is what a criteria-less expiry rule means). Both readings are tested, and each was verified to fail against the opposite implementation rather than merely to pass against this one.
+
+### Changed
+- **The expiry rule form gained App name pattern and Group name fields.** They existed on the entity but `RulesPage` hard-coded both to `null` on every expiry rule it created, so the scoping this release fixes was unreachable from the interface. The rules list now states the scope too — a scoped rule rejects far less than an unscoped one, and the rule row is the only place that is visible.
+- **On first sweep after upgrade, any expiry rule carrying criteria is logged at WARN**, naming the rule and what it now matches. Correcting this narrows what a rule rejects, and that direction is silent: requests that were being auto-cleared simply start accumulating, with the rule still enabled and every health check green. A changelog entry is documentation; this is detection.
+
+### Tests
+- 259 → 267.
+
 ## [1.19.2] - 2026-07-27
 
 ### Changed

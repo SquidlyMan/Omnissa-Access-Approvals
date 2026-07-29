@@ -16,7 +16,7 @@ change.
 | `blog-post.md` | Introductory blog post — leads with the unsupported / non-production disclaimer |
 | `documentation.md` | Complete reference: features, deployment, tenant setup, configuration, POC walkthrough |
 | `release-notes.md` | Per-version capabilities, fixes and known issues, plus what is planned. No dates — versions, not calendars |
-| `feature-summary.md` | Everything built between v1.2 and v1.19.2, grouped by capability rather than release. For briefing someone who last saw v1.2 |
+| `feature-summary.md` | Everything built between v1.2 and v1.19.3, grouped by capability rather than release. For briefing someone who last saw v1.2 |
 | `style.css` | Shared print/screen styling, so both documents look like one product |
 | `assets/` | Diagrams and screenshots referenced by both documents |
 | `out/` | Generated HTML, PDF and DOCX (git-ignored) |

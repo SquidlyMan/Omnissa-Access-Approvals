@@ -52,6 +52,12 @@ public class RuleScheduler {
     private AuditService auditService;
 
     @Autowired
+    private com.omnissa.access.approval.util.RuleEngine ruleEngine;
+
+    /** Guards the one-time scope report below. */
+    private boolean scopeReported = false;
+
+    @Autowired
     private WebhookNotifier webhookNotifier;
 
     @Autowired
@@ -78,10 +84,19 @@ public class RuleScheduler {
         if (expiryRules.isEmpty()) {
             return;
         }
+        reportScopedExpiryRulesOnce(expiryRules);
         for (AutoRule rule : expiryRules) {
             Date threshold = Date.from(Instant.now().minus(rule.getExpiryDays(), ChronoUnit.DAYS));
             for (CalloutRequest request : approvalsRepository.findByState("pending")) {
                 if (request.getReceivedDate() == null || !request.getReceivedDate().before(threshold)) {
+                    continue;
+                }
+                // Until this check existed the expiry sweep consulted neither
+                // appPattern nor groupName, so one enabled rule rejected every
+                // stale request regardless of application or group. A rule with
+                // no criteria still selects everything — that is the ordinary
+                // expiry rule. See RuleEngine.matchesExpiryRule.
+                if (!ruleEngine.matchesExpiryRule(rule, request)) {
                     continue;
                 }
                 try {
@@ -113,6 +128,41 @@ public class RuleScheduler {
                 }
             }
         }
+    }
+
+    /**
+     * Names, once per start-up, any expiry rule whose reach just narrowed.
+     *
+     * <p>This sweep used to ignore {@code appPattern} and {@code groupName}, so
+     * a rule carrying either rejected far more than it said it would. Correcting
+     * that is a behaviour change in the direction nobody notices: requests that
+     * were being auto-cleared simply start accumulating, quietly, with the rule
+     * still enabled and every health check green.
+     *
+     * <p>A changelog entry is documentation, not detection. This is the line an
+     * operator can find in the log after wondering why a queue stopped draining.
+     */
+    private void reportScopedExpiryRulesOnce(List<AutoRule> expiryRules) {
+        if (scopeReported) {
+            return;
+        }
+        scopeReported = true;
+        List<AutoRule> scoped = expiryRules.stream()
+                .filter(rule -> notBlank(rule.getAppPattern()) || notBlank(rule.getGroupName()))
+                .toList();
+        for (AutoRule rule : scoped) {
+            logger.warn("Expiry rule #{} is now scoped to app={} group={} and no longer rejects every "
+                            + "stale request. Before this release its criteria were ignored, so it "
+                            + "auto-rejected all pending requests older than {} days.",
+                    rule.getId(),
+                    notBlank(rule.getAppPattern()) ? rule.getAppPattern() : "(any)",
+                    notBlank(rule.getGroupName()) ? rule.getGroupName() : "(any)",
+                    rule.getExpiryDays());
+        }
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.isBlank();
     }
 
     /** Hold between excluding a re-requestable grant and lifting the exclusion, so

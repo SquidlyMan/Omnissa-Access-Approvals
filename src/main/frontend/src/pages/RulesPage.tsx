@@ -24,7 +24,12 @@ function describeDuration(minutes: number): string {
 
 function describeRule(rule: Rule): string {
   if (rule.expiryDays != null) {
-    return `Auto-reject requests pending longer than ${rule.expiryDays} day${rule.expiryDays === 1 ? '' : 's'}`
+    // State the scope. An expiry rule with criteria rejects far less than one
+    // without, and the rule row is the only place that is visible.
+    const scope = rule.appPattern && rule.appPattern !== '*' ? ` for app "${rule.appPattern}"` : ''
+    const group = rule.groupName ? ` from group "${rule.groupName}"` : ''
+    const days = `${rule.expiryDays} day${rule.expiryDays === 1 ? '' : 's'}`
+    return `Auto-reject requests${scope}${group} pending longer than ${days}`
   }
   const verb = rule.action === 'approve' ? 'Auto-approve' : 'Auto-reject'
   const app = rule.appPattern && rule.appPattern !== '*' ? `app "${rule.appPattern}"` : 'any app'
@@ -109,7 +114,8 @@ export default function RulesPage() {
     const body = ruleType === 'match'
       ? { enabled: true, action, appPattern: appPattern.trim() || null, groupName: groupName.trim() || null,
           expiryDays: null, grantTtlMinutes: action === 'approve' ? grantTtl : null }
-      : { enabled: true, action: 'reject', appPattern: null, groupName: null, expiryDays: Number(expiryDays), grantTtlMinutes: null }
+      : { enabled: true, action: 'reject', appPattern: appPattern.trim() || null, groupName: groupName.trim() || null,
+          expiryDays: Number(expiryDays), grantTtlMinutes: null }
     try {
       const res = await fetch('/api/rules', {
         method: 'POST',
@@ -303,6 +309,34 @@ export default function RulesPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
                 />
                 <p className="text-xs text-gray-400 mt-1">Requests pending longer than this are auto-rejected.</p>
+              </div>
+              {/* Leave both blank to expire every stale request — that is the
+                  ordinary expiry rule. Filling either narrows it. Before the
+                  matcher fix the sweep ignored these entirely, so a scoped rule
+                  silently rejected everything. */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  App name pattern <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={appPattern}
+                  onChange={e => setAppPattern(e.target.value)}
+                  placeholder="blank = every app"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Group name <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={e => setGroupName(e.target.value)}
+                  placeholder="blank = every group"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
+                />
               </div>
             </div>
           )}

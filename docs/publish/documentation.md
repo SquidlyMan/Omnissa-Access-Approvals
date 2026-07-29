@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.19.2 • MIT License"
+date: "Version 1.19.3 • MIT License"
 ---
 
 **Repository:** <https://github.com/SquidlyMan/Omnissa-Access-Approvals>
@@ -237,7 +237,9 @@ The Rules page manages two rule types:
   matching is an exact, case-insensitive comparison against the requesting user's
   group list. Approve rules may grant time-bound access.
 - **Expiry rules** auto-reject requests left pending longer than a chosen number
-  of days, evaluated hourly.
+  of days, evaluated hourly. They accept the same optional application-name
+  pattern and group as a match rule; leaving both blank — the usual case —
+  expires every stale request.
 
 **Precedence:** rules evaluate in ascending rule number (creation order); the
 first enabled matching rule wins and later rules are ignored. All rule decisions
