@@ -35,19 +35,52 @@ public class RuleEngine {
             if (!rule.isEnabled() || rule.getExpiryDays() != null) {
                 continue;
             }
-            if (matches(rule, request)) {
+            if (matchesMatchRule(rule, request)) {
                 return rule;
             }
         }
         return null;
     }
 
-    private boolean matches(AutoRule rule, CalloutRequest request) {
+    /**
+     * Does this MATCH rule select the request?
+     *
+     * <p>A rule with neither criterion selects <strong>nothing</strong>. On the
+     * arrival path that is the safe reading: an empty rule is an unfinished one,
+     * and treating it as "everything" would auto-decide every incoming request
+     * the moment somebody saved a half-filled form.
+     */
+    public boolean matchesMatchRule(AutoRule rule, CalloutRequest request) {
+        return matches(rule, request, false);
+    }
+
+    /**
+     * Does this EXPIRY rule select the request?
+     *
+     * <p>A rule with neither criterion selects <strong>everything</strong> — the
+     * opposite of {@link #matchesMatchRule}, and deliberately so.
+     *
+     * <p>The two paths mean different things by an empty rule. "Auto-reject
+     * anything pending more than 3 days" is the ordinary expiry rule, and
+     * {@code RulesController.validate} explicitly permits it: match criteria are
+     * only required when {@code expiryDays} is null. Applying the arrival-path
+     * reading here would make that rule select nothing — it would sit enabled
+     * and green while never rejecting anything again, and requesters would wait
+     * indefinitely on approvals Access holds open until it receives a decision.
+     *
+     * <p>Criteria, when present, are honoured. Until this method existed the
+     * expiry sweep ignored them entirely, so a single enabled rule rejected
+     * every pending request past its age regardless of application or group.
+     */
+    public boolean matchesExpiryRule(AutoRule rule, CalloutRequest request) {
+        return matches(rule, request, true);
+    }
+
+    private boolean matches(AutoRule rule, CalloutRequest request, boolean emptySelectsEverything) {
         boolean hasPattern = notBlank(rule.getAppPattern());
         boolean hasGroup = notBlank(rule.getGroupName());
-        // A rule with neither criterion never matches.
         if (!hasPattern && !hasGroup) {
-            return false;
+            return emptySelectsEverything;
         }
         if (hasPattern && !matchesAppPattern(rule.getAppPattern(), request.getResourceName())) {
             return false;

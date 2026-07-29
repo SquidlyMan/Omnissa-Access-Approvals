@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.19.2 and complete version history"
+subtitle: "Release Notes — v1.19.3 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -55,6 +55,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.19.3** | Expiry rules honour their own criteria | `v1.19.3` |
 | **1.19.2** | SPA route fallback, declared paged contract | `v1.19.2` |
 | **1.19.1** | Log-noise and routing fixes | `v1.19.1` |
 | **1.19.0** | Sign-in throttling, configurable password policy | `v1.19.1` |
@@ -78,11 +79,46 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.19.3
+
+### Key Capabilities in this release
+
+- **Expiry rules can be scoped.** They accept the same optional application-name
+  pattern and group as a match rule, so *"reject stale Finance requests after
+  3 days"* is now expressible. Leaving both blank — the usual case — still
+  expires every stale request.
+
+### Fixes
+
+- **Expiry rules ignored their own criteria.** The sweep selected requests by
+  age alone, so a rule naming an application rejected *every* pending request
+  past its age, whatever the application. The criteria are now applied, and the
+  rule form finally exposes the fields — it previously discarded them, which is
+  why the problem went unnoticed.
+
+  The obvious correction would have been worse than the fault: the arrival-path
+  matcher treats a rule with no criteria as matching *nothing*, and that is the
+  ordinary expiry rule. Reusing it would have stopped auto-rejection everywhere
+  while every rule stayed enabled and every health check stayed green.
+
+### Known Issues
+
+- None outstanding for this release.
+- The limitations listed under **Current Known Limitations** below apply.
+
+> **⚠ Upgrade note — check any expiry rule that names an application or group.**
+> Such a rule was rejecting far more than it said. It now rejects only what it
+> names, so requests it was previously clearing will begin to accumulate. On the
+> first sweep after upgrade each affected rule is logged at WARN. Rules with no
+> criteria — the usual case — are unaffected.
 
 ---
 
@@ -863,7 +899,7 @@ Not applicable — initial release.
 
 # Current Known Limitations
 
-These apply to v1.19.2 and are design boundaries rather than defects.
+These apply to v1.19.3 and are design boundaries rather than defects.
 
 - **Single tenant** — one Omnissa Access tenant per deployment.
 - **Embedded file database** — right for proof-of-concept scale; no clustering
