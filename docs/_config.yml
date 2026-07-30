@@ -1,0 +1,31 @@
+# Jekyll configuration for the GitHub Pages documentation site.
+#
+# The theme is named explicitly rather than left to the default. Adding this
+# file at all takes the site off Pages' implicit configuration, and the built
+# site was already using jekyll-theme-primer -- naming it keeps the appearance
+# exactly as it is.
+theme: jekyll-theme-primer
+
+title: Access Approval Tool for Omnissa
+description: A self-hosted approval gateway for Omnissa Access application approvals
+
+# publish/ is pandoc input for the DOCX and PDF deliverables, not website pages.
+#
+# It has to be excluded, not merely left unlinked. Jekyll renders every markdown
+# file under the source directory whether anything links to it or not, and these
+# four carry a `date:` in their frontmatter that is a human subtitle -- "Version
+# 1.19.4 • MIT License" -- because that is what pandoc puts in a title block.
+# Jekyll requires `date:` to be a real datetime, raises
+#
+#     Liquid Exception: Invalid Date: '"Version 1.19.4 • MIT License"'
+#
+# and then fails the ENTIRE build. That is not hypothetical: it broke the
+# documentation site for fifteen consecutive builds, and because a Pages failure
+# leaves the previously deployed site serving happily, nothing looked wrong. The
+# site simply stopped receiving updates while every merge reported success.
+#
+# Renaming the key would satisfy Jekyll and break the rendered title block, so
+# the source of truth for the deliverables stays as pandoc needs it and the site
+# is told not to look.
+exclude:
+  - publish/
