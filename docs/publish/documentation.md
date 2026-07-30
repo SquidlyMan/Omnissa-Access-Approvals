@@ -447,6 +447,12 @@ given. Decline it first; a decided record deletes harmlessly.
 - Every other endpoint requires an authenticated session **and a sufficient
   role**. `/api/**` returns a JSON 401 rather than redirecting, so an expired
   session is distinguishable from an empty successful response.
+- **Paged endpoints return a declared shape**, not whatever the persistence
+  layer happens to serialize. The queue and the audit trail both answer with
+  `content`, `number`, `size`, `totalElements`, `totalPages` and the usual
+  boolean flags. Anything integrating against these can rely on those field
+  names; previously they were an implementation detail that could have moved
+  under a framework upgrade.
 
 ### 2.14 Expired-Request Handling
 

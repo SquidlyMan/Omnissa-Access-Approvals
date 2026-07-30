@@ -94,13 +94,20 @@ your syslog collector.
 
 **Auto-approval rules**, wildcard app-name and group matching, first match wins,
 with optional time-bound grants — plus auto-reject for requests left pending too
-long.
+long. Both kinds scope the same way, so *"expire stale Finance requests after
+three days"* is a rule you can actually write.
 
 **Operational honesty.** A health endpoint that distinguishes "this container is
 down" from "something it depends on is unhealthy", including a check for
 approval requests Access is holding that never reached the queue. That last one
 exists because it happened to me, and it looked exactly like an Access
 provisioning fault for several days.
+
+**It starts before you have configured anything.** No tenant, no OAuth client,
+no SMTP relay — it comes up on local sign-in and waits. That sounds like a
+small thing and is not: the first version required all three, so the first
+thing a new operator saw was a stack trace rather than a sign-in page. Stand
+the container up, confirm it serves, *then* point it at Access.
 
 ## Two Decisions Worth Explaining
 
@@ -143,6 +150,8 @@ High level, four moves:
 
 **1. Run the container.** Pull `ghcr.io/squidlyman/omnissa-access-approvals:latest`,
 hand it an env file, mount a data volume, and put a TLS reverse proxy in front.
+Nothing below is needed to get this far — it will start with no tenant
+configured, so you can confirm it serves before involving Access at all.
 One path — `/api/approvals/new` — must be reachable from the internet, because
 the Access cloud does the POSTing. The admin UI can stay on your LAN.
 
