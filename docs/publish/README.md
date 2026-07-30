@@ -101,7 +101,8 @@ So the decks are checked, not built:
 
 | Check | Catches |
 |---|---|
-| Footer version | A footer still naming an old release. Only the footer — the body cites earlier versions constantly and correctly, and an earlier draft that flagged all nine of those was worse than no check |
+| Footer version | A footer still naming an old release |
+| Version citations | Any version the deck names — `v1.19.4`, `[1.19.3]`, "shipped in 1.19.2" — that has no `CHANGELOG.md` entry, i.e. a typo or a release that never shipped. Historical citations are correct and stay silent. Only these three forms count: the decks also say "Java 17", "Spring Boot 4.1" and "OAuth 2.0", and matching bare numbers flagged OAuth's version as a missing release |
 | Configuration variables | The deck naming an environment variable that appears nowhere in the code or docs |
 | Text growth | A text box whose content outgrew what it holds |
 | Formatting | Any shape moved, resized, recoloured, or a font or type size changed — including the shape-tree transform, which offsets every shape on a slide at once |

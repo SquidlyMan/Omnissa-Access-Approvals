@@ -186,6 +186,63 @@ def check_version(deck, zf, version):
                    f"{' …' if len(stale) > 4 else ''}")
 
 
+def released_versions():
+    """Every version with a CHANGELOG entry, plus the one being built."""
+    out = set()
+    changelog = REPO / "CHANGELOG.md"
+    if changelog.is_file():
+        out |= set(re.findall(r"^## \[(\d+\.\d+(?:\.\d+)?)\]",
+                              changelog.read_text(encoding="utf-8"), re.M))
+    return out
+
+
+def check_version_citations(deck, zf, version):
+    """Every version the deck names must be a release that exists.
+
+    Distinct from the footer check, and worth having separately: the body cites
+    earlier versions constantly and correctly -- "resolved in 1.16.1", "[1.5.0]"
+    -- so comparing them to the current release would flag nine correct
+    sentences. What is always wrong is citing a version that never shipped,
+    which is what a typo or a renumbered release looks like.
+    """
+    known = released_versions()
+    if not known:
+        return
+    known.add(version)
+
+    # Only the forms that denote a release of THIS tool. A bare number cannot be
+    # used: these decks also say "Java 17", "Spring Boot 4.1", "Vite 8" and
+    # "OAuth 2.0", and matching loosely flagged OAuth's version number as a
+    # missing release. The negative lookbehind matters too -- without it,
+    # "V1.19.1" is matched from the wrong offset and reads as "19.1".
+    CITED = re.compile(r"(?<![\w.])v(\d+\.\d+(?:\.\d+)?)(?![\w.])"     # v1.19.4
+                       r"|\[(\d+\.\d+(?:\.\d+)?)\]"                    # [1.19.3]
+                       r"|\bin (\d+\.\d+(?:\.\d+)?)(?![\w.])",         # in 1.19.2
+                       re.I)
+
+    unknown = []
+    for num, xml in slides(zf):
+        for m in CITED.finditer(text(xml)):
+            cited = next(g for g in m.groups() if g)
+            if cited in known:
+                continue
+            # A bare "1.19" is how the container tag is written, and matches any
+            # patch on that line; treat it as real if any release starts with it.
+            if cited.count(".") == 1 and any(k.startswith(cited + ".")
+                                             for k in known):
+                continue
+            unknown.append(f"{cited} (slide {num})")
+    if unknown:
+        seen, ordered = set(), []
+        for u in unknown:
+            if u not in seen:
+                seen.add(u)
+                ordered.append(u)
+        note(deck, "names version(s) with no CHANGELOG entry — a typo or a "
+                   f"release that never shipped: {', '.join(ordered[:6])}"
+                   f"{' …' if len(ordered) > 6 else ''}")
+
+
 # There is deliberately no screenshot-freshness check. Matching deck images
 # against docs/images by content hash was tried and reported 87 of 90 images as
 # unmatched: the deck's copies are cropped and rescaled for a 16:9 card, so
@@ -314,6 +371,7 @@ def main():
             if not record:
                 check_formatting(filename, zf, stored.get(filename))
                 check_version(filename, zf, version)
+                check_version_citations(filename, zf, version)
                 check_env_vars(filename, zf)
                 check_growth(filename, zf, stored.get(filename),
                              fresh[filename])
