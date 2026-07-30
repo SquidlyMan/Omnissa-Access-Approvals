@@ -4,6 +4,8 @@ author: "Dean Flaming"
 date: "July 2026 • Omnissa Access, Workspace ONE, Lab Projects"
 ---
 
+![](assets/logo.png){.logo width="0.52in"}
+
 > ### ⚠️ READ THIS FIRST — UNSUPPORTED, NON-PRODUCTION
 >
 > **This is not an Omnissa product.** It is a personal lab project, provided
@@ -103,11 +105,11 @@ approval requests Access is holding that never reached the queue. That last one
 exists because it happened to me, and it looked exactly like an Access
 provisioning fault for several days.
 
-**It starts before you have configured anything.** No tenant, no OAuth client,
-no SMTP relay — it comes up on local sign-in and waits. That sounds like a
-small thing and is not: the first version required all three, so the first
-thing a new operator saw was a stack trace rather than a sign-in page. Stand
-the container up, confirm it serves, *then* point it at Access.
+**It starts before you configure anything.** Omnissa Access OAuth and SMTP are
+both genuinely optional, so you can stand the container up, sign in with the
+local admin account, confirm it serves, and only then point it at a tenant.
+That matters more than it sounds: when start-up depends on tenant
+configuration, a configuration mistake and a deployment mistake look identical.
 
 ## Two Decisions Worth Explaining
 

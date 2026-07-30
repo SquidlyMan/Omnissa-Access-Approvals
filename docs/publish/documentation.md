@@ -5,6 +5,8 @@ author: "Dean Flaming (SquidlyMan)"
 date: "Version 1.19.4 • MIT License"
 ---
 
+![](assets/logo.png){.logo width="0.52in"}
+
 **Repository:** <https://github.com/SquidlyMan/Omnissa-Access-Approvals>
 **Container:** `ghcr.io/squidlyman/omnissa-access-approvals`
 

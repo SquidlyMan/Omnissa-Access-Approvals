@@ -5,6 +5,8 @@ author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
 
+![](assets/logo.png){.logo width="0.52in"}
+
 > ### ⚠️ UNSUPPORTED — NON-PRODUCTION USE ONLY
 >
 > **Not an Omnissa product. Not supported by Omnissa. Provided as-is, without
@@ -119,6 +121,19 @@ is given in brackets.
 - **In-app Help** gained condensed Slack and Teams setup walkthroughs [1.9.5]
   and a navigable contents list with back-to-top links
 
+## Decision automation
+
+- **Expiry rules can be scoped** — an expiry rule now takes the same optional
+  application-name pattern and Access group as a match rule, so *"reject stale
+  Finance requests after 3 days"* is expressible. Leaving both blank — the usual
+  case — still expires every stale request. Until this shipped the sweep
+  selected by age alone, so a rule naming an application rejected *every*
+  pending request past its age, and the form discarded the fields entirely
+  [1.19.3]
+- **Rules state their scope in the list**, because a scoped rule rejects far
+  less than an unscoped one and the rule row is the only place that is visible
+  [1.19.3]
+
 ## Getting it running
 
 - **It starts before you configure anything.** Omnissa Access OAuth and SMTP are
@@ -132,6 +147,12 @@ is given in brackets.
   reloaded or opened from a Slack or Teams approval button. The server now
   serves the app to anything no controller, actuator or asset claimed, rather
   than matching a hand-kept list [1.19.2]
+- **Nothing hangs on a dead mail relay.** Connect, read and write timeouts are
+  ten seconds. Jakarta Mail defaults all three to infinite and mail is sent
+  synchronously, so a relay that silently drops packets — which is what a
+  firewalled port 25 does — parked the sending thread until the process
+  restarted. A refused connection fails fast and was never the problem; a
+  blackholed one is [1.19.4]
 
 ## The shape of it
 
