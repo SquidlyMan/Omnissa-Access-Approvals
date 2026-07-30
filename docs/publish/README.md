@@ -6,6 +6,17 @@ Source for the public-facing blog post and the complete documentation PDF.
 generated — do not edit them by hand, or the next build silently discards the
 change.
 
+That has already happened once, and it is worth knowing how. The rendered DOCX
+are handed over as deliverables and were then edited in Word: a logo added, a
+footer, a paragraph rewritten, a whole section brought up to date. None of it
+was in the markdown, so rebuilding threw it away. **Anything changed in Word has
+to come back here**, or the next build is a regression. Before overwriting a
+handed-over copy, check who wrote it last:
+
+```bash
+unzip -p AccessApprovalToolBlogPost.docx docProps/app.xml | grep -o 'Microsoft Word'
+```
+
 ```bash
 ./build.sh              # both documents
 ./build.sh blog-post    # just one
@@ -18,7 +29,8 @@ change.
 | `release-notes.md` | Per-version capabilities, fixes and known issues, plus what is planned. No dates — versions, not calendars |
 | `feature-summary.md` | Everything built between v1.2 and v1.19.4, grouped by capability rather than release. For briefing someone who last saw v1.2 |
 | `style.css` | Shared print/screen styling, so both documents look like one product |
-| `assets/` | Diagrams and screenshots referenced by both documents |
+| `reference.docx` | Word styling for the DOCX output — fonts, paragraph styles, page setup, running footer. Derived from a copy styled by hand in Word, with body content and images stripped, since pandoc reads only styling from a reference document |
+| `assets/` | Diagrams and screenshots referenced by both documents, plus `logo.png` for the title pages |
 | `out/` | Generated HTML, PDF and DOCX (git-ignored) |
 
 ## Requirements
@@ -34,7 +46,12 @@ brew install pandoc weasyprint
   that follows each image.
 - **A blockquote whose heading starts with ⚠ renders as a red warning block**;
   every other blockquote renders as an amber advisory note. `build.sh` tags them
-  after conversion, since pandoc cannot express the distinction.
+  after conversion, since pandoc cannot express the distinction. This applies to
+  the **DOCX as well as the HTML and PDF** — the legal disclaimer used to appear
+  as an ordinary indented quotation in Word, which is the wrong emphasis on the
+  one block whose purpose is to be noticed. The Word colours are read from
+  `blockquote.danger` in `style.css` rather than chosen separately, so the two
+  cannot drift.
 - **Titles live in YAML frontmatter**, not as an `# H1` in the body — otherwise
   pandoc stacks its own title block above the heading.
 - **`documentation.md` numbers its figures sequentially in document order.**
@@ -45,6 +62,16 @@ brew install pandoc weasyprint
   printable area of a Letter page and would be clipped. Screenshots wider than
   they are tall need no attention; very tall captures should be cropped at
   build-prep time rather than relying on the cap alone.
+
+## What `build.sh` fixes up after pandoc
+
+Three things pandoc cannot express, applied to the finished files:
+
+| Fix | Why it is not left to pandoc |
+|---|---|
+| The ⚠ blockquote becomes a warning panel (HTML/PDF and DOCX) | Pandoc has no notion of a hard warning versus an advisory note |
+| A fully italic paragraph beneath an image becomes a caption | In HTML because `p > em:only-child` also matches a paragraph that merely *starts* with italics; in DOCX because pandoc leaves captions as body text. Italic alone is not the test — italic **and directly beneath an image** is, since both documents use a standalone italic sentence for emphasis in running prose |
+| The DOCX footer is stamped with the `pom.xml` version | The footer comes from `reference.docx`, so it would otherwise be frozen at whatever release the reference was cut from |
 
 ## Keeping them honest
 
