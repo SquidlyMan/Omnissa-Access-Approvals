@@ -31,6 +31,8 @@ unzip -p AccessApprovalToolBlogPost.docx docProps/app.xml | grep -o 'Microsoft W
 | `style.css` | Shared print/screen styling, so both documents look like one product |
 | `reference.docx` | Word styling for the DOCX output — fonts, paragraph styles, page setup, running footer. Derived from a copy styled by hand in Word, with body content and images stripped, since pandoc reads only styling from a reference document |
 | `assets/` | Diagrams and screenshots referenced by both documents, plus `logo.png` for the title pages |
+| `check-slides.py` | Reports where the PowerPoint decks have fallen out of step. Read-only |
+| `slides-fingerprint.json` | The decks' recorded formatting baseline — geometry, palette, fonts, type sizes |
 | `out/` | Generated HTML, PDF and DOCX (git-ignored) |
 
 ## Requirements
@@ -72,6 +74,51 @@ Three things pandoc cannot express, applied to the finished files:
 | The ⚠ blockquote becomes a warning panel (HTML/PDF and DOCX) | Pandoc has no notion of a hard warning versus an advisory note |
 | A fully italic paragraph beneath an image becomes a caption | In HTML because `p > em:only-child` also matches a paragraph that merely *starts* with italics; in DOCX because pandoc leaves captions as body text. Italic alone is not the test — italic **and directly beneath an image** is, since both documents use a standalone italic sentence for emphasis in running prose |
 | The DOCX footer is stamped with the `pom.xml` version | The footer comes from `reference.docx`, so it would otherwise be frozen at whatever release the reference was cut from |
+
+## The PowerPoint decks
+
+Two decks carry the same messaging as these documents:
+`Access-Approval-Tool-for-Omnissa-Full-Deck.pptx` (50 slides) and
+`Access-Approval-Tool-Summary-1Pager.pptx`. They live with the other
+hand-delivered files, **outside this repository**, and they are edited by hand in
+PowerPoint.
+
+**They are never generated.** Pandoc's pptx writer emits placeholder slides and
+would flatten the design completely: a single master, one layout, every slide
+built from explicit shapes on a 0.62in margin grid, with a palette that
+overrides the stock Office theme. `#132250` is the same navy as `style.css`,
+which is why the documents and the decks read as one product.
+
+So the decks are checked, not built:
+
+```bash
+./check-slides.py                 # report drift; changes nothing
+./check-slides.py --fingerprint   # re-record the baseline after a deliberate redesign
+./check-slides.py --decks <dir>   # point somewhere else, e.g. a broken copy to test with
+```
+
+`build.sh` runs it at the end as an advisory. It cannot fail a documents build.
+
+| Check | Catches |
+|---|---|
+| Footer version | A footer still naming an old release. Only the footer — the body cites earlier versions constantly and correctly, and an earlier draft that flagged all nine of those was worse than no check |
+| Configuration variables | The deck naming an environment variable that appears nowhere in the code or docs |
+| Text growth | A text box whose content outgrew what it holds |
+| Formatting | Any shape moved, resized, recoloured, or a font or type size changed — including the shape-tree transform, which offsets every shape on a slide at once |
+
+**Why text growth matters:** neither deck sets autofit — no `normAutofit`, no
+`spAutoFit` — so PowerPoint lets text spill outside its shape silently, and it
+surfaces for the first time in front of an audience.
+
+Capacity is **not** estimated from font metrics. That was tried, and calibrating
+a glyph width until the current decks reported clean is fitting the constant to
+the answer; it flagged six boxes that render correctly. What a box holds today is
+observable, so the baseline records it and the check reports growth past it.
+
+`slides-fingerprint.json` is that baseline: every slide's geometry, palette,
+fonts and type sizes, hashed into ~16 KB of text instead of committing ten
+megabytes of binary. Prose is deliberately excluded from the hash, so rewording
+a slide does not read as a formatting break.
 
 ## Keeping them honest
 
