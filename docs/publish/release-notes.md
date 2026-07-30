@@ -5,6 +5,8 @@ author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
 
+![](assets/logo.png){.logo width="0.52in"}
+
 **Repository:** <https://github.com/SquidlyMan/Omnissa-Access-Approvals>
 **Container:** `ghcr.io/squidlyman/omnissa-access-approvals`
 
@@ -974,12 +976,17 @@ Planned work, in the order it is likely to land. No commitment to dates.
 
 ## Fixes
 
-- **Allow the application to start with OAuth sign-in disabled.** The
-  configuration reference documents a blank client-id as the way to run
-  local-only, but that configuration currently fails to start — as does any
-  deployment without `spring.mail.host` set. The documented path and the code
-  need to agree.
 - **A short demonstration recording** for the repository landing page.
+
+## Recently shipped from this list
+
+- **Start with OAuth sign-in disabled, and without `spring.mail.host` set.** The
+  configuration reference documented a blank client-id as the way to run
+  local-only and that configuration failed to start; the documented path and the
+  code now agree. Shipped in 1.19.2.
+- **Remove the duplicated route list** between the backend forwarder and the
+  client router, and **wrap paged API responses in an explicit type** so
+  pagination metadata is declared rather than inferred. Both shipped in 1.19.2.
 
 ## Under consideration, not committed
 

@@ -89,6 +89,18 @@ img {
   border-radius: 4px;
 }
 
+/* The product mark on the title page is not a screenshot: no border, no height
+   cap, no centring. It has to opt out of every rule above by name, because the
+   `img` selector is deliberately broad. */
+img.logo {
+  display: inline-block;
+  width: 0.52in;
+  max-height: none;
+  margin: 0 0 6px;
+  border: none;
+  border-radius: 0;
+}
+
 /* A paragraph that is ENTIRELY italic is a caption. build.sh tags these, because
    CSS cannot express it: `p > em:only-child` also matches a paragraph that
    merely *starts* with italics, since text nodes do not count for :only-child —
