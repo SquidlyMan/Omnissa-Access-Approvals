@@ -316,3 +316,11 @@ PY
   printf "    %-28s %s\n" "out/$doc.pdf"  "$(du -h "out/$doc.pdf"  | cut -f1)"
   printf "    %-28s %s\n" "out/$doc.docx" "$(du -h "out/$doc.docx" | cut -f1)"
 done
+
+# The slide decks carry the same messaging as these documents, so a docs build is
+# the natural moment to notice they have fallen behind. Advisory only, and
+# deliberately so: the decks are hand-built in PowerPoint, their design cannot be
+# regenerated, and nothing here should rewrite them. `|| true` keeps a drifted
+# deck from failing a documents build it has no bearing on.
+echo "==> slide decks"
+./check-slides.py || true
