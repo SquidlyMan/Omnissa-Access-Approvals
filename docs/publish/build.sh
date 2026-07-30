@@ -136,7 +136,9 @@ path, version = sys.argv[1], sys.argv[2]
 tmp = path + ".tmp"
 stamped = 0
 captions = 0
+disclaimers = 0
 prev_had_image = False
+in_block = False
 
 PARA = re.compile(r"<w:p\b.*?</w:p>", re.S)
 RUN   = re.compile(r"<w:r\b.*?</w:r>", re.S)
@@ -152,6 +154,98 @@ def all_italic(para):
 
 def has_image(para):
     return "<w:drawing" in para or "<w:pict" in para
+
+
+# The legal disclaimer must read as a warning in Word exactly as it does in the
+# PDF, so these are the colours from blockquote.danger in style.css and nothing
+# invented here. Word border widths are eighths of a point: the 5px CSS rule is
+# sz=30, the 1px frame is sz=8.
+SHADE      = "FDECEA"   # faded red panel
+FRAME      = "E8B4AE"   # 1px surround
+RULE       = "C0392B"   # 5px left rule
+HEAD_COLOR = "A5271A"   # the ⚠ heading
+BOLD_COLOR = "8F1F14"   # emphasised text inside the block
+
+PBDR = (f'<w:pBdr>'
+        f'<w:top w:val="single" w:sz="8" w:space="4" w:color="{FRAME}"/>'
+        f'<w:left w:val="single" w:sz="30" w:space="6" w:color="{RULE}"/>'
+        f'<w:bottom w:val="single" w:sz="8" w:space="4" w:color="{FRAME}"/>'
+        f'<w:right w:val="single" w:sz="8" w:space="4" w:color="{FRAME}"/>'
+        f'</w:pBdr>')
+PSHD = f'<w:shd w:val="clear" w:color="auto" w:fill="{SHADE}"/>'
+
+# In CT_PPr these belong after pStyle/keepNext/numPr and before spacing/ind/jc.
+# Word tolerates a lot, but an out-of-order child is the kind of thing that
+# opens fine here and is rejected on someone else's build.
+PPR_LATER = re.compile(r"<w:(spacing|ind|jc|contextualSpacing|rPr)\b")
+
+
+def style_of(para):
+    m = re.search(r'<w:pStyle w:val="([^"]+)"', para)
+    return m.group(1) if m else ""
+
+
+def text_of(para):
+    return " ".join(re.sub(r"<[^>]+>", " ", para).split())
+
+
+def paint(para, head):
+    """Give one paragraph the warning panel, and colour its runs."""
+    # Panel: borders + shading into w:pPr, creating w:pPr if pandoc omitted it.
+    if re.search(r"<w:pPr\s*>", para):
+        def ins(m):
+            inner = m.group(2)
+            hit = PPR_LATER.search(inner)
+            at = hit.start() if hit else len(inner)
+            return m.group(1) + inner[:at] + PBDR + PSHD + inner[at:] + m.group(3)
+        para = re.sub(r"(<w:pPr\s*>)(.*?)(</w:pPr>)", ins, para, count=1, flags=re.S)
+    else:
+        para = re.sub(r"(<w:p\b[^>]*?>)", r"\1<w:pPr>" + PBDR + PSHD + "</w:pPr>",
+                      para, count=1)
+
+    colour = HEAD_COLOR if head else BOLD_COLOR
+
+    def run(m):
+        r = m.group(0)
+        if "<w:t" not in r:
+            return r
+        bold = "<w:b/>" in r or "<w:b " in r
+        # The heading is coloured throughout. Body text follows the PDF, where
+        # only the emphasised parts turn red and the rest stays ordinary — the
+        # disclaimer is mostly bold already, which is what makes it read red.
+        if not head and not bold:
+            return r
+        tag = f'<w:color w:val="{colour}"/>'
+        if "<w:rPr>" in r:
+            return r.replace("<w:rPr>", "<w:rPr>" + tag, 1)
+        return re.sub(r"(<w:r\b[^>]*?>)", r"\1<w:rPr>" + tag + "</w:rPr>", r, count=1)
+
+    return RUN.sub(run, para)
+
+
+def disclaimer(para):
+    """Paint the ⚠-headed blockquote: its heading plus the quoted paragraphs.
+
+    Matches the HTML step's rule exactly — a blockquote is a hard warning only
+    when its heading carries the alert mark. The softer `⚠ Upgrade note`
+    blockquotes have no heading and stay as they are, in both formats.
+    """
+    global disclaimers, in_block
+    style = style_of(para)
+    head = style.startswith("Heading") and "⚠" in text_of(para)
+
+    if head:
+        in_block = True
+    elif in_block and style != "BlockText":
+        in_block = False
+        return para
+    elif not in_block:
+        return para
+
+    out = paint(para, head)
+    if out != para:
+        disclaimers += 1
+    return out
 
 
 def restyle(para):
@@ -201,12 +295,17 @@ with zipfile.ZipFile(path) as zin, \
             stamped += hits
             data = new.encode("utf-8")
         elif item.filename == "word/document.xml":
-            data = PARA.sub(lambda m: restyle(m.group(0)),
+            data = PARA.sub(lambda m: disclaimer(restyle(m.group(0))),
                             data.decode("utf-8")).encode("utf-8")
         zout.writestr(item, data)
 
 shutil.move(tmp, path)
-print(f"    captions styled: {captions}")
+print(f"    captions styled: {captions}, disclaimer paragraphs: {disclaimers}")
+if not disclaimers:
+    # Every one of these documents carries a legal disclaimer. Zero means the
+    # rule stopped matching, and an unstyled disclaimer is the one thing here
+    # that has to be impossible to miss.
+    print(f"    WARNING: no ⚠ disclaimer block found in {path}", file=sys.stderr)
 if not stamped:
     # Not fatal, but say so: a silently unstamped footer is the failure this
     # step exists to prevent.
