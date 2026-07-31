@@ -99,6 +99,22 @@ with optional time-bound grants — plus auto-reject for requests left pending t
 long. Both kinds scope the same way, so *"expire stale Finance requests after
 three days"* is a rule you can actually write.
 
+**The one door is locked.** Exactly one path faces the internet, because the
+Access cloud does the POSTing rather than you. It requires credentials — the
+same username and password you enter in the tenant's approvals settings — and
+the tool refuses to start without them once it is pointed at a tenant, so an
+open ingest path is not something you can end up with by accident.
+
+Making that work taught me three things about Access that are written down
+nowhere I could find, and all three are in the documentation now. It decides
+whether an endpoint needs credentials by **probing it with `OPTIONS`**, and
+re-decides only when you press Save on the approvals settings — so the order of
+operations matters more than it looks. It **never sends credentials up front**:
+every callout starts unauthenticated, takes the `401`, and retries. And it
+**delivers each callout from more than one node**, which is ordinary
+at-least-once behaviour and means the receiving end has to be idempotent, or the
+same request lands in your queue twice.
+
 **Operational honesty.** A health endpoint that distinguishes "this container is
 down" from "something it depends on is unhealthy", including a check for
 approval requests Access is holding that never reached the queue. That last one

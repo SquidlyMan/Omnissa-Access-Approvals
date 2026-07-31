@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.12] - 2026-07-31
+
+### Changed
+- **The in-app Help now says how to configure the callout credentials so they actually take effect.** The previous text was accurate and still incomplete: it named the two variables and said they were required, but omitted the step that matters most — **press Save in the Access approvals settings afterwards, even if nothing on that screen changed**. Access decides whether an endpoint requires authentication by probing it, and only re-decides when those settings are saved. Following the old instructions exactly produced the failure this release series spent its length diagnosing: correct credentials on both sides, every callout rejected, no requests arriving.
+- Help also records the two Access behaviours that make the log readable: credentials are never sent up front, so a single unauthenticated attempt is the normal first half of the exchange rather than a fault; and each callout is delivered from more than one node, so the same request arriving twice is expected and the second copy is discarded.
+
+### Documentation
+- Published release notes gained the six releases that had shipped without them (1.19.6 → 1.19.11), plus the release summary and image list.
+- The feature summary gained a section covering the one internet-facing endpoint: mandatory ingest authentication, the probe that has to be challenged, the unforgeable rate-limit key, idempotent ingest, and diagnosable rejections.
+- The complete documentation records the three undocumented Access behaviours discovered while making authentication work.
+- No screenshots changed. Every change in 1.19.5 through 1.19.12 was backend, configuration or logging; the only interface edit was Help text inside an existing section, so the contents list is still nineteen entries and the figure remains accurate.
+
 ## [1.19.11] - 2026-07-31
 
 ### Fixed

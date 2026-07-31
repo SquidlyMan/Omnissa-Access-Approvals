@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.19.5"
+subtitle: "What was built between v1.2 and v1.19.11"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -153,6 +153,32 @@ is given in brackets.
   firewalled port 25 does — parked the sending thread until the process
   restarted. A refused connection fails fast and was never the problem; a
   blackholed one is [1.19.4]
+
+## The one endpoint that faces the internet
+
+- **Callout ingest requires authentication.** `POST /api/approvals/new` has to be
+  reachable from the Omnissa Access cloud, and it was open by default: anyone who
+  found the URL could place a request in the queue that looks exactly like a real
+  one, and approving it grants a real entitlement. Basic credentials are now
+  required once a tenant is configured [1.19.5]
+- **Access only authenticates if you challenge its probe.** It decides whether an
+  endpoint needs credentials by probing with `OPTIONS`, and re-decides only when
+  its approvals settings are saved. That probe used to be exempt, which told
+  Access no credentials were needed — so it posted unauthenticated no matter what
+  was configured. Challenging it is now the default [1.19.9]
+- **Rate limits and login throttling key on an address the caller cannot
+  forge.** Both used the first `X-Forwarded-For` entry, which is written by
+  whoever sent the request: varying it produced a fresh bucket every time, which
+  defeated the callout rate limit and the brute-force protection on the
+  break-glass admin password. Addresses are counted from the right now, under
+  `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` [1.19.5]
+- **Duplicate deliveries are absorbed.** Access sends each callout from more than
+  one node — ordinary at-least-once delivery — and storing both copies broke
+  every lookup for that request. Ingest is idempotent, and a duplicate is
+  acknowledged rather than stored [1.19.10]
+- **A rejected callout says what the caller actually sent** — header names, query
+  keys, content type, and the length of anything credential-shaped, with no value
+  ever logged. A 401 nobody can diagnose is its own defect [1.19.7]
 
 ## The shape of it
 

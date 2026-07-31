@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.19.5 and complete version history"
+subtitle: "Release Notes — v1.19.11 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,12 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.19.11** | A challenge is not a failure: callout logging corrected | `v1.19.11` |
+| **1.19.10** | Idempotent callout ingest — Access delivers from multiple nodes | `v1.19.10` |
+| **1.19.9** | Callout authentication engages: the OPTIONS probe is challenged | `v1.19.9` |
+| **1.19.8** | Diagnostic switch for the OPTIONS probe | `v1.19.8` |
+| **1.19.7** | A rejected callout reports what the caller sent | `v1.19.7` |
+| **1.19.6** | Documentation accuracy for mandatory callout authentication | `v1.19.6` |
 | **1.19.5** | Callout endpoint hardening: forgeable rate-limit key, anonymous ingest | `v1.19.5` |
 | **1.19.4** | Bounded SMTP timeouts | `v1.19.4` |
 | **1.19.3** | Expiry rules honour their own criteria | `v1.19.3` |
@@ -83,11 +89,173 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.19.11
+
+### Key Capabilities in this release
+
+None. The last correction in a sequence that made callout authentication
+actually work.
+
+### Fixes
+
+- **A challenge was being logged as a failure.** Omnissa Access does not send
+  credentials up front. Every callout begins with an unauthenticated attempt,
+  collects the `401`, and is retried with credentials — often from a different
+  address, because Access delivers from several nodes. The bare first attempt is
+  half of a working handshake, and it was being reported as *"its approvals
+  settings have no credentials saved"*: false on a correctly configured tenant,
+  emitted on every callout, and forwarded to syslog. It was also the direct cause
+  of hours spent investigating the reverse proxy, HTTP Digest and console field
+  limits, none of which were ever the problem.
+
+  The warning is now earned rather than assumed — credentials presented and
+  wrong, nothing having ever authenticated, or challenges going unanswered
+  repeatedly. A misconfigured install still warns on its very first request.
+
+### Known Issues
+
+- None outstanding for this release.
+
+---
+
+# What's New in Access Approval Tool v1.19.10
+
+### Key Capabilities in this release
+
+None.
+
+### Fixes
+
+- **A duplicate callout took the whole request out.** Access delivers each
+  callout from more than one node: two `POST`s carrying the same request id
+  arrived 25ms apart from different addresses and both were stored. The lookup
+  by request id expected a single row, so two rows made it throw — and all
+  sixteen places that use it began returning errors. The request could not be
+  opened, decided, swept or pulled, and the queue showed two rows that both said
+  *"Request not found"*.
+
+  Ingest is now idempotent: a callout whose request id is already stored is
+  acknowledged and discarded. Lookups also tolerate duplicates already in the
+  database, so an install that already had one recovers on upgrade rather than
+  needing the database edited by hand.
+
+  **This defect was created by fixing another one.** While callout
+  authentication was broken, one delivery leg was always rejected, so only one
+  copy ever reached the database — a failing handshake was accidentally
+  de-duplicating the queue. Making authentication work removed the accident and
+  exposed the real defect underneath.
+
+### Known Issues
+
+- Rows duplicated *before* this release cannot be decided individually, because
+  every path resolves by request id and reaches the earliest row. Delete the
+  extra row instead; the decision on the remaining one is what Access receives.
+
+---
+
+# What's New in Access Approval Tool v1.19.9
+
+### Key Capabilities in this release
+
+- **Callout authentication works.** This is the release where Basic
+  authentication on the inbound endpoint actually engages.
+
+### Fixes
+
+- **The `OPTIONS` exemption was why authentication never engaged.** Access
+  decides whether an endpoint needs credentials by probing it with `OPTIONS`,
+  and only re-decides when its approvals settings are saved. That probe was
+  exempt from authentication so the settings could be saved at all — which told
+  Access no credentials were needed, and every callout then arrived bare while
+  the tenant held a perfectly good username and password.
+
+  Observed rather than reasoned about: with the probe exempt, callouts arrived
+  unauthenticated indefinitely, with correct credentials on both sides and every
+  network hop proven to carry them. Challenging the probe and re-saving the
+  settings produced an authenticated probe within seconds and an accepted
+  callout immediately after. The exemption was never necessary — Access answers
+  the challenge.
+
+### Known Issues
+
+- **After setting the credentials you must press Save in the Access approvals
+  settings.** That save is what makes Access re-probe and learn they are
+  required. Without it, Access keeps posting unauthenticated whatever either
+  side is configured with.
+
+---
+
+# What's New in Access Approval Tool v1.19.8
+
+### Key Capabilities in this release
+
+None. A diagnostic step on the way to 1.19.9.
+
+### Fixes
+
+- Added a switch to challenge the `OPTIONS` probe rather than exempt it, to test
+  whether the exemption was preventing authentication. It was. The switch became
+  the default in 1.19.9.
+
+### Known Issues
+
+- Superseded by 1.19.9, where challenging the probe is the shipped behaviour.
+
+---
+
+# What's New in Access Approval Tool v1.19.7
+
+### Key Capabilities in this release
+
+None.
+
+### Fixes
+
+- **A rejected callout now lists what the caller actually sent** — every header
+  name, any query parameter names, the content type, and the length of anything
+  credential-shaped. Names and lengths only; no value is ever logged, because
+  these lines ship to syslog.
+
+  The previous message answered *"were the Basic credentials correct"*, which
+  assumes the caller uses the `Authorization` header at all. Access holds a
+  username and password for this callout and was sending neither there, so
+  "sends its credentials under another name" and "sends no credentials" looked
+  identical — and the log stated the second as established fact.
+
+### Known Issues
+
+- None outstanding for this release.
+
+---
+
+# What's New in Access Approval Tool v1.19.6
+
+### Key Capabilities in this release
+
+None.
+
+### Fixes
+
+- **Four places still described callout authentication as optional**, after
+  1.19.5 made it mandatory on a tenant-configured install. The worst was the
+  **in-app Help page**, which told operators the Username and Password fields in
+  the Access console were only needed if Basic authentication was enabled —
+  advice that contradicted an application refusing to start without them.
+- The Help page also now records that **Access does not verify the credentials
+  when you save them**, so a mismatch is not caught at the console. It surfaces
+  later as callouts rejected and requests never reaching the queue.
+
+### Known Issues
+
+- None outstanding for this release.
 
 ---
 

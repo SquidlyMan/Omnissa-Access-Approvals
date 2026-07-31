@@ -200,7 +200,23 @@ export default function HelpPage() {
               you save, so a mismatch shows up later as callouts rejected with 401 and new requests
               never reaching the queue — check the application log, which names what was presented.
             </li>
+            <li>
+              <span className="font-medium text-gray-800">Press Save here after setting the
+              credentials on the tool — even if nothing on this screen changed.</span> Access decides
+              whether an endpoint requires authentication by probing it, and only re-decides when
+              these settings are saved. Set the credentials on the tool without saving here, and
+              Access carries on posting unauthenticated indefinitely — every callout rejected, no
+              requests arriving — whatever both sides are configured with.
+            </li>
           </ul>
+          <p className="mt-3 text-sm text-gray-600">
+            Two further behaviours worth knowing when reading the log. Access never sends credentials
+            up front: every callout begins unauthenticated, takes the 401, and is retried with them,
+            so a single unauthenticated attempt is the normal first half of the exchange rather than a
+            fault. And Access delivers each callout from more than one node, so the same request
+            arriving twice is expected — the second copy is acknowledged and discarded rather than
+            queued a second time.
+          </p>
         </HelpSection>
 
         <HelpSection title="Application Configuration Notes">
