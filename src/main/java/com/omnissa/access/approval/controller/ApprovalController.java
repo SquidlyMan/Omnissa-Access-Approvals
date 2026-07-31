@@ -230,6 +230,30 @@ public class ApprovalController {
         }
         logger.info("Received callout request: {}", calloutRequest);
 
+        // Omnissa Access delivers each callout from more than one node: two POSTs
+        // carrying the same requestId have been observed arriving 25ms apart from
+        // different egress addresses. That is ordinary at-least-once delivery —
+        // the sender guarantees arrival and leaves duplicate-suppression to the
+        // receiver — so ingesting the second copy is our defect, not theirs.
+        //
+        // It stayed hidden while callout authentication was broken: one leg was
+        // always rejected with a 401, so only one copy ever reached the database
+        // and a failing handshake was accidentally deduplicating the queue. When
+        // authentication started working, both legs landed, and a single
+        // duplicated row then broke every lookup by requestId — the detail view,
+        // the decision paths, the sweeps — because that query expects one result.
+        //
+        // Answering 200 is deliberate: this IS success from the sender's point of
+        // view, the request is recorded. Anything else invites Access to retry
+        // harder and deliver more copies.
+        CalloutRequest existing = approvalsRepository.findByRequestId(calloutRequest.getRequestId());
+        if (existing != null) {
+            logger.info("Duplicate callout for requestId {} (already stored as id={}, state={}); "
+                            + "acknowledging without storing a second copy",
+                    calloutRequest.getRequestId(), existing.getId(), existing.getState());
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
+
         boolean deactivation = calloutRequest.getOperation() == CalloutOperation.deactivation;
         calloutRequest.setState(deactivation ? "deactivated" : "pending");
 
