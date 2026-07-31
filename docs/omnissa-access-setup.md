@@ -73,9 +73,11 @@ Approvals**:
 - **Enable Approvals:** on
 - **Approval Engine:** REST API
 - **URI:** `https://<your-host>/api/approvals/new`
-- **Username / Password:** only required if you enabled API Basic auth on
-  the tool (`OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`) — enter the
-  same values here. Otherwise leave blank.
+- **Username / Password:** the values of `OMNISSA_API_USERNAME` and
+  `OMNISSA_API_PASSWORD` from the tool. These are **not optional**: once the
+  tool is configured against a tenant it refuses to start without them, because
+  this endpoint faces the internet and anything reaching it can otherwise place
+  requests in the queue that are indistinguishable from real ones.
 
 When you save, Access probes the URI with an `OPTIONS` request — the tool
 answers it unauthenticated, so saving works even with Basic auth enabled. If

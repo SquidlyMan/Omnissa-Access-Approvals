@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.19.4"
+subtitle: "What was built between v1.2 and v1.19.5"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---

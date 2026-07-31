@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.19.4 and complete version history"
+subtitle: "Release Notes — v1.19.5 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.19.5** | Callout endpoint hardening: forgeable rate-limit key, anonymous ingest | `v1.19.5` |
 | **1.19.4** | Bounded SMTP timeouts | `v1.19.4` |
 | **1.19.3** | Expiry rules honour their own criteria | `v1.19.3` |
 | **1.19.2** | SPA route fallback, declared paged contract | `v1.19.2` |
@@ -82,11 +83,52 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.19.5
+
+### Key Capabilities in this release
+
+None. Three corrective changes to the security of the one endpoint that faces
+the internet.
+
+### Fixes
+
+- **The address used for rate limiting could be chosen by the caller.** Rate
+  limits and the login throttle keyed on the *first* `X-Forwarded-For` entry.
+  Proxies **append** to that header, so the leftmost value is written by whoever
+  sent the request — varying it produced a fresh bucket each time. That bypassed
+  the callout rate limit, and it bypassed the brute-force throttle protecting the
+  break-glass local admin password, which is the credential that exists for when
+  Omnissa Access is unavailable. Addresses are now counted from the right, under
+  `OMNISSA_TRUSTED_PROXY_HOPS`.
+- **The obvious fix would not have worked.** Falling back to the socket address
+  looks correct and is not: `server.forward-headers-strategy=framework` has
+  Spring rewrite the remote address from that same first entry, then strip the
+  header. The peer is now captured before any filter runs.
+- **The callout endpoint accepted anonymous requests by default.** Basic
+  authentication existed but was blank out of the box, so the configuration
+  everyone ran was the open one. A request placed by anyone who found the URL is
+  indistinguishable from a real one in the queue, and approving it grants a real
+  entitlement.
+
+### Known Issues
+
+- On a tenant-configured install this release **will not start** without either
+  `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD` or
+  `OMNISSA_API_ALLOW_UNAUTHENTICATED=true`. Set one before upgrading. The
+  credentials must also be entered in the Access console under
+  **Settings → Approvals**, or callouts are rejected and requests stop arriving.
+- Behind a reverse proxy with the default `OMNISSA_TRUSTED_PROXY_HOPS=0`, every
+  request keys to the proxy's own address, so rate limits and login throttling
+  are shared rather than per-caller. Set the hop count to restore per-caller
+  behaviour; the first forwarded request is logged with the chain to count.
 
 ---
 

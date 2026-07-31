@@ -22,7 +22,7 @@ class RateLimitFilterTest {
 
     @Test
     void underLimitPassesThrough() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(3);
+        RateLimitFilter filter = new RateLimitFilter(3, 0);
         FilterChain chain = mock(FilterChain.class);
 
         for (int i = 0; i < 3; i++) {
@@ -35,7 +35,7 @@ class RateLimitFilterTest {
 
     @Test
     void overLimitReturns429Json() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(2);
+        RateLimitFilter filter = new RateLimitFilter(2, 0);
         FilterChain chain = mock(FilterChain.class);
 
         filter.doFilter(post("10.0.0.2"), new MockHttpServletResponse(), chain);
@@ -53,7 +53,7 @@ class RateLimitFilterTest {
 
     @Test
     void optionsAlwaysPassesEvenOverLimit() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(1);
+        RateLimitFilter filter = new RateLimitFilter(1, 0);
         FilterChain chain = mock(FilterChain.class);
 
         for (int i = 0; i < 5; i++) {
@@ -68,7 +68,7 @@ class RateLimitFilterTest {
 
     @Test
     void limitZeroDisablesRateLimiting() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(0);
+        RateLimitFilter filter = new RateLimitFilter(0, 0);
         FilterChain chain = mock(FilterChain.class);
 
         for (int i = 0; i < 100; i++) {
@@ -79,39 +79,72 @@ class RateLimitFilterTest {
         verify(chain, times(100)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
+    /**
+     * This replaces a test that asserted the opposite — that a different first
+     * {@code X-Forwarded-For} value bought a separate bucket. That is precisely
+     * the bypass (#70): the caller writes that value, so the limit counted
+     * nothing. The bug survived because a passing test held it in place, which
+     * is worth remembering when a test and a defect describe the same behaviour.
+     */
     @Test
-    void xForwardedForFirstValueIsUsedAsClientKey() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(1);
+    void aForgedForwardedHeaderCannotBuyAFreshBucket() throws Exception {
+        RateLimitFilter filter = new RateLimitFilter(1, 0);   // no trusted proxies
         FilterChain chain = mock(FilterChain.class);
 
-        // Both requests share the same remoteAddr but different first XFF value —
-        // they must be counted as separate clients, so neither is rejected.
         MockHttpServletRequest r1 = post("192.168.0.1");
         r1.addHeader("X-Forwarded-For", "203.0.113.1, 192.168.0.1");
         MockHttpServletResponse res1 = new MockHttpServletResponse();
         filter.doFilter(r1, res1, chain);
 
         MockHttpServletRequest r2 = post("192.168.0.1");
-        r2.addHeader("X-Forwarded-For", "203.0.113.2, 192.168.0.1");
+        r2.addHeader("X-Forwarded-For", "203.0.113.2, 192.168.0.1");   // caller varies it
         MockHttpServletResponse res2 = new MockHttpServletResponse();
         filter.doFilter(r2, res2, chain);
 
         assertThat(res1.getStatus()).isEqualTo(200);
-        assertThat(res2.getStatus()).isEqualTo(200);
+        assertThat(res2.getStatus())
+                .as("same peer, limit of one per minute: varying a header the caller controls "
+                        + "must not reset the count, or the endpoint has no rate limit at all")
+                .isEqualTo(429);
+    }
+
+    @Test
+    void behindOneTrustedProxyDistinctCallersAreCountedSeparately() throws Exception {
+        // The legitimate case the old test was reaching for: with a proxy in
+        // front, two genuinely different callers must not share a bucket. The
+        // difference is which end of the chain is believed.
+        RateLimitFilter filter = new RateLimitFilter(1, 1);
+        FilterChain chain = mock(FilterChain.class);
+
+        MockHttpServletRequest r1 = post("192.168.0.1");
+        r1.addHeader("X-Forwarded-For", "10.0.0.9, 203.0.113.1");
+        MockHttpServletResponse res1 = new MockHttpServletResponse();
+        filter.doFilter(r1, res1, chain);
+
+        MockHttpServletRequest r2 = post("192.168.0.1");
+        r2.addHeader("X-Forwarded-For", "10.0.0.9, 203.0.113.2");
+        MockHttpServletResponse res2 = new MockHttpServletResponse();
+        filter.doFilter(r2, res2, chain);
+
+        assertThat(res1.getStatus()).isEqualTo(200);
+        assertThat(res2.getStatus())
+                .as("the proxy wrote the rightmost entry and they differ, so these are two "
+                        + "callers and neither has exceeded one per minute")
+                .isEqualTo(200);
         verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void sameXForwardedForClientIsRateLimited() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(1);
+    void behindOneTrustedProxyTheSameCallerIsLimited() throws Exception {
+        RateLimitFilter filter = new RateLimitFilter(1, 1);
         FilterChain chain = mock(FilterChain.class);
 
         MockHttpServletRequest r1 = post("192.168.0.1");
-        r1.addHeader("X-Forwarded-For", "203.0.113.9");
+        r1.addHeader("X-Forwarded-For", "10.0.0.9, 203.0.113.9");
         filter.doFilter(r1, new MockHttpServletResponse(), chain);
 
-        MockHttpServletRequest r2 = post("192.168.0.2"); // different socket, same XFF
-        r2.addHeader("X-Forwarded-For", "203.0.113.9");
+        MockHttpServletRequest r2 = post("192.168.0.2");   // different socket, same caller
+        r2.addHeader("X-Forwarded-For", "10.0.0.9, 203.0.113.9");
         MockHttpServletResponse res2 = new MockHttpServletResponse();
         filter.doFilter(r2, res2, chain);
 
@@ -120,7 +153,7 @@ class RateLimitFilterTest {
 
     @Test
     void separateIpsCountedSeparately() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(1);
+        RateLimitFilter filter = new RateLimitFilter(1, 0);
         FilterChain chain = mock(FilterChain.class);
 
         MockHttpServletResponse resA = new MockHttpServletResponse();

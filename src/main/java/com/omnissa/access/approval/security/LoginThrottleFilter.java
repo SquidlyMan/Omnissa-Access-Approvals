@@ -27,15 +27,17 @@ public class LoginThrottleFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(LoginThrottleFilter.class);
 
     private final LoginThrottle throttle;
+    private final int trustedProxyHops;
 
-    public LoginThrottleFilter(LoginThrottle throttle) {
+    public LoginThrottleFilter(LoginThrottle throttle, int trustedProxyHops) {
         this.throttle = throttle;
+        this.trustedProxyHops = trustedProxyHops;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        String ip = clientIp(request);
+        String ip = ClientIp.of(request, trustedProxyHops);
         String username = request.getParameter("username");
 
         if (throttle.shouldReject(ip)) {
@@ -67,12 +69,4 @@ public class LoginThrottleFilter extends OncePerRequestFilter {
                 && "/login/local".equals(request.getServletPath()));
     }
 
-    /** First X-Forwarded-For value when behind a reverse proxy, else the socket address. */
-    private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 }

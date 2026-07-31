@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -96,18 +97,42 @@ public class SecurityConfig {
     private int apiRateLimit;
 
     /**
-     * Per-IP rate limiting on the inbound callout endpoint. Registered at
-     * HIGHEST_PRECEDENCE so cheap rejection happens before basic auth.
-     * A no-op when omnissa.api.rate-limit is 0.
+     * How many reverse proxies sit in front of this application. Zero means
+     * no forwarded entry is believed and the socket peer is used — the safe
+     * default, because an over-stated count is a forgeable one.
+     */
+    @Value("${omnissa.security.trusted-proxy-hops:0}")
+    private int trustedProxyHops;
+
+    /**
+     * Captures the true socket peer before Spring's forwarded-header handling
+     * rewrites it, on every request rather than just the callout path, because
+     * the login throttle needs it too.
+     *
+     * <p>A listener rather than a filter on purpose: {@code requestInitialized}
+     * fires before any filter runs, so this cannot lose an ordering tie with
+     * Boot's {@code ForwardedHeaderFilter}, which registers at the same
+     * precedence a filter here would have asked for.
+     */
+    @Bean
+    public ServletListenerRegistrationBean<ClientAddressFilter> clientAddressListener() {
+        return new ServletListenerRegistrationBean<>(new ClientAddressFilter());
+    }
+
+    /**
+     * Per-IP rate limiting on the inbound callout endpoint. Ordered after the
+     * address capture so it keys on a peer that cannot be forged, and before
+     * basic auth so rejection stays cheap. A no-op when
+     * omnissa.api.rate-limit is 0.
      */
     @Bean
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilter() {
         FilterRegistrationBean<RateLimitFilter> registration =
-                new FilterRegistrationBean<>(new RateLimitFilter(apiRateLimit));
+                new FilterRegistrationBean<>(new RateLimitFilter(apiRateLimit, trustedProxyHops));
         // The Access callout is now the only internet-facing unauthenticated
         // endpoint — Slack approvals became deep links, so its callback is gone.
         registration.addUrlPatterns("/api/approvals/new");
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
         return registration;
     }
 
@@ -120,7 +145,7 @@ public class SecurityConfig {
         FilterRegistrationBean<ApiBasicAuthFilter> registration =
                 new FilterRegistrationBean<>(new ApiBasicAuthFilter(apiUsername, apiPassword));
         registration.addUrlPatterns("/api/approvals/new");
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         return registration;
     }
 
@@ -305,17 +330,17 @@ public class SecurityConfig {
             // is checked. The local form was the only credential-accepting
             // endpoint with no rate limiting, so the break-glass admin password
             // could be guessed at full speed.
-            http.addFilterBefore(new LoginThrottleFilter(loginThrottle),
+            http.addFilterBefore(new LoginThrottleFilter(loginThrottle, trustedProxyHops),
                     UsernamePasswordAuthenticationFilter.class);
             http.formLogin(form -> form
                 .loginPage("/login")
                 .loginProcessingUrl("/login/local")
                 .failureHandler((request, response, exception) -> {
-                    loginThrottle.recordFailure(clientIp(request), request.getParameter("username"));
+                    loginThrottle.recordFailure(ClientIp.of(request, trustedProxyHops), request.getParameter("username"));
                     response.sendRedirect("/login?error=true");
                 })
                 .successHandler((request, response, authentication) -> {
-                    loginThrottle.recordSuccess(clientIp(request), authentication.getName());
+                    loginThrottle.recordSuccess(ClientIp.of(request, trustedProxyHops), authentication.getName());
                     // Honour a saved destination, matching defaultSuccessUrl("/")
                     // without alwaysUse — see the OAuth2 handler above.
                     var saved = navigationRequestCache().getRequest(request, response);
@@ -446,14 +471,6 @@ public class SecurityConfig {
         };
     }
 
-    /** First X-Forwarded-For value when behind a reverse proxy, else the socket address. */
-    private static String clientIp(jakarta.servlet.http.HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 
     /**
      * Saves only navigational requests, so a deep link survives the login
