@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.8] - 2026-07-31
+
+### Added
+- **A Digest listening post on the callout endpoint** (`OMNISSA_API_DIGEST_PROBE`, default off). When enabled, a `401` offers `Digest` alongside `Basic` and logs, unmistakably, whether the caller answers it.
+
+  1.19.7 established on the wire that Omnissa Access sends **no credential of any kind** — no `Authorization`, no vendor header, no query parameter — despite holding a username and password for this callout and receiving a `Basic` challenge. A client that performs only Digest behaves exactly like that, because it finds no scheme it is willing to use. This distinguishes "will not use Basic" from "sends nothing at all", which is the last cheap question before concluding that HTTP authentication is not the mechanism here.
+
+  **A Digest response is never accepted.** The filter matches `Basic` only, so the probe cannot become an authentication path, and a test asserts that a well-formed Digest answer still returns `401` and never reaches the chain. Verifying Digest properly requires nonce tracking, replay windows and `qop` handling; a partial verifier would be worse than none.
+
+  Off by default, and `Basic` is advertised first, so a client taking the first acceptable scheme is unaffected. Advertising two schemes permanently would let a client prefer the one that can never succeed.
+
 ## [1.19.7] - 2026-07-31
 
 ### Added

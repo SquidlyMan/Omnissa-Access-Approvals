@@ -31,10 +31,49 @@ public class ApiBasicAuthFilter implements Filter {
 
     private final String username;
     private final String password;
+    private final boolean digestProbe;
+
+    private static final java.security.SecureRandom NONCES = new java.security.SecureRandom();
 
     public ApiBasicAuthFilter(String username, String password) {
+        this(username, password, false);
+    }
+
+    public ApiBasicAuthFilter(String username, String password, boolean digestProbe) {
         this.username = username;
         this.password = password;
+        this.digestProbe = digestProbe;
+    }
+
+    /**
+     * A Digest challenge offered alongside Basic, purely to see whether the
+     * caller answers it. <strong>A Digest response is never accepted</strong> —
+     * {@link #isAuthorized} matches only {@code Basic}, so this cannot become an
+     * authentication path by accident.
+     *
+     * <p>Why offer a scheme we will not honour: Omnissa Access holds credentials
+     * for this callout, receives a {@code Basic} challenge, and answers with
+     * nothing at all — observed, not assumed. A client that performs only Digest
+     * behaves exactly that way, because it finds no scheme it is willing to use.
+     * Offering Digest costs nothing if that guess is wrong and identifies the
+     * mechanism if it is right.
+     *
+     * <p>Off by default and gated on {@code OMNISSA_API_DIGEST_PROBE}. Advertising
+     * two schemes permanently would let a client prefer the one that can never
+     * succeed — a browser typically picks the stronger — so this stays an
+     * experiment that is switched on deliberately and switched off again.
+     * Verifying Digest properly means nonce tracking, replay windows and
+     * {@code qop} handling; a half-built verifier would be worse than none.
+     */
+    private String digestChallenge() {
+        byte[] raw = new byte[16];
+        NONCES.nextBytes(raw);
+        StringBuilder nonce = new StringBuilder(raw.length * 2);
+        for (byte b : raw) {
+            nonce.append(String.format("%02x", b));
+        }
+        return "Digest realm=\"approval-api\", qop=\"auth\", nonce=\"" + nonce
+                + "\", algorithm=MD5";
     }
 
     @Override
@@ -63,7 +102,12 @@ public class ApiBasicAuthFilter implements Filter {
                 diagnose(req.getHeader("Authorization")));
         logger.warn("  what it actually sent: {}", inventory(req));
         res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        // Basic first: a client that takes the first acceptable scheme keeps
+        // working exactly as it does today.
         res.setHeader("WWW-Authenticate", "Basic realm=\"approval-api\"");
+        if (digestProbe) {
+            res.addHeader("WWW-Authenticate", digestChallenge());
+        }
         res.setContentType("application/json");
         res.getWriter().write("{\"error\":\"unauthorized\"}");
     }
@@ -90,6 +134,27 @@ public class ApiBasicAuthFilter implements Filter {
             return "no Authorization header was sent. If this is Omnissa Access, its "
                     + "approvals settings have no credentials saved — set Username and "
                     + "Password there to match OMNISSA_API_USERNAME / OMNISSA_API_PASSWORD";
+        }
+        if (authHeader.regionMatches(true, 0, "Digest ", 0, 7)) {
+            // The finding the probe exists for. Report the parameters that
+            // identify the caller and the scheme it chose; the response hash is
+            // derived from the password, so only its presence is noted.
+            java.util.Map<String, String> params = new java.util.LinkedHashMap<>();
+            for (String part : authHeader.substring(7).split(",")) {
+                int eq = part.indexOf('=');
+                if (eq > 0) {
+                    params.put(part.substring(0, eq).trim().toLowerCase(java.util.Locale.ROOT),
+                            part.substring(eq + 1).trim().replaceAll("^\"|\"$", ""));
+                }
+            }
+            String responseHash = params.remove("response");
+            params.remove("cnonce");
+            return "*** THE CALLER ANSWERED THE DIGEST CHALLENGE *** username='"
+                    + params.get("username") + "', algorithm=" + params.get("algorithm")
+                    + ", qop=" + params.get("qop")
+                    + ", response present=" + (responseHash != null && !responseHash.isBlank())
+                    + ". Digest is NOT accepted here — this is a probe. If this line names "
+                    + "Omnissa Access, Digest is the mechanism and is worth implementing properly.";
         }
         if (!authHeader.regionMatches(true, 0, "Basic ", 0, 6)) {
             int space = authHeader.indexOf(' ');

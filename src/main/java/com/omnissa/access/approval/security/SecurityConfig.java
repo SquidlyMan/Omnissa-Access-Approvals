@@ -105,6 +105,13 @@ public class SecurityConfig {
     private int trustedProxyHops;
 
     /**
+     * Offer a Digest challenge alongside Basic, to discover whether the caller
+     * answers it. Diagnostic only — a Digest response is never accepted.
+     */
+    @Value("${omnissa.api.digest-probe:false}")
+    private boolean digestProbe;
+
+    /**
      * Captures the true socket peer before Spring's forwarded-header handling
      * rewrites it, on every request rather than just the callout path, because
      * the login throttle needs it too.
@@ -143,7 +150,7 @@ public class SecurityConfig {
     @Bean
     public FilterRegistrationBean<ApiBasicAuthFilter> apiBasicAuthFilter() {
         FilterRegistrationBean<ApiBasicAuthFilter> registration =
-                new FilterRegistrationBean<>(new ApiBasicAuthFilter(apiUsername, apiPassword));
+                new FilterRegistrationBean<>(new ApiBasicAuthFilter(apiUsername, apiPassword, digestProbe));
         registration.addUrlPatterns("/api/approvals/new");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         return registration;
