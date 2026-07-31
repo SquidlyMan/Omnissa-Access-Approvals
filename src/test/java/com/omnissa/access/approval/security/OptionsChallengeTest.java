@@ -57,15 +57,31 @@ class OptionsChallengeTest {
     }
 
     @Test
-    @DisplayName("default: the probe passes unauthenticated, so Access can save its settings")
-    void probeExemptByDefault() throws Exception {
+    @DisplayName("DEFAULT: the probe is challenged — this is what makes Access authenticate")
+    void probeChallengedByDefault() throws Exception {
+        FilterChain chain = mock(FilterChain.class);
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("OPTIONS", "/api/approvals/new");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        // Two-argument constructor: the shipped default.
+        new ApiBasicAuthFilter(USER, PASSWORD).doFilter(request, response, chain);
+
+        assertThat(response.getStatus())
+                .as("Access decides whether credentials are needed by probing with OPTIONS. "
+                        + "Exempting the probe answers 'none required' and every callout then "
+                        + "arrives unauthenticated — observed on a live tenant, not theorised.")
+                .isEqualTo(401);
+        verify(chain, never()).doFilter(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("opt-out still exempts the probe, for a tenant that behaves differently")
+    void probeExemptWhenDisabled() throws Exception {
         FilterChain chain = mock(FilterChain.class);
         MockHttpServletResponse response = options(false, null, chain);
 
-        assertThat(response.getStatus())
-                .as("challenging the probe by default would stop the approvals settings being "
-                        + "saved at all, which is a worse failure than the one under investigation")
-                .isEqualTo(200);
+        assertThat(response.getStatus()).isEqualTo(200);
         verify(chain).doFilter(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any());
     }

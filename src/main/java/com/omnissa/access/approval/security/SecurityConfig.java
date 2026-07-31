@@ -109,7 +109,7 @@ public class SecurityConfig {
      * exemption is the one place this endpoint differs from the Spring Boot 1.x
      * reference implementation, which secured every request including the probe.
      */
-    @Value("${omnissa.api.challenge-options:false}")
+    @Value("${omnissa.api.challenge-options:true}")
     private boolean challengeOptions;
 
     /**

@@ -53,8 +53,22 @@ class ApiBasicAuthFilterTest {
         verify(chain).doFilter(any(), any());
     }
 
+    /**
+     * This asserted the opposite until the exemption turned out to be the defect.
+     *
+     * <p>Omnissa Access decides whether this endpoint requires credentials by
+     * probing it with OPTIONS, and only re-decides when its approvals settings
+     * are saved. Answering that probe unauthenticated told Access no credentials
+     * were needed, so every callout arrived bare while the tenant held a valid
+     * username and password. Challenging the probe and re-saving the settings
+     * produced an authenticated probe within seconds and an accepted callout
+     * immediately after — observed on a live tenant.
+     *
+     * <p>The exemption existed so the approvals settings could be saved at all.
+     * That turned out to be unnecessary: Access answers the challenge.
+     */
     @Test
-    void optionsPassesEvenWhenAuthConfigured() throws Exception {
+    void optionsIsChallengedWhenAuthConfigured() throws Exception {
         ApiBasicAuthFilter filter = new ApiBasicAuthFilter("omnissa", "secret");
         FilterChain chain = mock(FilterChain.class);
         MockHttpServletRequest req = post();
@@ -63,7 +77,27 @@ class ApiBasicAuthFilterTest {
 
         filter.doFilter(req, res, chain);
 
-        assertThat(res.getStatus()).isEqualTo(200);
+        assertThat(res.getStatus())
+                .as("an unchallenged probe is what teaches Access not to authenticate")
+                .isEqualTo(401);
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    @Test
+    void authenticatedOptionsProbePasses() throws Exception {
+        ApiBasicAuthFilter filter = new ApiBasicAuthFilter("omnissa", "secret");
+        FilterChain chain = mock(FilterChain.class);
+        MockHttpServletRequest req = post();
+        req.setMethod("OPTIONS");
+        req.addHeader("Authorization", basic("omnissa", "secret"));
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        filter.doFilter(req, res, chain);
+
+        assertThat(res.getStatus())
+                .as("Access answers the challenge, so its probe must then succeed — otherwise "
+                        + "the approvals settings could never be saved")
+                .isEqualTo(200);
         verify(chain).doFilter(any(), any());
     }
 

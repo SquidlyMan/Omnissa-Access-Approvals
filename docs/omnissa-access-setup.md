@@ -79,9 +79,18 @@ Approvals**:
   this endpoint faces the internet and anything reaching it can otherwise place
   requests in the queue that are indistinguishable from real ones.
 
-When you save, Access probes the URI with an `OPTIONS` request — the tool
-answers it unauthenticated, so saving works even with Basic auth enabled. If
-saving fails with "Unable to connect to the URI", see
+When you save, Access probes the URI with an `OPTIONS` request, **and that probe
+is how Access decides whether this endpoint needs credentials.** The tool
+challenges it; Access answers with the Username and Password you entered here,
+and from then on its callouts are authenticated.
+
+> **You must press Save after setting the credentials — on both sides.** Access
+> only re-evaluates authentication when the approvals settings are saved. Setting
+> `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD` on the tool and *not* re-saving
+> here leaves Access posting unauthenticated indefinitely, with every callout
+> rejected and no requests reaching the queue.
+
+If saving fails with "Unable to connect to the URI", see
 [troubleshooting](troubleshooting.md).
 
 ## 4. Put Applications Behind Approval
