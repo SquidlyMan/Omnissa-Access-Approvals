@@ -31,10 +31,16 @@ public class ApiBasicAuthFilter implements Filter {
 
     private final String username;
     private final String password;
+    private final boolean challengeOptions;
 
     public ApiBasicAuthFilter(String username, String password) {
+        this(username, password, false);
+    }
+
+    public ApiBasicAuthFilter(String username, String password, boolean challengeOptions) {
         this.username = username;
         this.password = password;
+        this.challengeOptions = challengeOptions;
     }
 
     @Override
@@ -48,11 +54,36 @@ public class ApiBasicAuthFilter implements Filter {
             chain.doFilter(request, response);
             return;
         }
-        // Omnissa Access probes with OPTIONS and no credentials when saving
-        // its approvals settings — must never be challenged.
+        // Omnissa Access probes with OPTIONS and no credentials when saving its
+        // approvals settings, so this is exempt by default or the settings
+        // cannot be saved at all.
+        //
+        // That exemption is also the one place this endpoint departs from the
+        // original vidm-approval reference implementation, and it may be why
+        // authentication never engages. That app ran Spring Boot 1.4 with
+        // spring-boot-starter-security on the classpath and no security
+        // configuration, which in Boot 1.x means SecurityAutoConfiguration
+        // secures EVERY request with HTTP Basic — the probe included. If Access
+        // uses the unauthenticated probe to decide whether this endpoint needs
+        // credentials, an exempted OPTIONS teaches it that none are required,
+        // and it then POSTs bare and ignores a later challenge. That is
+        // consistent with every observation: credentials stored in the tenant,
+        // a probe that succeeds, and callouts arriving with no Authorization
+        // header at all.
+        //
+        // Hypothesis, not conclusion — hence a flag, off by default. Turning it
+        // on may prevent Access saving its approvals settings, which is the
+        // known cost and is immediately reversible.
         if ("OPTIONS".equalsIgnoreCase(req.getMethod())) {
-            chain.doFilter(request, response);
-            return;
+            if (!challengeOptions) {
+                chain.doFilter(request, response);
+                return;
+            }
+            logger.warn("Challenging an OPTIONS probe from {} because "
+                    + "omnissa.api.challenge-options is on. If Access now starts sending "
+                    + "credentials on its callouts, the exemption was the cause. If Access "
+                    + "instead cannot save its approvals settings, turn this off again.",
+                    req.getRemoteAddr());
         }
         if (isAuthorized(req.getHeader("Authorization"))) {
             chain.doFilter(request, response);

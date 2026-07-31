@@ -105,6 +105,14 @@ public class SecurityConfig {
     private int trustedProxyHops;
 
     /**
+     * Challenge the OPTIONS probe instead of exempting it. Diagnostic: the
+     * exemption is the one place this endpoint differs from the Spring Boot 1.x
+     * reference implementation, which secured every request including the probe.
+     */
+    @Value("${omnissa.api.challenge-options:false}")
+    private boolean challengeOptions;
+
+    /**
      * Captures the true socket peer before Spring's forwarded-header handling
      * rewrites it, on every request rather than just the callout path, because
      * the login throttle needs it too.
@@ -143,7 +151,7 @@ public class SecurityConfig {
     @Bean
     public FilterRegistrationBean<ApiBasicAuthFilter> apiBasicAuthFilter() {
         FilterRegistrationBean<ApiBasicAuthFilter> registration =
-                new FilterRegistrationBean<>(new ApiBasicAuthFilter(apiUsername, apiPassword));
+                new FilterRegistrationBean<>(new ApiBasicAuthFilter(apiUsername, apiPassword, challengeOptions));
         registration.addUrlPatterns("/api/approvals/new");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         return registration;

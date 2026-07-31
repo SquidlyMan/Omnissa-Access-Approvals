@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.8] - 2026-07-31
+
+### Added
+- **`OMNISSA_API_CHALLENGE_OPTIONS`** (default `false`) — challenge the Omnissa Access `OPTIONS` probe instead of exempting it.
+
+  The exemption exists because Access sends an unauthenticated `OPTIONS` when its approvals settings are saved, and without it those settings cannot be saved. It is also the **only** place this endpoint departs from the original `vidm-approval` reference implementation, which ran **Spring Boot 1.4.2** with `spring-boot-starter-security` on the classpath and no security configuration. In Boot 1.x that means `SecurityAutoConfiguration` secures *every* request with HTTP Basic — the probe included.
+
+  If Access uses the probe to decide whether an endpoint requires credentials, exempting it teaches Access that none are needed. That is consistent with everything observed: the tenant holds a username and password, the probe succeeds, and callouts arrive with no `Authorization` header while a later 401 challenge is ignored.
+
+  A hypothesis under test, so it is a flag, it is off by default, and enabling it may stop Access saving its approvals settings — the known cost, and immediately reversible.
+
+### Notes
+- This corrects a conclusion recorded during 1.19.7's investigation. The original project's `application.properties` contains no authentication settings, which was read as "the reference implementation ran unauthenticated". Its `pom.xml` shows otherwise: with Boot 1.x, the *absence* of security configuration **is** the authentication. Access can evidently send Basic credentials, and the question is what makes it decide to.
+
 ## [1.19.7] - 2026-07-31
 
 ### Added
