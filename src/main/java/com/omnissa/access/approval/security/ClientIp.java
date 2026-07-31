@@ -49,7 +49,7 @@ public final class ClientIp {
      * Logs the first forwarded chain seen, and what the current setting selects
      * from it.
      *
-     * <p>The right value for {@code OMNISSA_TRUSTED_PROXY_HOPS} is a property of
+     * <p>The right value for {@code OMNISSA_SECURITY_TRUSTED_PROXY_HOPS} is a property of
      * the deployment, not of this application: it depends on how many proxies
      * append to the header before a request arrives, which cannot be known from
      * here and should not be guessed. Counting the entries in a real request is

@@ -231,7 +231,7 @@ sign-in; nothing needs resetting by hand.
 | `OMNISSA_API_PASSWORD` | — | Password paired with `OMNISSA_API_USERNAME` |
 | `OMNISSA_API_ALLOW_UNAUTHENTICATED` | `false` | Accept unauthenticated callouts on a tenant-configured install. Only appropriate where the endpoint genuinely cannot be reached from anywhere untrusted; a warning is logged hourly while it is set |
 | `OMNISSA_API_RATE_LIMIT` | `60` | Maximum callout requests per minute per client address on `/api/approvals/new`; excess requests receive HTTP 429. `0` disables rate limiting |
-| `OMNISSA_TRUSTED_PROXY_HOPS` | `0` | How many reverse proxies sit in front of the container. Decides which `X-Forwarded-For` entry is believed when keying rate limits and the login throttle — see [Client addresses behind a proxy](#client-addresses-behind-a-proxy) |
+| `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | `0` | How many reverse proxies sit in front of the container. Decides which `X-Forwarded-For` entry is believed when keying rate limits and the login throttle — see [Client addresses behind a proxy](#client-addresses-behind-a-proxy) |
 
 > ### ⚠️ The callout endpoint will not start unauthenticated
 >
@@ -261,7 +261,7 @@ password.
 
 So the count is taken **from the right**:
 
-| `OMNISSA_TRUSTED_PROXY_HOPS` | Which address is used |
+| `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | Which address is used |
 |---|---|
 | `0` *(default)* | The socket peer. Nothing in the header is believed |
 | `1` | The entry your nearest proxy wrote |

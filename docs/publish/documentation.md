@@ -446,7 +446,7 @@ given. Decline it first; a decided record deletes harmlessly.
   unauthenticated OPTIONS probe is always allowed.
 - **Per-caller rate limiting** on the callout endpoint (default 60 requests per
   minute), returning HTTP 429 on excess. The address is taken from the *right*
-  of `X-Forwarded-For` under `OMNISSA_TRUSTED_PROXY_HOPS`, because proxies append
+  of `X-Forwarded-For` under `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS`, because proxies append
   to that header and the leftmost entry is written by the caller — believing it
   let anyone pick their own bucket. The default of `0` believes nothing in the
   header and uses the socket peer.
@@ -700,7 +700,7 @@ All settings are container environment values. Required rows are marked ●.
 |---|---|---|
 | `OMNISSA_API_USERNAME` / `_PASSWORD` | — | HTTP Basic auth on the callout endpoint. **Required once a tenant is configured**; the application refuses to start without these or `OMNISSA_API_ALLOW_UNAUTHENTICATED` |
 | `OMNISSA_API_ALLOW_UNAUTHENTICATED` | `false` | Accept anonymous callouts anyway. Warns hourly while set |
-| `OMNISSA_TRUSTED_PROXY_HOPS` | `0` | Reverse proxies in front of the container; decides which `X-Forwarded-For` entry is believed |
+| `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | `0` | Reverse proxies in front of the container; decides which `X-Forwarded-For` entry is believed |
 | `OMNISSA_API_RATE_LIMIT` | `60` | Callout requests/minute per source IP; `0` disables |
 | `SERVER_PORT` | `8081` | HTTP listen port |
 | `APP_BASE_URL` | — | Public URL. **Required** for Slack/Teams deep links |

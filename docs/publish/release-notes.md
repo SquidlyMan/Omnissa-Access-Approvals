@@ -107,7 +107,7 @@ the internet.
   the callout rate limit, and it bypassed the brute-force throttle protecting the
   break-glass local admin password, which is the credential that exists for when
   Omnissa Access is unavailable. Addresses are now counted from the right, under
-  `OMNISSA_TRUSTED_PROXY_HOPS`.
+  `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS`.
 - **The obvious fix would not have worked.** Falling back to the socket address
   looks correct and is not: `server.forward-headers-strategy=framework` has
   Spring rewrite the remote address from that same first entry, then strip the
@@ -125,7 +125,7 @@ the internet.
   `OMNISSA_API_ALLOW_UNAUTHENTICATED=true`. Set one before upgrading. The
   credentials must also be entered in the Access console under
   **Settings → Approvals**, or callouts are rejected and requests stop arriving.
-- Behind a reverse proxy with the default `OMNISSA_TRUSTED_PROXY_HOPS=0`, every
+- Behind a reverse proxy with the default `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS=0`, every
   request keys to the proxy's own address, so rate limits and login throttling
   are shared rather than per-caller. Set the hop count to restore per-caller
   behaviour; the first forwarded request is logged with the chain to count.
