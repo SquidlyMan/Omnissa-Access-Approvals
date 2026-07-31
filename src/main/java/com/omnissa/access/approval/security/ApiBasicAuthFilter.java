@@ -61,6 +61,7 @@ public class ApiBasicAuthFilter implements Filter {
 
         logger.warn("Rejected callout request from {}: {}", req.getRemoteAddr(),
                 diagnose(req.getHeader("Authorization")));
+        logger.warn("  what it actually sent: {}", inventory(req));
         res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         res.setHeader("WWW-Authenticate", "Basic realm=\"approval-api\"");
         res.setContentType("application/json");
@@ -121,6 +122,65 @@ public class ApiBasicAuthFilter implements Filter {
                         + password.length() + " — a shorter value usually means the field it "
                         + "was typed into truncated it";
         return userPart + "; " + passPart;
+    }
+
+    /** Header names that carry a credential in some product's convention. */
+    private static final java.util.Set<String> CREDENTIAL_BEARING = java.util.Set.of(
+            "authorization", "proxy-authorization", "x-api-key", "x-apikey",
+            "x-auth-token", "x-access-token", "x-authentication", "x-auth",
+            "api-key", "apikey", "token", "x-shared-secret", "x-signature",
+            "x-hub-signature", "x-hub-signature-256", "x-vmware-authorization");
+
+    /**
+     * Everything the caller sent, described without quoting any of it.
+     *
+     * <p>The message above answers "were the Basic credentials right", and that
+     * is only useful if the caller uses {@code Authorization} at all. Omnissa
+     * Access stores a username and password for this callout and demonstrably
+     * sends neither there — so either it uses another convention, or it sends
+     * nothing. Reporting only the absence of one header makes those two look
+     * identical, and states the second as though it were established.
+     *
+     * <p>So: every header name, the names of any query parameters, and the
+     * length of anything credential-shaped. <strong>No value is logged</strong> —
+     * names and lengths only. These lines go to syslog over UDP, and a header
+     * dump is exactly the kind of convenience that quietly becomes a credential
+     * leak.
+     */
+    private String inventory(HttpServletRequest req) {
+        java.util.List<String> headers = new java.util.ArrayList<>();
+        java.util.List<String> credentialish = new java.util.ArrayList<>();
+
+        java.util.Enumeration<String> names = req.getHeaderNames();
+        while (names != null && names.hasMoreElements()) {
+            String name = names.nextElement();
+            headers.add(name);
+            String lower = name.toLowerCase(java.util.Locale.ROOT);
+            if (CREDENTIAL_BEARING.contains(lower)
+                    || lower.contains("auth") || lower.contains("secret")
+                    || lower.contains("credential") || lower.contains("passw")) {
+                String value = req.getHeader(name);
+                credentialish.add(name + "(" + (value == null ? 0 : value.length()) + " chars)");
+            }
+        }
+        headers.sort(String.CASE_INSENSITIVE_ORDER);
+
+        StringBuilder out = new StringBuilder();
+        out.append("headers=").append(headers);
+        if (!credentialish.isEmpty()) {
+            out.append("; credential-shaped=").append(credentialish);
+        }
+        String query = req.getQueryString();
+        if (query != null && !query.isBlank()) {
+            java.util.List<String> keys = new java.util.ArrayList<>();
+            for (String pair : query.split("&")) {
+                int eq = pair.indexOf('=');
+                keys.add(eq < 0 ? pair : pair.substring(0, eq));
+            }
+            out.append("; query-keys=").append(keys);
+        }
+        out.append("; content-type=").append(req.getContentType());
+        return out.toString();
     }
 
     private boolean isAuthorized(String authHeader) {

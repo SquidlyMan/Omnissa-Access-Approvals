@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.7] - 2026-07-31
+
+### Added
+- **A rejected callout now lists everything the caller sent** — every header name, any query-parameter names, the content type, and the length of anything credential-shaped. Names and lengths only; no value is ever logged, and tests assert their absence, because these lines ship to syslog over UDP.
+
+  1.19.6 reported whether the *Basic* credentials were right, which silently assumes the caller uses `Authorization` at all. Omnissa Access stores a username and password for this callout and demonstrably sends neither there. With only the previous message, "sends its credentials under another name" and "sends no credentials" are indistinguishable — and the log stated the second as though it were established fact. It was not.
+
+  Established by testing rather than assumed: Basic credentials sent by an ordinary client survive the full external path — F5, UAG Identity Bridging reverse proxy, nginx — and authenticate correctly. Every hop is exonerated. What Access itself puts on the request is the one thing still unobserved, and this is the instrument for observing it.
+
 ## [1.19.6] - 2026-07-31
 
 ### Fixed
