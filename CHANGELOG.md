@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.11] - 2026-07-31
+
+### Fixed
+- **A challenge was being logged as a failure.** Omnissa Access does not send credentials preemptively: every callout starts with an unauthenticated attempt, collects the `401`, and is retried with credentials — often from a different egress address, since Access delivers from several nodes. The bare first attempt is half of a working handshake, and it was being reported as `Rejected callout request … its approvals settings have no credentials saved`.
+
+  That message was **false on a correctly configured tenant**, emitted on every single callout, and shipped to syslog. It was also the direct cause of hours spent investigating the reverse proxy, HTTP Digest and console field-length limits — none of which were ever the problem. A log line that asserts a cause it has not established is worse than one that says nothing.
+
+  The first leg is now logged at INFO and described as what it is. The warning is earned rather than assumed: it appears when credentials are presented and are **wrong**, when nothing has **ever** authenticated, or when challenges go **unanswered repeatedly** — the three cases that actually mean something is broken. A success resets the count, so ordinary traffic never accumulates toward a warning.
+
 ## [1.19.10] - 2026-07-31
 
 ### Fixed

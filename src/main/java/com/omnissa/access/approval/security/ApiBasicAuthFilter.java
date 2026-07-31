@@ -33,6 +33,33 @@ public class ApiBasicAuthFilter implements Filter {
     private final String password;
     private final boolean challengeOptions;
 
+    /**
+     * State for telling a routine challenge apart from a real misconfiguration.
+     *
+     * <p>Omnissa Access does not send credentials preemptively. Every callout
+     * begins with an unauthenticated attempt, collects the {@code 401}, and is
+     * retried with credentials — often from a different egress address, since
+     * Access delivers from several nodes. So the bare first attempt is not a
+     * fault; it is half of a working handshake.
+     *
+     * <p>Logging it as a fault was itself a defect. The message asserted
+     * "its approvals settings have no credentials saved", which was false on a
+     * correctly configured tenant, appeared on every single callout, and sent
+     * two people chasing the reverse proxy, HTTP Digest and field truncation for
+     * hours. A log line that states a cause it has not established is worse than
+     * one that says nothing.
+     */
+    private final java.util.concurrent.atomic.AtomicLong lastAuthenticatedAt =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicInteger bareSinceSuccess =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /** Beyond this, unanswered challenges stop looking like a handshake. */
+    private static final int BARE_ATTEMPTS_BEFORE_WARNING = 3;
+
+    /** How recently a success still explains a bare attempt as a first leg. */
+    private static final long SUCCESS_STILL_RELEVANT_MILLIS = 10 * 60_000L;
+
     public ApiBasicAuthFilter(String username, String password) {
         this(username, password, true);
     }
@@ -78,19 +105,44 @@ public class ApiBasicAuthFilter implements Filter {
             return;
         }
 
-        if (isAuthorized(req.getHeader("Authorization"))) {
+        String authHeader = req.getHeader("Authorization");
+        if (isAuthorized(authHeader)) {
             // Recorded so an authenticated callout can be told apart from one
             // that is merely reaching the controller: Access posts two message
             // types to this path, and knowing which of them authenticates is the
             // difference between "solved" and "solved for one of two cases".
             logger.info("Authenticated {} on the callout endpoint from {} (content-type {})",
                     req.getMethod(), req.getRemoteAddr(), req.getContentType());
+            lastAuthenticatedAt.set(System.currentTimeMillis());
+            bareSinceSuccess.set(0);
             chain.doFilter(request, response);
             return;
         }
 
+        boolean noCredentials = authHeader == null || authHeader.isBlank();
+        if (noCredentials) {
+            long since = lastAuthenticatedAt.get();
+            boolean handshakeIsWorking = since > 0
+                    && System.currentTimeMillis() - since < SUCCESS_STILL_RELEVANT_MILLIS
+                    && bareSinceSuccess.incrementAndGet() < BARE_ATTEMPTS_BEFORE_WARNING;
+            if (handshakeIsWorking) {
+                // The ordinary first leg. Access does not send credentials
+                // preemptively; it collects this 401 and retries with them.
+                logger.info("Challenging an unauthenticated callout from {} — this is the first "
+                        + "leg of HTTP Basic and the caller normally retries with credentials",
+                        req.getRemoteAddr());
+                res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                res.setHeader("WWW-Authenticate", "Basic realm=\"approval-api\"");
+                res.setContentType("application/json");
+                res.getWriter().write("{\"error\":\"unauthorized\"}");
+                return;
+            }
+        }
+
+        // Either credentials were presented and were wrong, or the challenge has
+        // gone unanswered often enough that it is no longer a handshake.
         logger.warn("Rejected callout request from {}: {}", req.getRemoteAddr(),
-                diagnose(req.getHeader("Authorization")));
+                diagnose(authHeader));
         logger.warn("  what it actually sent: {}", inventory(req));
         res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         res.setHeader("WWW-Authenticate", "Basic realm=\"approval-api\"");
