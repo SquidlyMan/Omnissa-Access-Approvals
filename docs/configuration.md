@@ -227,9 +227,62 @@ sign-in; nothing needs resetting by hand.
 
 | Variable | Default | Description |
 |---|---|---|
-| `OMNISSA_API_USERNAME` | — | When set, `POST /api/approvals/new` requires HTTP Basic auth with these credentials. Configure the same username/password in the Access console under **Settings > Approvals**. Blank = open endpoint. `OPTIONS` probes always remain unauthenticated |
+| `OMNISSA_API_USERNAME` | — | HTTP Basic auth on `POST /api/approvals/new`. Configure the same username/password in the Access console under **Settings > Approvals**. **Required once `OMNISSA_BOOTSTRAP_URL` is set** — the application refuses to start without either this or `OMNISSA_API_ALLOW_UNAUTHENTICATED`. `OPTIONS` probes always remain unauthenticated, so saving the Access settings still works |
 | `OMNISSA_API_PASSWORD` | — | Password paired with `OMNISSA_API_USERNAME` |
-| `OMNISSA_API_RATE_LIMIT` | `60` | Maximum callout requests per minute per source IP on `/api/approvals/new`; excess requests receive HTTP 429. `0` disables rate limiting |
+| `OMNISSA_API_ALLOW_UNAUTHENTICATED` | `false` | Accept unauthenticated callouts on a tenant-configured install. Only appropriate where the endpoint genuinely cannot be reached from anywhere untrusted; a warning is logged hourly while it is set |
+| `OMNISSA_API_RATE_LIMIT` | `60` | Maximum callout requests per minute per client address on `/api/approvals/new`; excess requests receive HTTP 429. `0` disables rate limiting |
+| `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | `0` | How many reverse proxies sit in front of the container. Decides which `X-Forwarded-For` entry is believed when keying rate limits and the login throttle — see [Client addresses behind a proxy](#client-addresses-behind-a-proxy) |
+
+> ### ⚠️ The callout endpoint will not start unauthenticated
+>
+> Once `OMNISSA_BOOTSTRAP_URL` names a tenant, the application refuses to start
+> unless `OMNISSA_API_USERNAME` is set or `OMNISSA_API_ALLOW_UNAUTHENTICATED=true`.
+>
+> `POST /api/approvals/new` is the one path that has to face the internet,
+> because the Access cloud does the POSTing. Left open, anything that reaches
+> the URL can place requests in the queue that look exactly like real ones — and
+> approving one grants a real entitlement. Previously the credentials were
+> optional and blank by default, so the shipped configuration was the open one
+> and nothing said so.
+>
+> **Before a tenant is configured nothing is demanded**, so a first run still
+> needs no configuration at all: stand the container up, confirm it serves, then
+> point it at Access. With no tenant there is nothing an injected request could
+> reach.
+
+### Client addresses behind a proxy
+
+Rate limiting and the login throttle are keyed on the client address. Reverse
+proxies **append** to `X-Forwarded-For`, so the header reads
+`client, proxy1, proxy2` — and the **leftmost entry is written by the caller**.
+Trusting it lets anyone pick their own bucket by varying a header, which removes
+both the callout rate limit and the brute-force protection on the local admin
+password.
+
+So the count is taken **from the right**:
+
+| `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | Which address is used |
+|---|---|
+| `0` *(default)* | The socket peer. Nothing in the header is believed |
+| `1` | The entry your nearest proxy wrote |
+| `2` | One hop further out |
+
+The default is safe everywhere and degrades honestly: behind an unconfigured
+proxy every request keys to the proxy's own address, so limits are *shared*
+rather than forgeable. Shared limits are a nuisance; forgeable limits are not
+limits.
+
+**Do not guess the number.** On the first request carrying `X-Forwarded-For`
+the application logs the chain it received and the address it selected:
+
+```
+First forwarded request seen. X-Forwarded-For carried 2 entries: [203.0.113.9, 10.88.88.7].
+With omnissa.security.trusted-proxy-hops=0 the client is recorded as 10.88.88.1.
+```
+
+Count the entries in that line. If a request that traverses fewer proxies than
+configured arrives — someone reaching the container directly — the header is
+ignored for that request and the socket peer is used instead.
 
 ## Server
 

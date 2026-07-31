@@ -2,6 +2,34 @@
 
 Real failure modes seen in the field, and how to fix them.
 
+## Container will not start: "callout endpoint is reachable without authentication"
+
+The application refuses to start when a tenant is configured
+(`OMNISSA_BOOTSTRAP_URL`) but the callout endpoint has no credentials. The log
+names both ways out:
+
+```
+The Omnissa Access callout endpoint (POST /api/approvals/new) is reachable
+without authentication.
+```
+
+Do one of these:
+
+1. **Set `OMNISSA_API_USERNAME` and `OMNISSA_API_PASSWORD`**, then enter the same
+   values in the Access console under **Settings → Approvals**. Both sides must
+   match or Access callouts will be rejected with 401 and requests will stop
+   arriving.
+2. **Set `OMNISSA_API_ALLOW_UNAUTHENTICATED=true`** if the endpoint genuinely
+   cannot be reached from anywhere untrusted. The application starts and repeats
+   the warning hourly.
+
+This is deliberately a refusal rather than a warning. An open ingest path that
+nobody chose is worth interrupting a deployment for, and a warning in a log is
+not read at the moment it matters.
+
+**Upgrading an existing install?** Set one of the two *before* pulling the new
+image, or the container will not come back up.
+
 ## "Unable to connect to the URI" when saving Settings > Approvals
 
 When you save the approvals settings, the Omnissa Access cloud service

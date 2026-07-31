@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.5] - 2026-07-30
+
+### Security
+- **The client address used for rate limiting could be chosen by the caller.** Three copies of the same helper — in `RateLimitFilter`, `LoginThrottleFilter` and `SecurityConfig` — took the **first** `X-Forwarded-For` entry. Proxies *append* to that header, so the leftmost value is supplied by whoever sent the request. Varying it produced a fresh bucket every time, which bypassed the callout rate limit and, more seriously, **the brute-force throttle protecting the break-glass local admin password**. Addresses are now counted from the right, controlled by `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` (default `0`: believe nothing in the header, use the socket peer).
+- **`getRemoteAddr()` was not a safe fallback either.** `server.forward-headers-strategy=framework` puts Spring's `ForwardedHeaderFilter` in the chain, which rewrites the remote address from that same first `X-Forwarded-For` entry and then strips the header. The socket peer is now captured by a `ServletRequestListener`, which runs before any filter — a filter would have depended on an ordering tie with Boot's own registration, and ties are unspecified.
+- **The callout endpoint accepted anonymous requests by default.** Basic auth on `POST /api/approvals/new` existed but was blank out of the box, so the shipped configuration was the open one and nothing said so. An injected request is indistinguishable from a real one in the queue, and approving it grants a real entitlement. On a tenant-configured install the application now refuses to start without either `OMNISSA_API_USERNAME` or `OMNISSA_API_ALLOW_UNAUTHENTICATED=true`.
+
+### Added
+- `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` (default `0`) and `OMNISSA_API_ALLOW_UNAUTHENTICATED` (default `false`).
+- The first request carrying `X-Forwarded-For` is logged with the chain received and the address selected, so the hop count is counted from a real request rather than guessed.
+
+### Notes
+- **Upgrading requires an environment change** on any install with `OMNISSA_BOOTSTRAP_URL` set: add API credentials — entering the same values under **Settings → Approvals** in the Access console — or set the acknowledgement. Without one the container will not start.
+- A first run still needs no configuration at all. The requirement begins only once a tenant is configured, because until then there is no entitlement an injected request could reach; 1.19.2's "it starts before you configure anything" is unchanged.
+
 ## [1.19.4] - 2026-07-28
 
 ### Fixed

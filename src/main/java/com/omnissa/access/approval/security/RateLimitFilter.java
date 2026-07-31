@@ -30,12 +30,14 @@ public class RateLimitFilter implements Filter {
     private static final int MAX_TRACKED_IPS = 10_000;
 
     private final int limitPerMinute;
+    private final int trustedProxyHops;
 
     /** IP → [windowStartMillis, count]; mutated under compute()'s per-key lock. */
     private final ConcurrentHashMap<String, long[]> windows = new ConcurrentHashMap<>();
 
-    public RateLimitFilter(int limitPerMinute) {
+    public RateLimitFilter(int limitPerMinute, int trustedProxyHops) {
         this.limitPerMinute = limitPerMinute;
+        this.trustedProxyHops = trustedProxyHops;
     }
 
     @Override
@@ -52,7 +54,7 @@ public class RateLimitFilter implements Filter {
         long now = System.currentTimeMillis();
         evictStaleEntries(now);
 
-        String ip = clientIp(req);
+        String ip = ClientIp.of(req, trustedProxyHops);
         long[] window = windows.compute(ip, (key, value) -> {
             if (value == null || now - value[0] >= WINDOW_MILLIS) {
                 return new long[]{now, 1};
@@ -73,17 +75,6 @@ public class RateLimitFilter implements Filter {
         chain.doFilter(request, response);
     }
 
-    /**
-     * First value of X-Forwarded-For when present (the app sits behind a
-     * reverse proxy that sets it), else the socket address.
-     */
-    private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 
     /** Opportunistic eviction so the map can't grow without bound. */
     private void evictStaleEntries(long now) {

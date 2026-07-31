@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.19.4 • MIT License"
+date: "Version 1.19.5 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -444,8 +444,12 @@ given. Decline it first; a decided record deletes harmlessly.
 - **Optional Basic authentication** on the inbound callout endpoint, matching the
   Username/Password fields in the Access approvals settings. Access's
   unauthenticated OPTIONS probe is always allowed.
-- **Per-IP rate limiting** on the callout endpoint (default 60 requests/minute,
-  X-Forwarded-For aware), returning HTTP 429 on excess.
+- **Per-caller rate limiting** on the callout endpoint (default 60 requests per
+  minute), returning HTTP 429 on excess. The address is taken from the *right*
+  of `X-Forwarded-For` under `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS`, because proxies append
+  to that header and the leftmost entry is written by the caller — believing it
+  let anyone pick their own bucket. The default of `0` believes nothing in the
+  header and uses the socket peer.
 - Every other endpoint requires an authenticated session **and a sufficient
   role**. `/api/**` returns a JSON 401 rather than redirecting, so an expired
   session is distinguishable from an empty successful response.
@@ -694,7 +698,9 @@ All settings are container environment values. Required rows are marked ●.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `OMNISSA_API_USERNAME` / `_PASSWORD` | — | HTTP Basic auth on the callout endpoint |
+| `OMNISSA_API_USERNAME` / `_PASSWORD` | — | HTTP Basic auth on the callout endpoint. **Required once a tenant is configured**; the application refuses to start without these or `OMNISSA_API_ALLOW_UNAUTHENTICATED` |
+| `OMNISSA_API_ALLOW_UNAUTHENTICATED` | `false` | Accept anonymous callouts anyway. Warns hourly while set |
+| `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | `0` | Reverse proxies in front of the container; decides which `X-Forwarded-For` entry is believed |
 | `OMNISSA_API_RATE_LIMIT` | `60` | Callout requests/minute per source IP; `0` disables |
 | `SERVER_PORT` | `8081` | HTTP listen port |
 | `APP_BASE_URL` | — | Public URL. **Required** for Slack/Teams deep links |
@@ -750,8 +756,12 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 
 ## 8. Security Posture
 
-- **One intentionally unauthenticated inbound path** —
-  `POST /api/approvals/new` — rate-limited, with optional Basic authentication.
+- **One intentionally internet-facing inbound path** — `POST /api/approvals/new`
+  — rate-limited, and requiring Basic authentication once a tenant is
+  configured. It is the Access cloud that POSTs there, so it cannot sit behind a
+  session; Access sends the credentials from its own approvals settings. Running
+  it open is possible but has to be declared, because a request placed by anyone
+  who finds the URL is indistinguishable from a real one in the queue.
   Plus `GET /api/health/deps`, which returns only a status word: no tenant name,
   no error strings, and deliberately no counts, since a drift number would leak
   request volume.
