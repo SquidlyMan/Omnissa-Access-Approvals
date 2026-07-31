@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.19.5 • MIT License"
+date: "Version 1.19.11 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -762,6 +762,17 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
   session; Access sends the credentials from its own approvals settings. Running
   it open is possible but has to be declared, because a request placed by anyone
   who finds the URL is indistinguishable from a real one in the queue.
+
+  Two behaviours of Access matter when configuring this, and neither is
+  documented by the vendor. **Access decides whether the endpoint needs
+  credentials by probing it with `OPTIONS`**, and re-decides only when its
+  approvals settings are saved — so after setting the credentials you must press
+  Save there, or Access keeps posting unauthenticated. And **Access does not send
+  credentials up front**: every callout starts unauthenticated, collects the
+  `401`, and is retried with them, frequently from a different address because
+  **Access delivers each callout from more than one node**. That last point makes
+  duplicate deliveries normal, so ingest is idempotent — a callout whose request
+  id is already stored is acknowledged and discarded rather than stored twice.
   Plus `GET /api/health/deps`, which returns only a status word: no tenant name,
   no error strings, and deliberately no counts, since a drift number would leak
   request volume.
