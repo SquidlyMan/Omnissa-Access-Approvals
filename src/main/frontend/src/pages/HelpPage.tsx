@@ -196,8 +196,9 @@ export default function HelpPage() {
               and{' '}
               <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">OMNISSA_API_PASSWORD</code>{' '}
               on this tool. They are required: once a tenant is configured the tool refuses to start
-              without them, because this endpoint faces the internet. Save these settings only after the
-              container is running with the credentials, or Access cannot validate them.
+              without them, because this endpoint faces the internet. Access does not verify them when
+              you save, so a mismatch shows up later as callouts rejected with 401 and new requests
+              never reaching the queue — check the application log, which names what was presented.
             </li>
           </ul>
         </HelpSection>

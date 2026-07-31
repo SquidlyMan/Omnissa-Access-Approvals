@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Documentation drift is the same defect as any other here: the previous release's own notes record that "the configuration reference documented a blank client-id as the way to run local-only and that configuration failed to start". Shipping a security change while the help text still describes the old posture recreates exactly that.
 
-- The Help page now also records the ordering that matters in practice: **save the Access approvals settings only after the container is running with the credentials**, because Access validates them against a live endpoint and cannot save them otherwise.
+- The Help page now records what a mismatch actually looks like: **Access does not verify the credentials when you save them**, so a wrong value is not rejected at the console. It surfaces later as callouts returning 401 and new requests never reaching the queue — which is indistinguishable from an outage unless you read the log.
 
 ### Changed
 - `docs/deployment.md` points at the trusted-proxy guidance, since a default-deny proxy is precisely the deployment where `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` needs setting.
