@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.9] - 2026-07-31
+
+### Fixed
+- **The OPTIONS exemption was the reason callout authentication never engaged.** Omnissa Access decides whether this endpoint requires credentials by probing it with `OPTIONS`, and only re-decides when its approvals settings are saved. Answering that probe unauthenticated told Access none were needed, so every callout arrived with no `Authorization` header while the tenant held a valid username and password.
+
+  Observed on a live tenant rather than reasoned about: with the probe exempt, callouts arrived bare indefinitely. Challenging it and re-saving the approvals settings produced an **authenticated probe within seconds** and an **accepted callout immediately after**. `OMNISSA_API_CHALLENGE_OPTIONS` now defaults to `true`; setting it to `false` re-creates the defect and logs a warning saying so.
+
+  The exemption existed so the approvals settings could be saved at all. That turned out to be unnecessary — Access answers the challenge.
+
+### Added
+- An authenticated callout is now logged with its **content type**, so the two message types Access posts to this path (`approval.message+json` and `messaging.message+json`) can be told apart. This matters: the messaging variant has been observed arriving unauthenticated *after* the fix, and knowing which type authenticates is the difference between solved and solved-for-one-case.
+
+### Notes
+- Two tests asserted the old behaviour and were rewritten: `optionsPassesEvenWhenAuthConfigured` required the exemption that turned out to be the defect. That is the second time in this release series a passing test held a defect in place.
+- **Upgrading:** after setting `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`, you must **press Save in the Access approvals settings**. That save is what makes Access re-probe and learn credentials are required. Without it Access keeps posting unauthenticated no matter what either side is configured with.
+
 ## [1.19.8] - 2026-07-31
 
 ### Added

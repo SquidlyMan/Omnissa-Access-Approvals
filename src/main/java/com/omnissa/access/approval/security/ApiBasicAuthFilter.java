@@ -34,7 +34,7 @@ public class ApiBasicAuthFilter implements Filter {
     private final boolean challengeOptions;
 
     public ApiBasicAuthFilter(String username, String password) {
-        this(username, password, false);
+        this(username, password, true);
     }
 
     public ApiBasicAuthFilter(String username, String password, boolean challengeOptions) {
@@ -54,38 +54,37 @@ public class ApiBasicAuthFilter implements Filter {
             chain.doFilter(request, response);
             return;
         }
-        // Omnissa Access probes with OPTIONS and no credentials when saving its
-        // approvals settings, so this is exempt by default or the settings
-        // cannot be saved at all.
+        // Omnissa Access decides whether this endpoint needs credentials by
+        // probing it with OPTIONS, and only re-decides when its approvals
+        // settings are saved. Challenging that probe is therefore REQUIRED: an
+        // exempt probe answers "no authentication here", Access believes it, and
+        // every subsequent callout arrives with no Authorization header while
+        // the tenant holds a perfectly good username and password.
         //
-        // That exemption is also the one place this endpoint departs from the
-        // original vidm-approval reference implementation, and it may be why
-        // authentication never engages. That app ran Spring Boot 1.4 with
-        // spring-boot-starter-security on the classpath and no security
-        // configuration, which in Boot 1.x means SecurityAutoConfiguration
-        // secures EVERY request with HTTP Basic — the probe included. If Access
-        // uses the unauthenticated probe to decide whether this endpoint needs
-        // credentials, an exempted OPTIONS teaches it that none are required,
-        // and it then POSTs bare and ignores a later challenge. That is
-        // consistent with every observation: credentials stored in the tenant,
-        // a probe that succeeds, and callouts arriving with no Authorization
-        // header at all.
+        // Observed directly. With the probe exempt, callouts arrived bare for as
+        // long as we watched. Challenging it and re-saving the settings in Access
+        // produced an authenticated probe within seconds and an accepted callout
+        // immediately after. The exemption was not a convenience — it was the
+        // defect.
         //
-        // Hypothesis, not conclusion — hence a flag, off by default. Turning it
-        // on may prevent Access saving its approvals settings, which is the
-        // known cost and is immediately reversible.
-        if ("OPTIONS".equalsIgnoreCase(req.getMethod())) {
-            if (!challengeOptions) {
-                chain.doFilter(request, response);
-                return;
-            }
-            logger.warn("Challenging an OPTIONS probe from {} because "
-                    + "omnissa.api.challenge-options is on. If Access now starts sending "
-                    + "credentials on its callouts, the exemption was the cause. If Access "
-                    + "instead cannot save its approvals settings, turn this off again.",
-                    req.getRemoteAddr());
+        // Kept as a flag so it can be turned off if a tenant behaves differently,
+        // but the default is now to challenge.
+        if ("OPTIONS".equalsIgnoreCase(req.getMethod()) && !challengeOptions) {
+            logger.warn("Answering an OPTIONS probe from {} WITHOUT a challenge "
+                    + "(omnissa.api.challenge-options=false). Omnissa Access uses this probe to "
+                    + "decide whether credentials are required, so it will conclude they are not "
+                    + "and send callouts unauthenticated.", req.getRemoteAddr());
+            chain.doFilter(request, response);
+            return;
         }
+
         if (isAuthorized(req.getHeader("Authorization"))) {
+            // Recorded so an authenticated callout can be told apart from one
+            // that is merely reaching the controller: Access posts two message
+            // types to this path, and knowing which of them authenticates is the
+            // difference between "solved" and "solved for one of two cases".
+            logger.info("Authenticated {} on the callout endpoint from {} (content-type {})",
+                    req.getMethod(), req.getRemoteAddr(), req.getContentType());
             chain.doFilter(request, response);
             return;
         }
