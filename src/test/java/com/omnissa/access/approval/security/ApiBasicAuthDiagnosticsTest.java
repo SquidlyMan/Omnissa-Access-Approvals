@@ -55,15 +55,56 @@ class ApiBasicAuthDiagnosticsTest {
     }
 
     private String reject(String authHeader) throws Exception {
+        return reject(authHeader, request -> { }).get(0);
+    }
+
+    /** Both lines logged on a rejection: the verdict, then the inventory. */
+    private java.util.List<String> reject(String authHeader,
+            java.util.function.Consumer<MockHttpServletRequest> extra) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/approvals/new");
         request.setRemoteAddr("35.163.252.224");
         if (authHeader != null) {
             request.addHeader("Authorization", authHeader);
         }
+        extra.accept(request);
         new ApiBasicAuthFilter(USER, PASSWORD)
                 .doFilter(request, new MockHttpServletResponse(), mock(FilterChain.class));
-        assertThat(appender.list).hasSize(1);
-        return appender.list.get(0).getFormattedMessage();
+        return appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+    }
+
+    @Test
+    @DisplayName("the inventory names every header, so a credential sent elsewhere is visible")
+    void inventoryNamesOtherHeaders() throws Exception {
+        java.util.List<String> lines = reject(null, r -> {
+            r.addHeader("X-Api-Key", "0123456789");
+            r.addHeader("Content-Type", "application/vnd.vmware.horizon.manager.approval.message+json");
+            r.addHeader("User-Agent", "Omnissa-Access");
+        });
+        String inventory = lines.get(1);
+        assertThat(inventory)
+                .as("a credential sent under another name must be visible, or 'no Authorization "
+                        + "header' reads as 'no credentials' when it means 'not where we looked'")
+                .contains("X-Api-Key")
+                .contains("User-Agent")
+                .contains("credential-shaped=")
+                .contains("10 chars");
+        assertThat(inventory)
+                .as("names and lengths only — never the value")
+                .doesNotContain("0123456789");
+    }
+
+    @Test
+    @DisplayName("query parameter names are listed, values never are")
+    void inventoryNamesQueryKeys() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/approvals/new");
+        request.setQueryString("token=supersecret&id=42");
+        new ApiBasicAuthFilter(USER, PASSWORD)
+                .doFilter(request, new MockHttpServletResponse(), mock(FilterChain.class));
+        String inventory = appender.list.get(1).getFormattedMessage();
+        assertThat(inventory).contains("query-keys=").contains("token").contains("id");
+        assertThat(inventory)
+                .as("a secret in a query string is still a secret")
+                .doesNotContain("supersecret");
     }
 
     private static String basic(String user, String password) {
