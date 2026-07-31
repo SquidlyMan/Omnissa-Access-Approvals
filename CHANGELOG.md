@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.10] - 2026-07-31
+
+### Fixed
+- **A duplicate callout took the whole request out.** Omnissa Access delivers each callout from more than one node: two POSTs carrying the same `requestId` arrived 25ms apart from different egress addresses and both were ingested. `findByRequestId` returned a single entity, so two matching rows threw `IncorrectResultSizeDataAccessException` — and all **sixteen** of its call sites started returning 500. The request could not be opened, decided, swept or pulled; the queue showed two rows and both answered "Request not found".
+
+  Ingest is now idempotent: a callout whose `requestId` is already stored is acknowledged with `200` and not stored again. `200` is deliberate — from the sender's point of view delivery *did* succeed, and answering anything else invites an at-least-once sender to retry harder.
+
+  Lookups also tolerate duplicates already in the database, returning the earliest row and warning. Without that, a deployment which already had a duplicate stayed broken until someone edited the database by hand.
+
+### Notes
+- **This defect was created by fixing another one.** While callout authentication was broken, one delivery leg was always rejected with a 401, so only one copy ever reached the database — a failing handshake was accidentally deduplicating the queue. 1.19.9 made authentication work, both legs landed, and the latent bug surfaced immediately.
+- At-least-once delivery is the sender behaving correctly. Guaranteeing delivery and guaranteeing no duplicates cannot both be had across a network, so the receiver is required to be idempotent. That was our omission, not Access's.
+
 ## [1.19.9] - 2026-07-31
 
 ### Fixed
