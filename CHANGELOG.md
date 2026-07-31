@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `docs/deployment.md` points at the trusted-proxy guidance, since a default-deny proxy is precisely the deployment where `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` needs setting.
 
+### Added
+- **A rejected callout now says why.** Every 401 logged the same sentence, so "Omnissa Access sent no credentials because its approvals settings were never saved with them" and "Access sent the wrong ones" were indistinguishable — and they need opposite fixes. The log now names what the caller presented: whether an `Authorization` header arrived at all, which scheme it used, the username it presented, and the *length* of the secret it presented against the length expected. A shorter length is what a console field with a lower limit produces, so truncation is now visible rather than inferred.
+
+  Only caller-supplied values are logged. Neither the configured password nor the presented one appears, at any length — these logs ship to syslog, and a test asserts their absence rather than trusting the implementation.
+
 ## [1.19.5] - 2026-07-30
 
 ### Security
