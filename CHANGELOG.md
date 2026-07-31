@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.6] - 2026-07-31
+
+### Fixed
+- **Four places still described the callout endpoint as optionally authenticated**, after 1.19.5 made authentication mandatory on a tenant-configured install. The worst was the **in-app Help page**, which told operators the Username and Password fields in the Access console "are only required if API Basic authentication is enabled" — advice that now contradicts an application which refuses to start without them. Also corrected in `README.md`, `docs/deployment.md` and `docs/troubleshooting.md`.
+
+  Documentation drift is the same defect as any other here: the previous release's own notes record that "the configuration reference documented a blank client-id as the way to run local-only and that configuration failed to start". Shipping a security change while the help text still describes the old posture recreates exactly that.
+
+- The Help page now also records the ordering that matters in practice: **save the Access approvals settings only after the container is running with the credentials**, because Access validates them against a live endpoint and cannot save them otherwise.
+
+### Changed
+- `docs/deployment.md` points at the trusted-proxy guidance, since a default-deny proxy is precisely the deployment where `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` needs setting.
+
 ## [1.19.5] - 2026-07-30
 
 ### Security

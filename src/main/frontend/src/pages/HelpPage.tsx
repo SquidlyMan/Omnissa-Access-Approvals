@@ -191,8 +191,13 @@ export default function HelpPage() {
             </li>
             <li>
               The <span className="font-medium text-gray-800">Username</span> and{' '}
-              <span className="font-medium text-gray-800">Password</span> fields are only required if API
-              Basic authentication is enabled on this tool (see Security Options below).
+              <span className="font-medium text-gray-800">Password</span> fields must match{' '}
+              <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">OMNISSA_API_USERNAME</code>{' '}
+              and{' '}
+              <code className="text-xs bg-gray-100 text-gray-800 rounded px-1.5 py-0.5">OMNISSA_API_PASSWORD</code>{' '}
+              on this tool. They are required: once a tenant is configured the tool refuses to start
+              without them, because this endpoint faces the internet. Save these settings only after the
+              container is running with the credentials, or Access cannot validate them.
             </li>
           </ul>
         </HelpSection>

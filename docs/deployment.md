@@ -181,8 +181,13 @@ requests to. It requires:
 
 The **admin UI can stay LAN-only**. A common pattern: expose only
 `/api/approvals/new` through your firewall/proxy and keep everything else on
-the internal network. The callout endpoint supports optional Basic auth and
-per-IP rate limiting — see [SECURITY.md](../SECURITY.md).
+the internal network. The callout endpoint **requires Basic auth** once a tenant is configured — the
+application refuses to start otherwise — and is rate-limited per caller. See
+[SECURITY.md](../SECURITY.md) and
+[Client addresses behind a proxy](configuration.md#client-addresses-behind-a-proxy),
+which matters here: rate limits and login throttling count `X-Forwarded-For`
+entries from the right, so `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` needs to match
+the number of proxies you put in front.
 
 ## ZimaCube / CasaOS
 
