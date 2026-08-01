@@ -83,4 +83,14 @@ class EnvironmentVariableNamesTest {
         assertThat(bind("OMNISSA_API_RATE_LIMIT", "30", "omnissa.api.rate-limit"))
                 .isEqualTo("30");
     }
+
+    @Test
+    @DisplayName("the OPTIONS-probe challenge binds from its documented name")
+    void challengeOptions() {
+        assertThat(bind("OMNISSA_API_CHALLENGE_OPTIONS", "false",
+                "omnissa.api.challenge-options"))
+                .as("a name that does not bind leaves the probe challenged while the operator "
+                        + "believes they disabled it — or worse, the reverse")
+                .isEqualTo("false");
+    }
 }

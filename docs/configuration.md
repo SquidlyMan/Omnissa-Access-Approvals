@@ -230,6 +230,7 @@ sign-in; nothing needs resetting by hand.
 | `OMNISSA_API_USERNAME` | — | HTTP Basic auth on `POST /api/approvals/new`. Configure the same username/password in the Access console under **Settings > Approvals**. **Required once `OMNISSA_BOOTSTRAP_URL` is set** — the application refuses to start without either this or `OMNISSA_API_ALLOW_UNAUTHENTICATED`. `OPTIONS` probes always remain unauthenticated, so saving the Access settings still works |
 | `OMNISSA_API_PASSWORD` | — | Password paired with `OMNISSA_API_USERNAME` |
 | `OMNISSA_API_ALLOW_UNAUTHENTICATED` | `false` | Accept unauthenticated callouts on a tenant-configured install. Only appropriate where the endpoint genuinely cannot be reached from anywhere untrusted; a warning is logged hourly while it is set |
+| `OMNISSA_API_CHALLENGE_OPTIONS` | `true` | Challenge the `OPTIONS` probe Access sends, rather than exempting it. **This is what makes Access authenticate at all** — see [How Access decides to send credentials](#how-access-decides-to-send-credentials). Setting it `false` restores the old exempt behaviour and Access stops sending credentials |
 | `OMNISSA_API_RATE_LIMIT` | `60` | Maximum callout requests per minute per client address on `/api/approvals/new`; excess requests receive HTTP 429. `0` disables rate limiting |
 | `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | `0` | How many reverse proxies sit in front of the container. Decides which `X-Forwarded-For` entry is believed when keying rate limits and the login throttle — see [Client addresses behind a proxy](#client-addresses-behind-a-proxy) |
 
@@ -249,6 +250,33 @@ sign-in; nothing needs resetting by hand.
 > needs no configuration at all: stand the container up, confirm it serves, then
 > point it at Access. With no tenant there is nothing an injected request could
 > reach.
+
+### How Access decides to send credentials
+
+Omnissa Access does not send credentials preemptively, and it does not simply
+send whatever is configured. It **probes the endpoint with `OPTIONS`** and uses
+the answer to decide whether that endpoint requires authentication — then keeps
+that decision until the approvals settings are saved again.
+
+Three consequences, all of which will otherwise cost an afternoon:
+
+1. **Press Save in Access after setting the credentials, even if nothing on that
+   screen changed.** The save is what triggers the re-probe. Without it Access
+   carries on posting unauthenticated no matter what either side holds.
+2. **A single unauthenticated request is normal.** Every callout starts bare,
+   collects the `401`, and is retried with credentials — frequently from a
+   different address, because Access delivers from several nodes. One
+   unauthenticated attempt followed by an authenticated one is a working
+   handshake, not a fault.
+3. **The same request arriving twice is expected.** At-least-once delivery from
+   multiple nodes is the sender behaving correctly; the second copy is
+   acknowledged and discarded rather than queued again.
+
+`OMNISSA_API_CHALLENGE_OPTIONS` defaults to `true` and should stay there. It
+exists only in case a tenant behaves differently, and turning it off recreates
+the failure it was added to fix: the probe is answered unauthenticated, Access
+concludes no credentials are needed, and every callout is then rejected while
+the configuration looks perfectly correct on both sides.
 
 ### Client addresses behind a proxy
 
