@@ -19,3 +19,23 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Workflows pin the floating MAJOR tag — actions/checkout@v7,
+    # docker/login-action@v4, github/codeql-action/init@v4. A patch or minor
+    # release is therefore picked up on the next run with no change here, so a
+    # pull request proposing one only converts the tag to an exact version and
+    # creates work that achieves nothing.
+    #
+    # Not hypothetical. #120 was merged as a version bump and what it actually
+    # did was re-pin codeql-action from @v4 to @v4.37.3, leaving one action
+    # pinned exactly while six floated — the worst of both, because CodeQL then
+    # needed a pull request for every patch and nothing else did. #121 was
+    # closed by Dependabot itself for the same reason: "looks like
+    # docker/login-action is up-to-date now, so this is no longer needed".
+    #
+    # A MAJOR bump is different and still opens a pull request, because @v4 does
+    # not become @v5 on its own and that upgrade can break the build.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-patch"
+          - "version-update:semver-minor"
