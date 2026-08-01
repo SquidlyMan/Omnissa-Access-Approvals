@@ -700,6 +700,7 @@ All settings are container environment values. Required rows are marked ●.
 |---|---|---|
 | `OMNISSA_API_USERNAME` / `_PASSWORD` | — | HTTP Basic auth on the callout endpoint. **Required once a tenant is configured**; the application refuses to start without these or `OMNISSA_API_ALLOW_UNAUTHENTICATED` |
 | `OMNISSA_API_ALLOW_UNAUTHENTICATED` | `false` | Accept anonymous callouts anyway. Warns hourly while set |
+| `OMNISSA_API_CHALLENGE_OPTIONS` | `true` | Challenge the `OPTIONS` probe Access uses to decide whether credentials are required. Turning it off stops Access authenticating at all |
 | `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | `0` | Reverse proxies in front of the container; decides which `X-Forwarded-For` entry is believed |
 | `OMNISSA_API_RATE_LIMIT` | `60` | Callout requests/minute per source IP; `0` disables |
 | `SERVER_PORT` | `8081` | HTTP listen port |
