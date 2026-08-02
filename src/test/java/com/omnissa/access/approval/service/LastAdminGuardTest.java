@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -32,15 +33,25 @@ class LastAdminGuardTest {
     private LocalAccountService service;
     private UserAccountRepository repository;
 
+    /**
+     * Builds a mutable authorities list, matching what a real Hibernate-loaded
+     * {@code UserAccount} carries — its {@code @ManyToMany} collection is
+     * always one of Hibernate's own mutable wrappers, never a locked list.
+     * {@link LocalAccountService#setRoles} edits that collection in place
+     * (see its javadoc for why), so a fixture built from an immutable list
+     * would fail in a way a real entity never does.
+     */
     private UserAccount account(String username, boolean enabled, AuthorityName... roles) {
         UserAccount user = new UserAccount();
         user.setUsername(username);
         user.setEnabled(enabled);
-        user.setAuthorities(List.of(roles).stream().map(role -> {
+        List<Authority> authorities = new ArrayList<>();
+        for (AuthorityName role : roles) {
             Authority authority = new Authority();
             authority.setAuthorityName(role);
-            return authority;
-        }).toList());
+            authorities.add(authority);
+        }
+        user.setAuthorities(authorities);
         return user;
     }
 

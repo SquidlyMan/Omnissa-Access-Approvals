@@ -7,6 +7,7 @@ import com.omnissa.access.approval.repository.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -70,13 +71,30 @@ public class LocalAccountService {
         }
     }
 
-    /** Replaces an account's roles, rejecting unknown names. */
+    /**
+     * Replaces an account's roles, rejecting unknown names.
+     *
+     * <p>Mutates the existing {@code authorities} collection in place rather
+     * than replacing it with a new list. Hibernate tracks that collection as
+     * part of the {@code @ManyToMany}; handing it a fresh {@code
+     * Stream.toList()} result (immutable) instead of editing it in place
+     * used to make every call 500 — {@code CollectionType.replaceElements}
+     * needs to clear and refill the collection it's tracking, and a locked
+     * list throws on {@code .clear()}. Editing the tracked collection avoids
+     * the replacement entirely.
+     */
     public void setRoles(UserAccount user, Set<AuthorityName> roles) {
-        List<Authority> authorities = roles.stream().map(role -> {
+        List<Authority> authorities = user.getAuthorityEntities();
+        if (authorities == null) {
+            authorities = new ArrayList<>();
+            user.setAuthorities(authorities);
+        } else {
+            authorities.clear();
+        }
+        for (AuthorityName role : roles) {
             Authority authority = new Authority();
             authority.setAuthorityName(role);
-            return authority;
-        }).toList();
-        user.setAuthorities(authorities);
+            authorities.add(authority);
+        }
     }
 }
