@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.19.11"
+subtitle: "What was built between v1.2 and v1.20.0"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -108,6 +108,11 @@ is given in brackets.
   recording the running image digest [1.5.0]
 - **Version-tagged container images** [1.5.0] and a **test suite enforced as a
   CI gate** [v1.5.6]
+- **The Access API client caches its OAuth token** instead of fetching a new
+  one on every single call — every call site constructs a fresh client, so the
+  cache is shared by tenant. The reachability tile's probe deliberately still
+  bypasses it, since a cached token could otherwise report a dead tenant as
+  reachable for its whole lifetime [1.20.0]
 
 ## Deployment and platform
 
@@ -123,6 +128,16 @@ is given in brackets.
 
 ## Decision automation
 
+- **Multi-stage approval chains** — a chain requires sequential approval by
+  different stages, matched by application-name pattern and/or Access group,
+  instead of any one approver deciding a request outright. A stage requires
+  anyone holding a role or anyone in a specific Access group; approving a
+  non-final stage never contacts Access, and rejecting at any stage rejects the
+  whole request immediately. Admins may always decide any stage. A
+  chain-matched request is exempt from Auto-Approval Rules [1.20.0]
+- **Hub Notifications**, an additional notify-only delivery channel: whoever is
+  eligible for a chain's current stage is pushed a notification on entry and
+  every stage advance, never with a decision action button [1.20.0]
 - **Expiry rules can be scoped** — an expiry rule now takes the same optional
   application-name pattern and Access group as a match rule, so *"reject stale
   Finance requests after 3 days"* is expressible. Leaving both blank — the usual

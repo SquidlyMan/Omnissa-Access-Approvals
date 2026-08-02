@@ -3,6 +3,7 @@ package com.omnissa.access.approval.service;
 import com.omnissa.access.approval.controller.SseController;
 import com.omnissa.access.approval.interfaces.ApprovalsInterface;
 import com.omnissa.access.approval.interfaces.EntitlementsInterface;
+import com.omnissa.access.approval.model.ApprovalStage;
 import com.omnissa.access.approval.model.CalloutRequest;
 import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.model.DecisionOutcome;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Shared approve/reject decision flow, so an interactive UI decision and an
@@ -35,9 +37,18 @@ public class DecisionService {
     @Autowired private WebhookNotifier webhookNotifier;
     @Autowired private MailNotification mailNotification;
     @Autowired private SseController sseController;
+    @Autowired private ApprovalChainService approvalChainService;
 
     /**
      * Deliver a decision and finalize it.
+     *
+     * <p>For a chained (#53) request that is approved before its final
+     * stage, nothing is sent to Access: {@code currentStage} advances and
+     * this returns {@link DecisionOutcome#STAGE_ADVANCED} instead. A
+     * rejection at any stage, and an approval of the final stage, both fall
+     * through unchanged to the ordinary delivery path below — a reject
+     * always short-circuits the whole request, by design (see {@code
+     * ApprovalStage}'s javadoc).
      *
      * @param decider resolved identity of who decided (admin username, or the
      *                mapped Slack approver, …) — used for attribution + decidedBy.
@@ -45,6 +56,13 @@ public class DecisionService {
     public DecisionOutcome decide(String requestId, boolean approved, String message,
                                   Integer ttlMinutes, Boolean reRequestable, String decider) {
         CalloutRequest request = approvalsRepository.findByRequestId(requestId);
+        if (request != null && approved && request.getChainId() != null) {
+            List<ApprovalStage> stages = approvalChainService.stagesFor(request.getChainId());
+            int current = request.getCurrentStage() != null ? request.getCurrentStage() : 1;
+            if (current < stages.size()) {
+                return advanceStage(request, current, stages, message, decider);
+            }
+        }
         DecisionOutcome outcome = approvalsInterface.requestResponse(new CalloutResponse(requestId, approved, message));
         switch (outcome) {
             case DELIVERED -> {
@@ -211,5 +229,27 @@ public class DecisionService {
         }
         approvalsRepository.save(fresh);
         return note;
+    }
+
+    /**
+     * Advance a chained request to its next stage without contacting Access.
+     * {@code state} is deliberately left "pending" — see {@code
+     * CalloutRequest.currentStage}'s javadoc for why. Hub-notifies whoever is
+     * eligible for the new current stage.
+     */
+    private DecisionOutcome advanceStage(CalloutRequest request, int currentStage, List<ApprovalStage> stages,
+                                         String message, String decider) {
+        int totalStages = stages.size();
+        request.setCurrentStage(currentStage + 1);
+        approvalsRepository.save(request);
+        String note = (message != null && !message.isBlank()) ? " — " + message : "";
+        auditService.recordFor("stage-approved", request,
+                "Stage " + currentStage + " of " + totalStages + " approved by " + decider + note
+                        + " — now awaiting stage " + (currentStage + 1), decider);
+        sseController.publishQueueUpdate("queue-updated");
+        stages.stream().filter(s -> s.getStageOrder() == currentStage + 1).findFirst()
+                .ifPresent(nextStage -> approvalChainService.notifyStageApprovers(
+                        request, request.getChainId(), nextStage));
+        return DecisionOutcome.STAGE_ADVANCED;
     }
 }

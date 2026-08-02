@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.19.11 and complete version history"
+subtitle: "Release Notes — v1.20.0 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,8 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.20.0** | Multi-stage approval chains, Hub Notifications | `v1.20.0` |
+| **1.19.12** | Help documents the credential-save step that makes callout auth take effect | `v1.19.12` |
 | **1.19.11** | A challenge is not a failure: callout logging corrected | `v1.19.11` |
 | **1.19.10** | Idempotent callout ingest — Access delivers from multiple nodes | `v1.19.10` |
 | **1.19.9** | Callout authentication engages: the OPTIONS probe is challenged | `v1.19.9` |
@@ -89,11 +91,80 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.20.0
+
+### Key Capabilities in this release
+
+- **Multi-stage approval chains.** A chain requires sequential approval by
+  different stages — matched by application-name pattern and/or Access group —
+  before a request reaches Omnissa Access, instead of any one approver deciding
+  it outright. Each stage requires either anyone holding a role or anyone in a
+  specific Access group. Approving a non-final stage never contacts Access; the
+  request stays pending and advances to the next stage. Rejecting at any stage
+  rejects the whole request immediately. Administrators may always decide any
+  stage — the same break-glass precedent used elsewhere in the tool — so a chain
+  whose stage requirement can no longer be satisfied is never a dead end.
+  Managed on the new **Chains** page. A chain-matched request is exempt from
+  Auto-Approval Rules.
+- **Hub Notifications**, as an additional notify-only delivery channel.
+  Whoever is eligible for a chain's current stage is pushed a notification when
+  a request enters a chain and after every stage advance, if the tenant has Hub
+  Notifications enabled. It never carries an action button — every decision
+  still happens by signing in to the tool, the same reasoning that keeps
+  Slack/Teams approvals as deep links rather than inline callbacks.
+
+### Fixes
+
+- **Changing a local account's roles always failed with a 500.** The code path
+  that replaced an account's role list handed the database layer an immutable
+  list; saving then tried to clear it in place and threw. This was
+  deterministic — every attempt to change a local account's roles failed,
+  silently, since local account management shipped, because nothing exercised
+  the endpoint through its real save path before.
+
+### Known Issues
+
+- A chain stage has no independent timeout or escalation — a stuck stage is
+  covered only by the whole-request expiry auto-rule, same as an unstaged
+  request.
+- A chain stage can require a role or an Access group, not one specific named
+  individual.
+
+---
+
+# What's New in Access Approval Tool v1.19.12
+
+### Key Capabilities in this release
+
+None. Documentation accuracy only.
+
+### Fixes
+
+- **The in-app Help now says how to configure the callout credentials so they
+  actually take effect.** The previous text named the two variables and said
+  they were required, but omitted the step that matters most — pressing **Save**
+  in the Access approvals settings afterwards, even when nothing on that screen
+  changed. Access decides whether an endpoint requires authentication by probing
+  it, and only re-decides when those settings are saved; following the old
+  instructions exactly reproduced the failure the 1.19.5–1.19.11 series spent
+  its length diagnosing.
+- Help also now records the two Access behaviours that make the log readable:
+  credentials are never sent up front, so a single unauthenticated attempt is
+  the normal first half of the exchange rather than a fault; and each callout is
+  delivered from more than one node, so the same request arriving twice is
+  expected and the second copy is discarded.
+
+### Known Issues
+
+- None outstanding for this release.
 
 ---
 
@@ -1144,8 +1215,9 @@ These apply to v1.19.4 and are design boundaries rather than defects.
 - **Single tenant** — one Omnissa Access tenant per deployment.
 - **Embedded file database** — right for proof-of-concept scale; no clustering
   and no external-database option.
-- **Not an ITSM system** — no multi-stage approval chains, no delegation, and
-  no SLA escalation beyond expiry rules.
+- **Not a full ITSM system** — multi-stage approval chains shipped in 1.20.0,
+  but there is still no delegation and no per-stage SLA escalation beyond the
+  whole-request expiry rule.
 - **Slack and Teams are notification channels, not decision surfaces.** Every
   decision is made in the tool's own interface after sign-in. This is
   deliberate: it is what keeps authority in one place.
@@ -1173,12 +1245,7 @@ Planned work, in the order it is likely to land. No commitment to dates.
 - **Delegation and escalation.** A request that nobody attends to currently has
   exactly one outcome — the blunt auto-reject expiry rule. The missing middle
   is *"nobody looked at this, tell someone else"*: notify on timeout, and
-  reassign to a named approver or group. This also lays the groundwork the next
-  item needs.
-- **Multi-stage approvals.** Sequential chains, where a request must clear one
-  approver or group before reaching the next. The largest planned change, and
-  the one most likely to reshape how a request is stored; it follows delegation
-  rather than preceding it.
+  reassign to a named approver or group.
 - **Full configuration from the CasaOS / ZimaCube application settings**, so a
   ZimaCube deployment can be changed without editing an environment file over
   SSH. This means working *with* the CasaOS adopt-and-recreate behaviour rather
@@ -1190,6 +1257,12 @@ Planned work, in the order it is likely to land. No commitment to dates.
 
 ## Recently shipped from this list
 
+- **Multi-stage approvals.** Sequential chains, where a request must clear one
+  stage's role or Access group before advancing to the next; rejecting at any
+  stage rejects the whole request immediately. Shipped in 1.20.0, ahead of
+  delegation/escalation above — the reverse of the original plan, since the
+  Access-directory groundwork chains needed (SCIM group-member resolution)
+  turned out not to require delegation first.
 - **Start with OAuth sign-in disabled, and without `spring.mail.host` set.** The
   configuration reference documented a blank client-id as the way to run
   local-only and that configuration failed to start; the documented path and the

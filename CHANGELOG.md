@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-08-02
+
+### Added
+- **Multi-stage approval chains (#53).** A chain requires sequential approval by different stages — matched by application-name pattern and/or Access group — before a request reaches Omnissa Access, instead of any one approver deciding it outright. Each stage requires either anyone holding a role or anyone in a specific Access group; approving a non-final stage never contacts Access, while rejecting at any stage rejects the whole request immediately. Admins may always decide any stage, the same break-glass precedent used elsewhere in the tool. Managed on the new **Chains** page; auto-approval rules never decide a chain-matched request. Not yet included: a per-stage timeout independent of the whole-request expiry rule, and stages that require one specific named individual rather than a role or group.
+- **Hub Notifications, as an additional (notify-only) delivery channel.** Whoever is eligible for an approval chain's current stage is pushed a Hub Notification when a request enters a chain and after every stage advance, if the tenant has Hub Notifications enabled. Deliberately never carries an action button — every decision still happens by signing in to the tool, the same reasoning that keeps Slack/Teams approvals as deep links rather than inline callbacks.
+- **Directory profile capture at OIDC login.** Email, name, and (where the tenant sends them) phone/UPN are captured for a signed-in OIDC user and kept keyed on the same identity string the audit trail already uses — laying groundwork for resolving a notification recipient without a live Access lookup.
+- **SCIM group-member resolution.** A tested capability for resolving an Access group's members, live, with their contact attributes — the basis for the role-stage and group-stage recipient resolution above.
+
+### Changed
+- **The Access API client now caches its OAuth token instead of fetching one on every single call.** Every call site constructs a fresh client per call, so the cache is keyed by tenant and shared across all of them. The reachability tile's probe deliberately still bypasses the cache — it has to stay a live call, or a healthy cached token could report a dead tenant as reachable for its whole token lifetime.
+
+### Fixed
+- **Changing a local account's roles always failed with a 500.** The fix that replaced an account's role list handed the database layer an immutable list; saving then tried to clear it in place and threw. Deterministic — every attempt to change a local account's roles failed, silently, since local account management shipped. Nothing exercised the endpoint through its real save path before, which is how it went unnoticed.
+
 ## [1.19.12] - 2026-07-31
 
 ### Changed
