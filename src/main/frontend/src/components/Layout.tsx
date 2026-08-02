@@ -51,6 +51,9 @@ export default function Layout() {
                 <NavLink to="/rules" className={desktopLinkClass}>
                   Rules
                 </NavLink>
+                <NavLink to="/chains" className={desktopLinkClass}>
+                  Chains
+                </NavLink>
               </>
             )}
             {showAuditLink && (
@@ -131,6 +134,9 @@ export default function Layout() {
                 </NavLink>
                 <NavLink to="/rules" onClick={closeMenu} className={mobileLinkClass}>
                   Rules
+                </NavLink>
+                <NavLink to="/chains" onClick={closeMenu} className={mobileLinkClass}>
+                  Chains
                 </NavLink>
               </>
             )}

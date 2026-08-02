@@ -17,4 +17,17 @@ public class Paths {
 
     // SCIM user directory — fallback resolution of a requester to their SCIM id.
     public static final String SCIM_USERS = ROOT_PATH + "/scim/Users";
+    public static final String SCIM_USER  = SCIM_USERS + "/{scim-id}";
+
+    // SCIM group directory — group-member resolution (#51/#53 recipient lookup).
+    public static final String SCIM_GROUP = ROOT_PATH + "/scim/Groups/{group-id}";
+
+    // Hub Notifications Service — an additional (notify-only) delivery channel
+    // for #51/#53. Root is NOT under ROOT_PATH: it's a sibling product surface
+    // on the same tenant host, confirmed reachable with the same service-client
+    // token. Schema verified against Omnissa's own "Workspace ONE Notifications
+    // Service Guide" (developer.omnissa.com), not guessed.
+    public static final String HUB_NOTIFICATIONS_ROOT       = "/ws1notifications/api/v1";
+    public static final String HUB_NOTIFICATIONS_USER       = HUB_NOTIFICATIONS_ROOT + "/users/{user-id}/notifications";
+    public static final String HUB_NOTIFICATIONS_DISTRIBUTED = HUB_NOTIFICATIONS_ROOT + "/distributed_notifications";
 }

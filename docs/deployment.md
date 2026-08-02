@@ -130,7 +130,7 @@ exactly the assumption a defence-in-depth layer exists to avoid making.
 The current valid path set:
 
 ```
-(/|/login(/.*)?|/logout|/oauth2(/.*)?|/dashboard|/queue|/rules|/users(/.*)?|/help|/requests(/.*)?|/assets(/.*)?|/favicon\.ico|/api(/.*)?)
+(/|/login(/.*)?|/logout|/oauth2(/.*)?|/dashboard|/queue|/rules|/chains|/users(/.*)?|/help|/requests(/.*)?|/assets(/.*)?|/favicon\.ico|/api(/.*)?)
 ```
 
 Notes on that pattern:

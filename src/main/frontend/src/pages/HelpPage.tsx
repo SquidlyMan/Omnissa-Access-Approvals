@@ -336,15 +336,18 @@ export default function HelpPage() {
                 <tr>
                   <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-800">Admin</td>
                   <td className="px-3 py-2 border-b border-gray-100">
-                    Manage users, auto-approval rules, tenant configuration and the log bundle;
-                    delete requests — plus everything below
+                    Manage users, auto-approval rules, approval chains, tenant configuration and the
+                    log bundle; delete requests — plus everything below. Can always decide any stage
+                    of any approval chain, regardless of that stage's requirement
                   </td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-800">Approver</td>
                   <td className="px-3 py-2 border-b border-gray-100">
                     Decide requests — approve, reject, revoke, revoke and block, allow re-request.
-                    Can <span className="font-medium">read</span> rules but not change them
+                    Can <span className="font-medium">read</span> rules and chains but not change
+                    them. For a request on an approval chain, only eligible for the chain's{' '}
+                    <span className="font-medium">current stage</span> — see Approval Chains below
                   </td>
                 </tr>
                 <tr>
@@ -822,6 +825,69 @@ export default function HelpPage() {
             All auto-decisions appear in the <span className="font-medium text-gray-800">Audit</span>{' '}
             tab as <span className="font-medium text-gray-800">auto-approved</span> or{' '}
             <span className="font-medium text-gray-800">auto-rejected</span>, with the rule number.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="Approval Chains">
+          <p>
+            Chains are managed on the <span className="font-medium text-gray-800">Chains</span>{' '}
+            page (admins only). A chain requires <span className="font-medium text-gray-800">
+            sequential</span> approval by different stages before a request reaches Omnissa Access —
+            an app matching the chain's app name pattern and/or Access group needs every stage's
+            approval, in order, rather than any one approver deciding it outright.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              A matched request is exempt from Auto-Approval Rules — a chain exists specifically to
+              require sequential human judgment, so an auto-rule is never allowed to decide it on
+              arrival. If both a chain and an auto-rule could match the same request, the chain wins.
+            </li>
+            <li>
+              Each stage requires either <span className="font-medium text-gray-800">anyone
+              holding a role</span> (Admin, Approver, Viewer or Auditor) or{' '}
+              <span className="font-medium text-gray-800">anyone in a specific Access group</span>{' '}
+              — read the group's id from the same place role-mapping ids come from,{' '}
+              <Code>GET /api/auth/claims</Code> after signing in.
+            </li>
+            <li>
+              Approving a non-final stage never contacts Omnissa Access — the request stays pending
+              and moves to the next stage. Rejecting at{' '}
+              <span className="font-medium text-gray-800">any</span> stage rejects the whole request
+              immediately, the same as an ordinary decline.
+            </li>
+            <li>
+              Admins may always decide any stage of any chain (the same break-glass precedent as
+              elsewhere in this tool) — useful for unsticking a chain whose stage requirement can no
+              longer be satisfied (e.g. an Access group was deleted).
+            </li>
+            <li>
+              A chain with no stages configured is never matched — it would create a request nobody
+              is eligible to decide, so it's skipped rather than routed to it.
+            </li>
+          </ul>
+          <p className="font-medium text-gray-800">Notifications</p>
+          <p>
+            Whoever is eligible for the current stage is pushed a Hub Notification when a request
+            first enters a chain and after every stage advance, if Hub Notifications is available on
+            your tenant. For a role-based stage, recipients are everyone in the Access group(s)
+            mapped to that role in <EnvVar name="OMNISSA_ROLE_MAP" /> — no separate configuration
+            needed. These notifications are informational only; deciding a request always happens by
+            signing in to this tool, never from an action button on the notification itself.
+          </p>
+          <p className="font-medium text-gray-800">What's not here yet</p>
+          <p>
+            A stage with nobody acting on it is covered only by the ordinary whole-request expiry
+            auto-rule, the same as an unstaged pending request — there is no separate per-stage
+            timeout or escalation. A stage can only require a role or a group, never one specific
+            named person.
+          </p>
+          <p>
+            Every chain decision appears in the{' '}
+            <span className="font-medium text-gray-800">Audit</span> tab —{' '}
+            <span className="font-medium text-gray-800">chain-matched</span> when a request is routed
+            into a chain, and <span className="font-medium text-gray-800">stage-approved</span> for
+            each stage along the way. The final stage's decision is audited exactly like any other
+            approval or rejection.
           </p>
         </HelpSection>
 

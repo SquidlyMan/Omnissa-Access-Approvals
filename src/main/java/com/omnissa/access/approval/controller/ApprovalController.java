@@ -2,6 +2,8 @@ package com.omnissa.access.approval.controller;
 
 import com.omnissa.access.approval.dto.PagedResponse;
 import com.omnissa.access.approval.interfaces.ApprovalsInterface;
+import com.omnissa.access.approval.model.ApprovalChain;
+import com.omnissa.access.approval.model.ApprovalStage;
 import com.omnissa.access.approval.model.AutoRule;
 import com.omnissa.access.approval.model.CalloutOperation;
 import com.omnissa.access.approval.model.CalloutRequest;
@@ -9,6 +11,7 @@ import com.omnissa.access.approval.model.CalloutResponse;
 import com.omnissa.access.approval.model.DecisionOutcome;
 import com.omnissa.access.approval.model.DecisionRequest;
 import com.omnissa.access.approval.model.Mappings;
+import com.omnissa.access.approval.service.ApprovalChainService;
 import com.omnissa.access.approval.util.Csv;
 import com.omnissa.access.approval.repository.ApprovalsRepository;
 import com.omnissa.access.approval.util.AuditService;
@@ -26,6 +29,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.SimpleDateFormat;
@@ -62,6 +66,9 @@ public class ApprovalController {
 
     @Autowired
     RuleEngine ruleEngine;
+
+    @Autowired
+    ApprovalChainService approvalChainService;
 
     @GetMapping("/pending/remote")
     public ResponseEntity<?> getRemotePendingApprovals() {
@@ -263,9 +270,41 @@ public class ApprovalController {
         sseController.publishNewRequest(calloutRequest);
         if (!deactivation) {
             webhookNotifier.notifyNewRequest(calloutRequest);
-            applyAutoRules(calloutRequest);
+            if (!routeToChain(calloutRequest)) {
+                applyAutoRules(calloutRequest);
+            }
         }
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    /**
+     * Routes a fresh request into a matching approval chain (#53) instead of
+     * the ordinary single-decision flow, when one matches. Returns true if
+     * routed — in which case auto-rules must NOT run: a chain exists
+     * specifically to require sequential human judgment, so letting a MATCH
+     * rule auto-decide the request on arrival would defeat the point.
+     */
+    private boolean routeToChain(CalloutRequest calloutRequest) {
+        try {
+            ApprovalChain chain = approvalChainService.matchChain(calloutRequest);
+            if (chain == null) {
+                return false;
+            }
+            calloutRequest.setChainId(chain.getId());
+            calloutRequest.setCurrentStage(1);
+            approvalsRepository.save(calloutRequest);
+            List<ApprovalStage> stages = approvalChainService.stagesFor(chain.getId());
+            logger.info("Approval chain #{} ('{}') matched requestId={} — stage 1 of {}",
+                    chain.getId(), chain.getName(), calloutRequest.getRequestId(), stages.size());
+            auditService.recordFor("chain-matched", calloutRequest,
+                    "Routed to approval chain \"" + chain.getName() + "\" — stage 1 of " + stages.size());
+            approvalChainService.notifyStageApprovers(calloutRequest, chain.getId(), stages.get(0));
+            return true;
+        } catch (Exception e) {
+            logger.error("Chain matching failed for requestId={} — falling back to auto-rules",
+                    calloutRequest.getRequestId(), e);
+            return false;
+        }
     }
 
     /**
@@ -341,9 +380,21 @@ public class ApprovalController {
     }
 
     @PostMapping("/response")
-    public ResponseEntity<?> approveCalloutRequest(@RequestBody DecisionRequest decision) {
+    public ResponseEntity<?> approveCalloutRequest(@RequestBody DecisionRequest decision,
+                                                   Authentication authentication) {
         logger.info("Processing approval response: requestId={} approved={} ttlMinutes={}",
                 decision.getRequestId(), decision.isApproved(), decision.getTtlMinutes());
+        CalloutRequest existingRequest = approvalsRepository.findByRequestId(decision.getRequestId());
+        if (existingRequest != null) {
+            // Only a chained request's CURRENT stage narrows who may decide —
+            // this must never restrict the ordinary "any APPROVER" case.
+            String reason = approvalChainService.ineligibilityReason(existingRequest, authentication);
+            if (reason != null) {
+                logger.warn("Refused decision on requestId={} by {} — {}",
+                        decision.getRequestId(), auditService.currentAdmin(), reason);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", reason));
+            }
+        }
         try {
             DecisionOutcome outcome = decisionService.decide(decision.getRequestId(), decision.isApproved(),
                     decision.getMessage(), decision.getTtlMinutes(), decision.getReRequestable(),
@@ -371,6 +422,15 @@ public class ApprovalController {
         String admin = auditService.currentAdmin();
         String message = (approved ? "Approved by " : "Rejected by ") + admin + " (bulk action)";
         for (CalloutRequest request : approvalsRepository.findByState("pending")) {
+            // A chained request (#53) requires a SPECIFIC stage's approver, not
+            // "any APPROVER" — bulk-deciding it would either bypass that check
+            // entirely (approving) or, if rejected, be indistinguishable from a
+            // deliberate single reject. Skip it; decide it individually instead.
+            if (request.getChainId() != null) {
+                logger.info("Bulk action skipped requestId={} — it's on approval chain #{}, stage {}",
+                        request.getRequestId(), request.getChainId(), request.getCurrentStage());
+                continue;
+            }
             try {
                 DecisionOutcome outcome = approvalsInterface.requestResponse(
                         new CalloutResponse(request.getRequestId(), approved, "bulk action"));

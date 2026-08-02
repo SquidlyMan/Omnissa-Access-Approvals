@@ -119,6 +119,32 @@ export interface Rule {
   grantTtlMinutes: number | null
 }
 
+/**
+ * A multi-stage approval chain definition (#53). Requests matching
+ * appPattern/groupName route through this chain's stages, sequentially,
+ * instead of the ordinary single-decision flow.
+ */
+export interface ApprovalChain {
+  id: number
+  enabled: boolean
+  name: string
+  appPattern: string | null
+  groupName: string | null
+}
+
+/**
+ * One ordered stage of an {@link ApprovalChain}. approverValue is a
+ * ROLE_* authority name when approverType is 'ROLE', or an Access group id
+ * when it's 'GROUP'.
+ */
+export interface ApprovalStage {
+  id: number
+  chainId: number
+  stageOrder: number
+  approverType: 'ROLE' | 'GROUP'
+  approverValue: string
+}
+
 export interface TenantStatus {
   version?: string
   tenantUrl: string

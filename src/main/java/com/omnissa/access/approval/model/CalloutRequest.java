@@ -130,6 +130,23 @@ public class CalloutRequest implements Serializable {
     @Temporal(value = TemporalType.TIMESTAMP)
     private Date restoredAt;
 
+    // --- Multi-stage approval chains (#53). Both nullable → null = today's
+    // single-decision flow, unchanged. See ApprovalChain/ApprovalStage. ---
+
+    /** The {@link ApprovalChain} this request was routed to at arrival; null = not chained. */
+    @Nullable
+    private Long chainId;
+
+    /**
+     * 1-based stage currently awaiting a decision. {@code state} stays
+     * "pending" for the whole chain (not a separate "awaiting-stage" value)
+     * so a chained request remains visible in the existing queue view
+     * without any UI change — this field is the source of truth for chain
+     * progress, not the state column.
+     */
+    @Nullable
+    private Integer currentStage;
+
     public CalloutRequest() {}
 
     public CalloutRequest(@Nonnull String userId) {
@@ -218,6 +235,12 @@ public class CalloutRequest implements Serializable {
 
     @Nullable public Date getRestoredAt() { return restoredAt; }
     public void setRestoredAt(@Nullable Date restoredAt) { this.restoredAt = restoredAt; }
+
+    @Nullable public Long getChainId() { return chainId; }
+    public void setChainId(@Nullable Long chainId) { this.chainId = chainId; }
+
+    @Nullable public Integer getCurrentStage() { return currentStage; }
+    public void setCurrentStage(@Nullable Integer currentStage) { this.currentStage = currentStage; }
 
     @Override
     public String toString() {

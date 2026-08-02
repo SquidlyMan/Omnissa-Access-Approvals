@@ -2,6 +2,7 @@ package com.omnissa.access.approval.security;
 
 import com.omnissa.access.approval.config.AdminOAuthEnvironmentPostProcessor;
 import com.omnissa.access.approval.model.security.AuthorityName;
+import com.omnissa.access.approval.model.security.DirectoryProfile;
 import com.omnissa.access.approval.repository.UserAccountRepository;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
@@ -67,6 +68,9 @@ public class SecurityConfig {
 
     @Autowired
     private UserAccountRepository userAccountRepository;
+
+    @Autowired
+    private DirectoryProfileService directoryProfileService;
 
     /**
      * Read only to tell "no OIDC client was ever configured" apart from "one was
@@ -264,6 +268,14 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "USER")
                 .requestMatchers("/api/rules", "/api/rules/**").hasRole("ADMIN")
 
+                // Approval chains (#53): same shape as rules — a chain/stage change
+                // decides who may approve what, so writes are admin-only. Must be
+                // explicit; there is no broad /api/** fallback that would otherwise
+                // cover this path, unlike /api/approvals/**.
+                .requestMatchers(HttpMethod.GET, "/api/chains", "/api/chains/**")
+                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "USER")
+                .requestMatchers("/api/chains", "/api/chains/**").hasRole("ADMIN")
+
                 // Bulk export is an extraction, not a read: it produces a file that
                 // leaves the application's controls entirely and can be retained or
                 // shared without trace. Reading the trail on screen is page-by-page
@@ -445,6 +457,13 @@ public class SecurityConfig {
      * {@link GroupRoleMapper#DEFAULT_ROLE}. With no {@code omnissa.rbac.role-map}
      * configured, that is all anyone gets — deliberately, so enabling the map is
      * the explicit act that grants privilege.
+     *
+     * <p>Also captures a {@link DirectoryProfile} snapshot (email/phone/UPN/etc.)
+     * for this user, keyed on the same identity string
+     * {@code AuditService.currentAdmin()} resolves — preferred_username, else
+     * email, else subject — so a later feature can resolve a notification
+     * recipient from an {@code assignedOwner}/{@code decidedBy} value without a
+     * second identity scheme. See {@link DirectoryProfileService}.
      */
     @Bean
     public OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
@@ -467,13 +486,19 @@ public class SecurityConfig {
             Set<GrantedAuthority> authorities = new LinkedHashSet<>(user.getAuthorities());
             roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role.name())));
 
-            String identity = user.getEmail() != null ? user.getEmail() : user.getSubject();
+            // Same fallback AuditService.currentAdmin() uses, so a row captured
+            // here is always reachable from an audit actor string later.
+            String identity = user.getPreferredUsername() != null && !user.getPreferredUsername().isBlank()
+                    ? user.getPreferredUsername()
+                    : user.getEmail() != null ? user.getEmail() : user.getSubject();
             logger.info("OIDC login: {} in {} group(s) -> {}", identity, groupIds.size(), roles);
 
             String conflict = GroupRoleMapper.auditorConflict(roles);
             if (conflict != null) {
                 logger.warn("Role conflict for {}: {}", identity, conflict);
             }
+
+            directoryProfileService.captureFromLogin(user, identity);
 
             return new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo());
         };

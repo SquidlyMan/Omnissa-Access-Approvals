@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage'
 import QueuePage from './pages/QueuePage'
 import RequestDetailPage from './pages/RequestDetailPage'
 import RulesPage from './pages/RulesPage'
+import ChainsPage from './pages/ChainsPage'
 import HelpPage from './pages/HelpPage'
 import UsersPage from './pages/UsersPage'
 import Layout from './components/Layout'
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="queue" element={<QueuePage />} />
           <Route path="requests/:requestId" element={<QueueRoute><RequestDetailPage /></QueueRoute>} />
           <Route path="rules" element={<QueueRoute><RulesPage /></QueueRoute>} />
+          <Route path="chains" element={<QueueRoute><ChainsPage /></QueueRoute>} />
           <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
           <Route path="help" element={<HelpPage />} />
           {/* Unknown paths reach the client now that the server hands the shell

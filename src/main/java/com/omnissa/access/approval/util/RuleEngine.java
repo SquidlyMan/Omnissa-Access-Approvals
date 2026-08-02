@@ -76,16 +76,33 @@ public class RuleEngine {
         return matches(rule, request, true);
     }
 
+    /**
+     * Same appPattern/groupName matching, for callers with criteria that
+     * don't live on an {@link AutoRule} — currently {@code ApprovalChain}
+     * (#53). {@code emptySelectsEverything=false} (unfinished-config-selects-
+     * nothing) is the right default for anything evaluated on arrival, same
+     * reasoning as {@link #matchesMatchRule}.
+     */
+    public boolean matchesCriteria(String appPattern, String groupName, CalloutRequest request,
+                                   boolean emptySelectsEverything) {
+        return matches(appPattern, groupName, request, emptySelectsEverything);
+    }
+
     private boolean matches(AutoRule rule, CalloutRequest request, boolean emptySelectsEverything) {
-        boolean hasPattern = notBlank(rule.getAppPattern());
-        boolean hasGroup = notBlank(rule.getGroupName());
+        return matches(rule.getAppPattern(), rule.getGroupName(), request, emptySelectsEverything);
+    }
+
+    private boolean matches(String appPattern, String groupName, CalloutRequest request,
+                            boolean emptySelectsEverything) {
+        boolean hasPattern = notBlank(appPattern);
+        boolean hasGroup = notBlank(groupName);
         if (!hasPattern && !hasGroup) {
             return emptySelectsEverything;
         }
-        if (hasPattern && !matchesAppPattern(rule.getAppPattern(), request.getResourceName())) {
+        if (hasPattern && !matchesAppPattern(appPattern, request.getResourceName())) {
             return false;
         }
-        if (hasGroup && !matchesGroup(rule.getGroupName(), request.getUserAttributes())) {
+        if (hasGroup && !matchesGroup(groupName, request.getUserAttributes())) {
             return false;
         }
         return true;

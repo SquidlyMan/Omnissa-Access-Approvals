@@ -1,7 +1,9 @@
 package com.omnissa.access.approval.model;
 
 /**
- * Result of delivering an approval decision (PUT) to Omnissa Access.
+ * Result of processing an approval decision — either delivering it (PUT) to
+ * Omnissa Access, or, for a multi-stage chain (#53), advancing it internally
+ * without contacting Access at all.
  */
 public enum DecisionOutcome {
 
@@ -18,5 +20,15 @@ public enum DecisionOutcome {
      * Access was unreachable or answered 5xx — transient. The local request
      * is left pending so the decision can be retried.
      */
-    UNREACHABLE
+    UNREACHABLE,
+
+    /**
+     * An approval on a chained request (#53) that was not the chain's final
+     * stage. Nothing was sent to Access — {@code currentStage} advanced and
+     * the request stays pending, now awaiting the next stage's decision. A
+     * rejection at any stage never produces this outcome: it always falls
+     * through to {@code DELIVERED}/{@code EXPIRED}/{@code UNREACHABLE}
+     * immediately, by design.
+     */
+    STAGE_ADVANCED
 }
