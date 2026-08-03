@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.20.0"
+subtitle: "What was built between v1.2 and v1.21.0"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -128,10 +128,22 @@ is given in brackets.
 
 ## Decision automation
 
+- **Ownership — claim, assign, release** a pending request, with the owner
+  shown in the queue. Advisory and never authorization: any approver can decide
+  any request whoever holds it, because a claim that could block a decision
+  would make a request undecidable the moment its owner went on leave [1.21.0]
+- **Escalation on the expiry rule** — "nudge after 4 hours, then auto-reject
+  after 3 days", to the chat channel *and* the approvers themselves, scoped by
+  the rule's own application pattern and group. Unactioned claims auto-release,
+  because an abandoned claim reads as "handled" to everyone else [1.21.0]
+- **Escalation runs on its own thread pool** — the only job that does. It is
+  the first needing answer-bearing network calls *and* a synchronous result,
+  and on the shared thread a slow tenant would stall JIT expiry, which fails
+  silently [1.21.0]
 - **Multi-stage approval chains** — a chain requires sequential approval by
   different stages, matched by application-name pattern and/or Access group,
   instead of any one approver deciding a request outright. A stage requires
-  anyone holding a role or anyone in a specific Access group; approving a
+  anyone holding a role, anyone in a specific Access group, or one named person; approving a
   non-final stage never contacts Access, and rejecting at any stage rejects the
   whole request immediately. Admins may always decide any stage. A
   chain-matched request is exempt from Auto-Approval Rules [1.20.0]

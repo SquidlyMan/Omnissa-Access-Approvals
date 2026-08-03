@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.20.0 and complete version history"
+subtitle: "Release Notes — v1.21.0 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.21.0** | Ownership and escalation; named-person chain stages | `v1.21.0` |
 | **1.20.0** | Multi-stage approval chains, Hub Notifications | `v1.20.0` |
 | **1.19.12** | Help documents the credential-save step that makes callout auth take effect | `v1.19.12` |
 | **1.19.11** | A challenge is not a failure: callout logging corrected | `v1.19.11` |
@@ -91,11 +92,63 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.21.0
+
+### Key Capabilities in this release
+
+- **Ownership — claim, assign, release.** An approver can take visible
+  ownership of a pending request, hand it to a named approver, or release it
+  back to the pool. **Ownership is advisory and never authorization:** any
+  approver can decide any request no matter who holds it, because a claim that
+  could block a decision would make a request undecidable the moment its owner
+  went on leave. Claiming does not steal somebody else's claim, but any
+  approver may release any claim, so a request is never welded to somebody who
+  has left. The Assign picker resolves live from the Access groups already
+  mapped to the Approver and Admin roles — there is no second approver list to
+  maintain.
+- **Escalation.** Configured on an expiry rule, so one rule reads *"nudge after
+  4 hours, then auto-reject after 3 days"*. A request pending past the
+  threshold notifies the chat channel **and** pushes a Hub Notification to the
+  approvers themselves, honouring the rule's own application-name pattern and
+  group. **Escalate now** skips the remaining timer — the only way to confirm a
+  rule is wired up correctly without waiting — and is audited as the
+  administrator rather than as the timer. An unactioned claim is auto-released,
+  because an abandoned claim reads as "handled" to everyone else, which is a
+  worse signal than no claim at all.
+- **Approval chain stages can name one individual**, alongside a role or an
+  Access group. Matched against the acting session's own identity, so unlike a
+  group stage it also works for local accounts.
+
+### Fixes
+
+- **Saving a chain's stages worked once and failed every time after.** The
+  delete behind the rewrite needed a transaction and did not have one, so the
+  outcome depended entirely on whether there was anything to delete: the first
+  save found no existing stages and appeared to work, while every save after it
+  returned *Internal Server Error*. Deleting a chain that had stages failed the
+  same way, having only ever been exercised on empty chains.
+- **The Chains editor gave no feedback.** Unsaved edits, a successful save and
+  a failed save were indistinguishable — all three looked like nothing
+  happening.
+- **Five audit actions rendered grey** for want of a registered style, three
+  from this release and two that 1.20.0 added to the backend without adding to
+  the interface.
+
+### Known Issues
+
+- Escalation is a single stage. There is no second stage, no email escalation,
+  and no per-stage SLA inside an approval chain.
+- A named-person chain stage becomes undecidable if that person leaves or
+  changes how they sign in. Administrators can always decide any stage, which
+  is what stops that being a dead end.
 
 ---
 
@@ -1215,9 +1268,10 @@ These apply to v1.19.4 and are design boundaries rather than defects.
 - **Single tenant** — one Omnissa Access tenant per deployment.
 - **Embedded file database** — right for proof-of-concept scale; no clustering
   and no external-database option.
-- **Not a full ITSM system** — multi-stage approval chains shipped in 1.20.0,
-  but there is still no delegation and no per-stage SLA escalation beyond the
-  whole-request expiry rule.
+- **Not a full ITSM system** — multi-stage approval chains shipped in 1.20.0
+  and ownership/escalation in 1.21.0, but escalation is a single stage on the
+  expiry rule: no second stage, no email escalation, and no per-stage SLA
+  inside a chain.
 - **Slack and Teams are notification channels, not decision surfaces.** Every
   decision is made in the tool's own interface after sign-in. This is
   deliberate: it is what keeps authority in one place.
@@ -1242,10 +1296,6 @@ Planned work, in the order it is likely to land. No commitment to dates.
 
 ## Key Capabilities
 
-- **Delegation and escalation.** A request that nobody attends to currently has
-  exactly one outcome — the blunt auto-reject expiry rule. The missing middle
-  is *"nobody looked at this, tell someone else"*: notify on timeout, and
-  reassign to a named approver or group.
 - **Full configuration from the CasaOS / ZimaCube application settings**, so a
   ZimaCube deployment can be changed without editing an environment file over
   SSH. This means working *with* the CasaOS adopt-and-recreate behaviour rather
@@ -1256,6 +1306,10 @@ Planned work, in the order it is likely to land. No commitment to dates.
 - **A short demonstration recording** for the repository landing page.
 
 ## Recently shipped from this list
+
+- **Delegation and escalation.** Claim/assign/release plus timed escalation to
+  the chat channel and to the approvers themselves, scoped by application and
+  group. Shipped in 1.21.0.
 
 - **Multi-stage approvals.** Sequential chains, where a request must clear one
   stage's role or Access group before advancing to the next; rejecting at any

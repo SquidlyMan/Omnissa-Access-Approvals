@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.20.0 • MIT License"
+date: "Version 1.21.0 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -124,7 +124,7 @@ it).
 ![](assets/approved-revoke.png)
 
 *Figure 6 — revoke controls on an approved request, and the separate local-only
-Delete request action (2.12).*
+Delete request action (2.14).*
 
 ![](assets/revoke-and-block.png)
 
@@ -269,9 +269,13 @@ any one approver deciding it outright.
 - A matched request is exempt from Auto-Approval Rules — a chain exists
   specifically to require sequential human judgment, so an auto-rule is never
   allowed to auto-decide it on arrival.
-- Each stage requires either **anyone holding a role** (Admin, Approver, Viewer
-  or Auditor) or **anyone in a specific Access group** — the same group-id
-  format used by `OMNISSA_ROLE_MAP`.
+- Each stage requires **anyone holding a role** (Admin, Approver, Viewer or
+  Auditor), **anyone in a specific Access group** (the same group-id format
+  used by `OMNISSA_ROLE_MAP`), or **one named person** — matched against the
+  acting session's own identity, which unlike a group stage also works for
+  local accounts. A named-person stage is the narrowest, and so the only one
+  that becomes undecidable when that person leaves; the administrator override
+  is what keeps that from being a dead end.
 - Approving a non-final stage never contacts Omnissa Access; the request stays
   pending and advances to the next stage. Rejecting at any stage rejects the
   whole request immediately.
@@ -286,8 +290,7 @@ any one approver deciding it outright.
   the tool, never from a notification action button.
 
 **Not yet supported:** a per-stage timeout or escalation independent of the
-whole-request expiry rule, and a stage that requires one specific named
-individual rather than a role or a group.
+whole-request expiry rule.
 
 Every chain decision appears in the audit trail — `chain-matched` when a
 request is routed into a chain, `stage-approved` for each stage along the way,
@@ -301,7 +304,47 @@ pattern and/or Access group; its stages are then added in order, each
 requiring a role or an Access group. At least one match criterion is required,
 because a chain with neither would match nothing.*
 
-### 2.8 Chat Approvals — Slack and Teams
+### 2.8 Ownership and Escalation
+
+A request nobody attends to previously had exactly one outcome: the expiry rule
+auto-rejected it after N days and the requester found out by being denied.
+
+**Ownership.** An approver can **Claim** a pending request, **Assign** it to a
+named approver, or **Release** it back to the pool; the owner shows as a badge
+in the queue. Ownership is **advisory and never authorization** — any approver
+can decide any request no matter who holds it. A claim that could block a
+decision would make a request undecidable the moment its owner went on leave,
+so the Review control stays available to everyone entitled to use it. Claiming
+does not steal somebody else's claim, but any approver may release any claim,
+so a request is never welded to somebody who has left. The Assign picker is
+resolved live from the Access groups already mapped to the Approver and Admin
+roles — there is no second approver list to maintain.
+
+**Escalation** is configured on an expiry rule, in an optional section, so one
+rule reads *"nudge after 4 hours, then auto-reject after 3 days"*. A request
+pending past the threshold notifies the chat channel and pushes a Hub
+Notification to the approvers themselves, honouring the rule's own
+application-name pattern and group. Each request escalates once; one decided
+mid-sweep is skipped rather than nudged; and the audit entry states what was
+actually reached, including when nothing was configured to receive it. A total
+delivery failure leaves the request un-escalated so the next sweep retries.
+
+**Escalate now** skips the remaining timer. Escalation is otherwise
+unobservable until it fires, so this is the only way to confirm a rule is
+configured correctly without waiting; it is audited as the administrator rather
+than as the timer.
+
+**Claim TTL.** An unactioned claim is released automatically. An abandoned
+claim reads as "handled" to every other approver, which is a worse signal than
+no claim at all.
+
+Escalation runs on its own thread pool — the only job in the tool that does. It
+is the first scheduled job needing answer-bearing network calls *and* a
+synchronous result, and on the shared scheduler thread a slow tenant would
+stall JIT expiry, which fails silently: time-bound access would never expire
+while every health check stayed green.
+
+### 2.9 Chat Approvals — Slack and Teams
 
 New requests can post to Slack or Microsoft Teams with **Approve**, **Reject**
 and **Open request** buttons. On both platforms those buttons are **deep links**:
@@ -345,7 +388,7 @@ sends plain text rather than emitting broken links.
 was queued — not that the message reached the channel. A successful send proves
 the endpoint accepted the request and nothing more.
 
-### 2.9 Webhook Notifications
+### 2.10 Webhook Notifications
 
 Outbound webhooks fire on new requests, decisions, expiry, revocation and
 re-opening, in a format chosen by `WEBHOOK_FORMAT` (`generic`, `slack`,
@@ -367,7 +410,7 @@ as structured fields.
 Delivery is asynchronous with five-second timeouts; a failure logs a warning and
 never blocks request ingestion or decisions.
 
-### 2.10 Administrator Sign-In
+### 2.11 Administrator Sign-In
 
 - **Local account** — created on first startup from container environment values.
 - **Sign in with Omnissa Access** — OIDC authorization-code flow with PKCE.
@@ -396,7 +439,7 @@ expire on their own and clear on success.
 > real owner and an attacker distributed across addresses could otherwise lock
 > them out.
 
-### 2.11 Local Account Management
+### 2.12 Local Account Management
 
 Administrators manage local accounts on the **Users** page: create, reset
 password, enable/disable, change roles, delete. Any locally signed-in user can
@@ -425,7 +468,7 @@ uppercase/digit/symbol requirement** by default — such rules push people towar
 predictable shapes like `Password1!` while adding little entropy and rejecting
 strong passphrases. They can be enabled for a compliance requirement.
 
-### 2.12 Health and Monitoring
+### 2.13 Health and Monitoring
 
 Two health signals, deliberately separate, because "the container is down" and
 "something it depends on is unhealthy" need different responses.
@@ -466,7 +509,7 @@ different notifications. **UAG:** point the health monitor at `/actuator/health`
 never at the dependency endpoint — UAG stops routing to a backend it considers
 unhealthy.
 
-### 2.13 Deleting Requests
+### 2.14 Deleting Requests
 
 Administrators can delete a local request record — for cleanup after testing.
 This is two-step confirmed, fully audited, and **never touches Omnissa Access**.
@@ -481,7 +524,7 @@ the approval open until it receives a decision, so deleting the local record
 would leave the requester waiting permanently on a decision that could never be
 given. Decline it first; a decided record deletes harmlessly.
 
-### 2.14 API Hardening
+### 2.15 API Hardening
 
 - **Optional Basic authentication** on the inbound callout endpoint, matching the
   Username/Password fields in the Access approvals settings. Access's
@@ -502,7 +545,7 @@ given. Decline it first; a decided record deletes harmlessly.
   names; previously they were an implementation detail that could have moved
   under a framework upgrade.
 
-### 2.15 Expired-Request Handling
+### 2.16 Expired-Request Handling
 
 When a decision reaches Access for a request the tenant no longer knows, the tool
 marks the local request **Expired**, moves it into the Deactivated tab, records a
@@ -510,7 +553,7 @@ marks the local request **Expired**, moves it into the Deactivated tab, records 
 what happened. Transient failures (Access unreachable) keep the request pending
 and prompt a retry instead.
 
-### 2.16 Logs, Syslog and Backup
+### 2.17 Logs, Syslog and Backup
 
 - **Log bundle** — Help → *Download Log Bundle* produces a ZIP of recent
   application log lines, including all `AUDIT` entries. Admin only.
@@ -521,7 +564,7 @@ and prompt a retry instead.
   running image digest. Archives contain secrets and are written `0600` inside a
   `0700` directory; treat a copy as equivalent to the env file.
 
-### 2.17 Built-In Help
+### 2.18 Built-In Help
 
 The Help page documents everything in this section from inside the app, with a
 contents list for navigation — tenant setup, roles, the access lifecycle,
@@ -863,9 +906,10 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 - **Single-tenant:** one Access tenant per deployment.
 - **H2 file database:** perfect for POC scale; no clustering or external-database
   option.
-- **Not a full ITSM system:** multi-stage approval chains exist (§2.7), but
-  there is no delegation and no per-stage SLA escalation — only the
-  whole-request expiry rule.
+- **Not a full ITSM system:** multi-stage approval chains (§2.7) and
+  ownership/escalation (§2.8) exist, but escalation is a single stage on the
+  expiry rule — there is no per-stage SLA inside a chain, and no email
+  escalation.
 - **Slack and Teams are notification channels, not decision surfaces** — every
   decision is made in the tool's own UI after sign-in.
 - **Teams delivery cannot be confirmed:** Power Automate returns `202 Accepted`,
