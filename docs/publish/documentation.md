@@ -294,6 +294,13 @@ request is routed into a chain, `stage-approved` for each stage along the way,
 and the final stage's decision recorded exactly like any other approval or
 rejection.
 
+![](assets/approval-chains.png)
+
+*Figure 12 — the Chains page. A chain is named and scoped by application-name
+pattern and/or Access group; its stages are then added in order, each
+requiring a role or an Access group. At least one match criterion is required,
+because a chain with neither would match nothing.*
+
 ### 2.8 Chat Approvals — Slack and Teams
 
 New requests can post to Slack or Microsoft Teams with **Approve**, **Reject**
@@ -303,13 +310,13 @@ signs in, and the ordinary role rules apply.
 
 ![](assets/chat-slack.png)
 
-*Figure 12 — Slack. New requests carry the three buttons; lifecycle events
+*Figure 13 — Slack. New requests carry the three buttons; lifecycle events
 (auto-approval, decisions, expiry, exclusions lifting) post as follow-up
 messages stating the consequence.*
 
 ![](assets/chat-teams.png)
 
-*Figure 13 — the same flow in Microsoft Teams via a Power Automate workflow.*
+*Figure 14 — the same flow in Microsoft Teams via a Power Automate workflow.*
 
 **Why deep links rather than deciding in chat.** A Slack interaction callback
 arrives at an endpoint where no signed-in user exists — the signature proves the
@@ -398,7 +405,7 @@ All of these are audited.
 
 ![](assets/users.png)
 
-*Figure 14 — the Users page. New accounts always start as Viewer; raising that
+*Figure 15 — the Users page. New accounts always start as Viewer; raising that
 is a separate, deliberate step.*
 
 > **The bootstrap variables cannot rotate a password.**
@@ -466,7 +473,7 @@ This is two-step confirmed, fully audited, and **never touches Omnissa Access**.
 
 ![](assets/delete-confirm.png)
 
-*Figure 15 — deletion is two-step: acknowledge the consequence, then type
+*Figure 16 — deletion is two-step: acknowledge the consequence, then type
 DELETE. Both steps restate that Access is not contacted.*
 
 **Deleting a request that is still pending is refused** (HTTP 409). Access holds
@@ -523,8 +530,9 @@ readable by every role, including Auditor.
 
 ![](assets/help-contents.png)
 
-*Figure 16 — the Help page and its nineteen-section contents list. Each entry
-jumps to its section, and each section offers a back-to-top link.*
+*Figure 17 — the Help page and its contents list, which is built from the
+sections actually rendered rather than kept by hand. Each entry jumps to its
+section, and each section offers a back-to-top link.*
 
 ---
 
@@ -626,7 +634,7 @@ the backup/restore scripts.
 
 ![](assets/access-service-client.png)
 
-*Figure 17 — service client in Omnissa Access (Service Client Token, admin scope).*
+*Figure 18 — service client in Omnissa Access (Service Client Token, admin scope).*
 
 ### 5.2 OIDC Admin Login Client
 
@@ -647,7 +655,7 @@ the backup/restore scripts.
 
 ![](assets/access-oidc-client.png)
 
-*Figure 18 — OIDC admin login client (authorization code + PKCE). Note: the scope
+*Figure 19 — OIDC admin login client (authorization code + PKCE). Note: the scope
 list must also include `group` for role resolution.*
 
 ### 5.3 Approvals Settings
@@ -660,7 +668,7 @@ DNS, TLS, or reachability problems (Section 9).
 
 ![](assets/access-approvals-settings.png)
 
-*Figure 19 — Settings → Approvals: REST API engine pointed at the callout URI.*
+*Figure 20 — Settings → Approvals: REST API engine pointed at the callout URI.*
 
 ### 5.4 Putting Applications Behind Approval
 
@@ -673,11 +681,11 @@ recorded in the tool.
 
 ![](assets/access-license-approval.png)
 
-*Figure 20 — License Approval Required on an application.*
+*Figure 21 — License Approval Required on an application.*
 
 ![](assets/access-assignment.png)
 
-*Figure 21 — assignment deployment type selection (User-Activated / Automatic).*
+*Figure 22 — assignment deployment type selection (User-Activated / Automatic).*
 
 ---
 
@@ -786,7 +794,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 
 ![](assets/hub-pending.png)
 
-*Figure 22 — the user side: PENDING until somebody, or a rule, says yes.*
+*Figure 23 — the user side: PENDING until somebody, or a rule, says yes.*
 
 ---
 

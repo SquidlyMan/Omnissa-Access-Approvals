@@ -30,6 +30,8 @@ Omnissa Access, instead of any one approver deciding it outright.
 Chains are managed on the **Chains** page (administrators only — readable by
 Admin/Approver/Viewer, same as Auto-Approval Rules).
 
+![Approval Chains page](images/tool-approval-chain.png)
+
 - **Name**, an optional **app name pattern** (`*` wildcard, same syntax as
   auto-rules) and an optional **Access group** — at least one of the two
   criteria is required, or the chain matches nothing (the same reasoning that
