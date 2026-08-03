@@ -228,6 +228,13 @@ the request table. Both are on the Audit tab; both are restricted — see 2.4.
 `system` as the actor for rule and sweep decisions, and messages that state the
 consequence rather than the direction.*
 
+![](assets/audit-new-actions.png)
+
+*Figure 10 — the actions added by chains and by ownership, each with its own
+colour: `chain-matched` and `stage-approved` record a chain's progress,
+`request-claimed`, `request-released` and `request-escalated` record who was
+attending to a request and when nobody was.*
+
 ### 2.6 Auto-Approval Rules
 
 The Rules page manages two rule types:
@@ -249,13 +256,13 @@ appear in the audit trail and fire decision webhooks with rule attribution.
 
 ![](assets/rules.png)
 
-*Figure 10 — the Rules page. Rules carry their evaluation number, may be
+*Figure 11 — the Rules page. Rules carry their evaluation number, may be
 disabled without deleting, and the Add Rule panel switches between the match
 form (left) and the expiry form (right).*
 
 ![](assets/expiry-rule.png)
 
-*Figure 11 — the expiry form close up. Application pattern and group are
+*Figure 12 — the expiry form close up. Application pattern and group are
 optional and scope which stale requests the rule rejects; leaving both blank —
 the usual case — expires every one of them.*
 
@@ -299,10 +306,17 @@ rejection.
 
 ![](assets/approval-chains.png)
 
-*Figure 12 — the Chains page. A chain is named and scoped by application-name
-pattern and/or Access group; its stages are then added in order, each
-requiring a role or an Access group. At least one match criterion is required,
-because a chain with neither would match nothing.*
+*Figure 13 — the Chains page. A chain is named and scoped by application-name
+pattern and/or Access group; its stages are then added in order, each requiring
+a role, an Access group, or one named person. At least one match criterion is
+required, because a chain with neither would match nothing.*
+
+![](assets/chains-unsaved.png)
+
+*Figure 14 — the stage editor tracks unsaved work. Adding, removing or
+reordering a stage marks the chain **Unsaved** and the button says so; saving
+replaces the chain's stages in one transaction and confirms with ✓ Stages
+saved. A stage list edited but not saved changes nothing about matching.*
 
 ### 2.8 Ownership and Escalation
 
@@ -320,6 +334,19 @@ so a request is never welded to somebody who has left. The Assign picker is
 resolved live from the Access groups already mapped to the Approver and Admin
 roles — there is no second approver list to maintain.
 
+![](assets/ownership-claimed.png)
+
+*Figure 15 — the Ownership panel on a claimed request. The owner badge, how
+long they have held it, and the escalation chip sit together; the note under
+them is the point of the whole feature — a claim makes work visible, it never
+blocks a decision.*
+
+![](assets/queue-ownership.png)
+
+*Figure 16 — the same information in the queue. The owner badge and the amber
+Escalated chip are readable without opening a request, which is what makes an
+unattended request findable.*
+
 **Escalation** is configured on an expiry rule, in an optional section, so one
 rule reads *"nudge after 4 hours, then auto-reject after 3 days"*. A request
 pending past the threshold notifies the chat channel and pushes a Hub
@@ -328,6 +355,19 @@ application-name pattern and group. Each request escalates once; one decided
 mid-sweep is skipped rather than nudged; and the audit entry states what was
 actually reached, including when nothing was configured to receive it. A total
 delivery failure leaves the request un-escalated so the next sweep retries.
+
+![](assets/escalation-rule.png)
+
+*Figure 17 — escalation rides on the expiry rule rather than living in its own
+form, because the nudge and the rejection are two points on one timeline. The
+nudge must be shorter than the rejection window or it could never fire.*
+
+![](assets/rules-escalation-policy.png)
+
+*Figure 18 — the rules list states the whole policy in the row: "Nudge after 4
+hours, then auto-reject requests pending longer than 3 days". A scoped rule
+rejects far less than an unscoped one, and the row is the only place that is
+visible.*
 
 **Escalate now** skips the remaining timer. Escalation is otherwise
 unobservable until it fires, so this is the only way to confirm a rule is
@@ -353,13 +393,13 @@ signs in, and the ordinary role rules apply.
 
 ![](assets/chat-slack.png)
 
-*Figure 13 — Slack. New requests carry the three buttons; lifecycle events
+*Figure 19 — Slack. New requests carry the three buttons; lifecycle events
 (auto-approval, decisions, expiry, exclusions lifting) post as follow-up
 messages stating the consequence.*
 
 ![](assets/chat-teams.png)
 
-*Figure 14 — the same flow in Microsoft Teams via a Power Automate workflow.*
+*Figure 20 — the same flow in Microsoft Teams via a Power Automate workflow.*
 
 **Why deep links rather than deciding in chat.** A Slack interaction callback
 arrives at an endpoint where no signed-in user exists — the signature proves the
@@ -448,7 +488,7 @@ All of these are audited.
 
 ![](assets/users.png)
 
-*Figure 15 — the Users page. New accounts always start as Viewer; raising that
+*Figure 21 — the Users page. New accounts always start as Viewer; raising that
 is a separate, deliberate step.*
 
 > **The bootstrap variables cannot rotate a password.**
@@ -516,7 +556,7 @@ This is two-step confirmed, fully audited, and **never touches Omnissa Access**.
 
 ![](assets/delete-confirm.png)
 
-*Figure 16 — deletion is two-step: acknowledge the consequence, then type
+*Figure 22 — deletion is two-step: acknowledge the consequence, then type
 DELETE. Both steps restate that Access is not contacted.*
 
 **Deleting a request that is still pending is refused** (HTTP 409). Access holds
@@ -573,7 +613,7 @@ readable by every role, including Auditor.
 
 ![](assets/help-contents.png)
 
-*Figure 17 — the Help page and its contents list, which is built from the
+*Figure 23 — the Help page and its contents list, which is built from the
 sections actually rendered rather than kept by hand. Each entry jumps to its
 section, and each section offers a back-to-top link.*
 
@@ -677,7 +717,7 @@ the backup/restore scripts.
 
 ![](assets/access-service-client.png)
 
-*Figure 18 — service client in Omnissa Access (Service Client Token, admin scope).*
+*Figure 24 — service client in Omnissa Access (Service Client Token, admin scope).*
 
 ### 5.2 OIDC Admin Login Client
 
@@ -698,7 +738,7 @@ the backup/restore scripts.
 
 ![](assets/access-oidc-client.png)
 
-*Figure 19 — OIDC admin login client (authorization code + PKCE). Note: the scope
+*Figure 25 — OIDC admin login client (authorization code + PKCE). Note: the scope
 list must also include `group` for role resolution.*
 
 ### 5.3 Approvals Settings
@@ -711,7 +751,7 @@ DNS, TLS, or reachability problems (Section 9).
 
 ![](assets/access-approvals-settings.png)
 
-*Figure 20 — Settings → Approvals: REST API engine pointed at the callout URI.*
+*Figure 26 — Settings → Approvals: REST API engine pointed at the callout URI.*
 
 ### 5.4 Putting Applications Behind Approval
 
@@ -724,11 +764,11 @@ recorded in the tool.
 
 ![](assets/access-license-approval.png)
 
-*Figure 21 — License Approval Required on an application.*
+*Figure 27 — License Approval Required on an application.*
 
 ![](assets/access-assignment.png)
 
-*Figure 22 — assignment deployment type selection (User-Activated / Automatic).*
+*Figure 28 — assignment deployment type selection (User-Activated / Automatic).*
 
 ---
 
@@ -837,7 +877,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 
 ![](assets/hub-pending.png)
 
-*Figure 23 — the user side: PENDING until somebody, or a rule, says yes.*
+*Figure 29 — the user side: PENDING until somebody, or a rule, says yes.*
 
 ---
 

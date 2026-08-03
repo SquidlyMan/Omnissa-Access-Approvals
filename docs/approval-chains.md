@@ -53,6 +53,17 @@ Admin/Approver/Viewer, same as Auto-Approval Rules).
 - **A chain with no stages is never matched** — it would create a request
   nobody is eligible to decide, so it's skipped rather than routed to it.
 
+### Saving stages
+
+Editing the stage list does not change anything about matching until it is
+saved. Adding, removing or reordering a stage marks the chain **Unsaved** and
+the button says so; a save replaces the chain's whole stage list in one
+transaction, then confirms.
+
+![Unsaved changes on the stage editor](images/tool-chains-unsaved.png)
+
+![Stages saved](images/tool-chains-saved.png)
+
 ### Who may decide a stage
 
 - **Admins may always decide any stage of any chain** — the same break-glass
