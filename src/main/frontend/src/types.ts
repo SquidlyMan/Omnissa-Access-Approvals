@@ -49,6 +49,22 @@ export interface CalloutRequest {
   activationPolicy: string | null
   restoreAt: string | null
   restoredAt: string | null
+  // Multi-stage approval chains (#53). Null = not chained.
+  chainId?: number | null
+  currentStage?: number | null
+  // Delegation and escalation (#51). assignedOwner is advisory — it never
+  // decides who may act, only who the queue shows as holding the request.
+  assignedOwner?: string | null
+  assignedAt?: string | null
+  escalatedAt?: string | null
+  escalationStage?: number | null
+}
+
+/** An entry in the assign picker, resolved live from Omnissa Access. */
+export interface Approver {
+  identity: string
+  displayName: string
+  email: string
 }
 
 /**
@@ -94,6 +110,13 @@ export type AuditAction =
   | 'request-deleted'
   | 'access-blocked'
   | 'access-block-failed'
+  // Multi-stage approval chains (#53)
+  | 'chain-matched'
+  | 'stage-approved'
+  // Delegation and escalation (#51)
+  | 'request-claimed'
+  | 'request-released'
+  | 'request-escalated'
 
 export interface AuditEvent {
   id: number
@@ -117,6 +140,10 @@ export interface Rule {
   groupName: string | null
   expiryDays: number | null
   grantTtlMinutes: number | null
+  /** Escalation (#51) rides on the expiry rule: "nudge at 4h, reject at 3d". */
+  escalateAfterMinutes?: number | null
+  /** Auto-release an unactioned claim; null inherits escalateAfterMinutes. */
+  claimTtlMinutes?: number | null
 }
 
 /**
@@ -141,7 +168,7 @@ export interface ApprovalStage {
   id: number
   chainId: number
   stageOrder: number
-  approverType: 'ROLE' | 'GROUP'
+  approverType: 'ROLE' | 'GROUP' | 'USER'
   approverValue: string
 }
 

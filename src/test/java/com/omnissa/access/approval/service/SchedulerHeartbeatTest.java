@@ -72,7 +72,8 @@ class SchedulerHeartbeatTest {
         heartbeat.recordRun(SchedulerHeartbeat.JIT_EXPIRY);
 
         Map<String, Object> detail = heartbeat.detail();
-        assertEquals(3, detail.size());
+        assertEquals(4, detail.size(), "every scheduled job must appear — a job missing from "
+                + "detail() is a job nobody is monitoring");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> jit = (Map<String, Object>) detail.get(SchedulerHeartbeat.JIT_EXPIRY);
@@ -82,6 +83,31 @@ class SchedulerHeartbeatTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> neverRun = (Map<String, Object>) detail.get(SchedulerHeartbeat.JIT_RESTORE);
         assertEquals(null, neverRun.get("lastRun"), "a job that has not run yet reports no timestamp");
+
+        // Escalation runs every five minutes, so it must NOT inherit the hourly
+        // tolerance — that would hide a 35-cycle stall.
+        @SuppressWarnings("unchecked")
+        Map<String, Object> escalation = (Map<String, Object>) detail.get(SchedulerHeartbeat.ESCALATION);
+        assertEquals(SchedulerHeartbeat.ESCALATION_STALE_AFTER.toSeconds(),
+                escalation.get("toleranceSeconds"));
+        assertTrue(SchedulerHeartbeat.ESCALATION_STALE_AFTER
+                        .compareTo(SchedulerHeartbeat.HOURLY_STALE_AFTER) < 0,
+                "a five-minute job needs a far tighter tolerance than an hourly one");
+    }
+
+    @Test
+    void escalationStallIsReportedLikeAnyOtherJob() {
+        SchedulerHeartbeat heartbeat = new SchedulerHeartbeat();
+        heartbeat.recordRun(SchedulerHeartbeat.JIT_EXPIRY);
+        heartbeat.recordRun(SchedulerHeartbeat.JIT_RESTORE);
+        heartbeat.recordRun(SchedulerHeartbeat.EXPIRY_RULES);
+        heartbeat.recordRun(SchedulerHeartbeat.ESCALATION);
+        assertFalse(heartbeat.anyStale());
+
+        // Escalation runs on its own thread pool, but a stall there still has
+        // to surface — otherwise nobody is ever told the queue is being ignored.
+        pretendLastRun(heartbeat, SchedulerHeartbeat.ESCALATION, Instant.now().minus(Duration.ofHours(1)));
+        assertTrue(heartbeat.anyStale());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.omnissa.access.approval.util;
 
 import com.omnissa.access.approval.model.CalloutRequest;
+import com.omnissa.access.approval.model.EscalationOutcome;
 import com.omnissa.access.approval.service.NotificationHealth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -259,6 +260,84 @@ public class WebhookNotifier {
     }
 
     /**
+     * Nudges the chat channel that a request is still waiting (#51).
+     *
+     * <p><strong>Synchronous, and reports what actually happened</strong> —
+     * unlike the five {@code notify*} methods above, which are
+     * fire-and-forget and return silently when {@code webhook.url} is blank.
+     * Inheriting that here would mark a request escalated while nothing was
+     * sent, and since each stage fires exactly once by design, no retry would
+     * ever follow. It runs on escalation's own thread pool, so blocking here
+     * cannot stall the JIT sweeps.
+     *
+     * @param pendingMinutes how long the request has been waiting, for the message
+     */
+    public EscalationOutcome notifyEscalated(CalloutRequest request, int pendingMinutes) {
+        if (request == null) {
+            return EscalationOutcome.NOT_CONFIGURED;
+        }
+        if (webhookUrl == null || webhookUrl.isBlank()) {
+            return EscalationOutcome.NOT_CONFIGURED;
+        }
+        if (!notifyLifecycle) {
+            // Escalation is a lifecycle event, and this flag exists precisely
+            // to let an operator mute the chattier ones. Muted is a choice,
+            // not a failure — so the stage still advances.
+            return EscalationOutcome.NOT_CONFIGURED;
+        }
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            restTemplate.postForEntity(URI.create(webhookUrl),
+                    new HttpEntity<>(buildEscalatedPayload(request, pendingMinutes), headers), String.class);
+            notificationHealth.recordSuccess();
+            logger.info("Escalation nudge sent for requestId={} ({} min pending)",
+                    request.getRequestId(), pendingMinutes);
+            return EscalationOutcome.SENT;
+        } catch (Exception e) {
+            notificationHealth.recordFailure(
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            logger.warn("Escalation nudge FAILED for requestId={}: {}", request.getRequestId(), e.getMessage());
+            return EscalationOutcome.FAILED;
+        }
+    }
+
+    /**
+     * Visually distinct from a new-request notification. Rendered identically,
+     * five escalations would read as five <em>new</em> requests, which is
+     * worse than noise. Carries the same deep link — the action needed is the
+     * same; only the urgency differs.
+     */
+    Map<String, Object> buildEscalatedPayload(CalloutRequest request, int pendingMinutes) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        String format = resolvedFormat();
+        String waited = humanDuration(pendingMinutes);
+        String owner = (request.getAssignedOwner() != null && !request.getAssignedOwner().isBlank())
+                ? " Currently held by " + request.getAssignedOwner() + "."
+                : " Nobody has claimed it.";
+
+        if ("slack".equals(format) || "teams".equals(format)) {
+            String text = "⏰ Still waiting (" + waited + ") — " + request.getResourceName()
+                    + " for " + requesterLabel(request) + "." + owner
+                    + " No decision has been made yet.";
+            if ("teams".equals(format)) {
+                return teamsTextMessage(text);
+            }
+            payload.put("text", text);
+            return payload;
+        }
+
+        payload.put("event", "request.escalated");
+        payload.put("requestId", request.getRequestId());
+        payload.put("resourceName", request.getResourceName());
+        payload.put("requestedFor", requesterLabel(request));
+        payload.put("pendingMinutes", pendingMinutes);
+        payload.put("assignedOwner", request.getAssignedOwner());
+        payload.put("timestamp", Instant.now().toString());
+        return payload;
+    }
+
+    /**
      * Wraps a line of text in the Adaptive Card envelope a Power Automate
      * "Send webhook alerts to a channel" workflow expects.
      *
@@ -286,7 +365,14 @@ public class WebhookNotifier {
     /**
      * Human duration for a TTL in minutes: "5 minutes", "1 hour", "7 days".
      */
-    static String humanDuration(int minutes) {
+    public static String humanDuration(int minutes) {
+        // Zero became reachable once escalation started reporting how long a
+        // request had been pending: a request escalated manually the moment it
+        // arrives is 0 minutes old, and the days branch below would render
+        // that as the nonsensical "0 days".
+        if (minutes <= 0) {
+            return "less than a minute";
+        }
         if (minutes % 1440 == 0) {
             int days = minutes / 1440;
             return days + (days == 1 ? " day" : " days");

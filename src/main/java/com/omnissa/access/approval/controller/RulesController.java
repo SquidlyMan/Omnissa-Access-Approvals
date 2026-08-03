@@ -80,6 +80,29 @@ public class RulesController {
                 return "grantTtlMinutes (JIT) applies only to \"approve\" rules";
             }
         }
+        if (rule.getEscalateAfterMinutes() != null) {
+            if (rule.getEscalateAfterMinutes() <= 0) {
+                return "escalateAfterMinutes must be greater than 0";
+            }
+            // Escalation rides on the expiry rule, so it needs one to ride on.
+            if (rule.getExpiryDays() == null || !"reject".equals(rule.getAction())) {
+                return "escalateAfterMinutes applies only to expiry rules "
+                        + "(which set expiryDays and action \"reject\")";
+            }
+            // A stage scheduled after the request would already have been
+            // rejected can never fire, and would fail silently — the rule
+            // would sit enabled and green having never nudged anyone.
+            long expiryMinutes = (long) rule.getExpiryDays() * 1440L;
+            if (rule.getEscalateAfterMinutes() >= expiryMinutes) {
+                return "escalateAfterMinutes (" + rule.getEscalateAfterMinutes()
+                        + ") must be less than expiryDays (" + rule.getExpiryDays() + " days = "
+                        + expiryMinutes + " minutes) — otherwise the request is auto-rejected "
+                        + "before the escalation could ever fire";
+            }
+        }
+        if (rule.getClaimTtlMinutes() != null && rule.getClaimTtlMinutes() <= 0) {
+            return "claimTtlMinutes must be greater than 0";
+        }
         return null;
     }
 

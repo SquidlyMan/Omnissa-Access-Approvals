@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2026-08-03
+
+### Added
+- **Ownership: claim, assign and release (#51).** An approver can take visible ownership of a pending request, hand it to a named approver, or release it back to the pool; the owner shows as a badge in the queue. **Ownership is advisory and never authorization** — any approver can decide any request no matter who holds it, because a claim that could block a decision would make a request undecidable the moment its owner went on leave. Claiming does not steal somebody else's claim, but any approver may release any claim, so a request is never welded to somebody who has left. The Assign picker is resolved live from the Access groups already mapped to the Approver and Admin roles — there is no separate approver list to maintain.
+- **Escalation (#51).** Configured on an expiry rule, so one rule reads "nudge after 4 hours, then auto-reject after 3 days". A request pending past the threshold notifies the chat channel *and* pushes a Hub Notification to the approvers themselves. It honours the rule's own application-name pattern and group, so Finance apps can escalate without escalating everything. **Escalate now** skips the remaining timer — the only way to confirm a rule is wired up correctly without waiting — and is audited as the administrator rather than as the timer. An unactioned claim is auto-released, because an abandoned claim reads as "handled" to everyone else, which is worse than no claim at all.
+- **Approval chain stages can name one individual.** `approverType` gains `USER` alongside `ROLE` and `GROUP`, matched against the acting session's own identity (username or email as they sign in). Unlike a group stage this works for local accounts. It is also the narrowest option and so the only one that becomes undecidable when that person leaves — the existing administrator override is what keeps that from being a dead end.
+
+### Fixed
+- **Saving a chain's stages worked once and failed every time after.** `deleteByChainId` is a derived delete, which needs an active transaction to issue its DELETE, and nothing supplied one — so the outcome depended entirely on whether there was anything to delete. The first save found no existing stages, issued no DELETE and appeared to work; every save after it hit rows and returned `Internal Server Error`. **Deleting a chain that had stages failed identically**, having only ever been exercised on empty chains. The delete and re-insert are now also one unit of work: a failure between them would have left a chain with its old stages gone and its new ones missing, and a chain with no stages silently matches nothing.
+- **The Chains editor gave no feedback at all.** Unsaved edits, a successful save and a failed save were indistinguishable — all three looked like nothing happening. It now shows *Unsaved changes* against what the server last confirmed, *✓ Stages saved* on success, disables Save when there is nothing to save, and carries an Unsaved badge on the chain header so collapsing the editor cannot hide pending edits.
+- **Five audit actions rendered grey** for want of a registered style: `request-claimed`, `request-released` and `request-escalated` from this release, plus `chain-matched` and `stage-approved`, which 1.20.0 added to the backend without adding to the interface.
+- **A duration of zero rendered as "0 days".** Zero became reachable once escalation started reporting how long a request had been pending — a request escalated manually on arrival is zero minutes old.
+
+### Changed
+- **Escalation runs on its own thread pool**, the only job in the tool that has one. It is the first scheduled job that must make answer-bearing network calls while needing the result synchronously, so a failed delivery can be retried rather than recorded as a summons that never happened. On the shared scheduler thread those requirements conflict: a slow tenant would stall JIT expiry, and that fails silently — time-bound access would never expire while every health check stayed green. Its liveness is reported alongside the other jobs with a 20-minute tolerance; reusing the hourly one would hide a 35-cycle stall.
+
 ## [1.20.0] - 2026-08-02
 
 ### Added

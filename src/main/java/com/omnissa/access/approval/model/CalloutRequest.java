@@ -147,6 +147,37 @@ public class CalloutRequest implements Serializable {
     @Nullable
     private Integer currentStage;
 
+    // --- Delegation and escalation (#51). All nullable → null = unclaimed,
+    // never escalated; today's behaviour, unchanged. ---
+
+    /**
+     * App-identity string of the approver who holds this request — set from
+     * their own session when they Claim it, or by an admin/approver when they
+     * Assign it to someone. <strong>Advisory only, never authorization</strong>
+     * (design decision D1): any APPROVER may still decide any request, claimed
+     * or not. A claim that could deny a decision would turn a convenience into
+     * an outage the moment its owner became unavailable.
+     */
+    @Nullable
+    private String assignedOwner;
+
+    /** When the claim/assignment was made — also the TTL clock for auto-release. */
+    @Nullable
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date assignedAt;
+
+    /** When escalation fired; null = not yet. */
+    @Nullable
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date escalatedAt;
+
+    /**
+     * Which escalation stage has fired: null/0 none, 1 fired. A counter rather
+     * than a boolean so a second stage needs no schema change.
+     */
+    @Nullable
+    private Integer escalationStage;
+
     public CalloutRequest() {}
 
     public CalloutRequest(@Nonnull String userId) {
@@ -241,6 +272,18 @@ public class CalloutRequest implements Serializable {
 
     @Nullable public Integer getCurrentStage() { return currentStage; }
     public void setCurrentStage(@Nullable Integer currentStage) { this.currentStage = currentStage; }
+
+    @Nullable public String getAssignedOwner() { return assignedOwner; }
+    public void setAssignedOwner(@Nullable String assignedOwner) { this.assignedOwner = assignedOwner; }
+
+    @Nullable public Date getAssignedAt() { return assignedAt; }
+    public void setAssignedAt(@Nullable Date assignedAt) { this.assignedAt = assignedAt; }
+
+    @Nullable public Date getEscalatedAt() { return escalatedAt; }
+    public void setEscalatedAt(@Nullable Date escalatedAt) { this.escalatedAt = escalatedAt; }
+
+    @Nullable public Integer getEscalationStage() { return escalationStage; }
+    public void setEscalationStage(@Nullable Integer escalationStage) { this.escalationStage = escalationStage; }
 
     @Override
     public String toString() {

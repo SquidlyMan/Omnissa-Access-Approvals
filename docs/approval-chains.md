@@ -30,6 +30,8 @@ Omnissa Access, instead of any one approver deciding it outright.
 Chains are managed on the **Chains** page (administrators only — readable by
 Admin/Approver/Viewer, same as Auto-Approval Rules).
 
+![Approval Chains page](images/tool-approval-chain.png)
+
 - **Name**, an optional **app name pattern** (`*` wildcard, same syntax as
   auto-rules) and an optional **Access group** — at least one of the two
   criteria is required, or the chain matches nothing (the same reasoning that
@@ -41,6 +43,13 @@ Admin/Approver/Viewer, same as Auto-Approval Rules).
   - **An Access group** — any user resolved as a member of that group, live,
     via SCIM. Read the group id the same place `OMNISSA_ROLE_MAP` ids come
     from: sign in and open `GET /api/auth/claims`.
+  - **A specific person** — matched against the acting session's own identity
+    (their username or email as they sign in). Unlike a group stage this works
+    for local accounts. It is also the narrowest option, and therefore the only
+    one that becomes undecidable when that person leaves or changes how they
+    sign in — administrators can always decide any stage, which is what stops
+    that being a dead end. Prefer a role or a group wherever a team, rather
+    than a named individual, is what you actually mean.
 - **A chain with no stages is never matched** — it would create a request
   nobody is eligible to decide, so it's skipped rather than routed to it.
 
@@ -80,10 +89,6 @@ skipped, not treated as an error).
 - **No per-stage timeout or escalation.** A stage nobody acts on is covered
   only by the ordinary whole-request expiry auto-rule, exactly like an
   unstaged pending request.
-- **No named-individual stages.** A stage can require a role or a group, never
-  one specific person — there is no reliable way to enumerate and target an
-  individual without inventing a second identity surface (the same reasoning
-  behind self-claim-only delegation elsewhere in this project).
 - **Bulk "decide all pending" skips chained requests.** Deciding a specific
   stage's approver can't be a bulk action by definition; a chained request is
   logged and left for individual decision.

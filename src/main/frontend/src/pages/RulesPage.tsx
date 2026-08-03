@@ -16,6 +16,17 @@ const GRANT_TTL_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: '30 days', minutes: 43200 },
 ]
 
+// Escalation intervals (#51). '' = off.
+const ESCALATE_AFTER_OPTIONS: { label: string; minutes: number | null }[] = [
+  { label: 'Off', minutes: null },
+  { label: '15 minutes', minutes: 15 },
+  { label: '1 hour', minutes: 60 },
+  { label: '4 hours', minutes: 240 },
+  { label: '8 hours', minutes: 480 },
+  { label: '24 hours', minutes: 1440 },
+  { label: '2 days', minutes: 2880 },
+]
+
 function describeDuration(minutes: number): string {
   if (minutes % 1440 === 0) { const d = minutes / 1440; return `${d} day${d === 1 ? '' : 's'}` }
   if (minutes % 60 === 0) { const h = minutes / 60; return `${h} hour${h === 1 ? '' : 's'}` }
@@ -29,7 +40,12 @@ function describeRule(rule: Rule): string {
     const scope = rule.appPattern && rule.appPattern !== '*' ? ` for app "${rule.appPattern}"` : ''
     const group = rule.groupName ? ` from group "${rule.groupName}"` : ''
     const days = `${rule.expiryDays} day${rule.expiryDays === 1 ? '' : 's'}`
-    return `Auto-reject requests${scope}${group} pending longer than ${days}`
+    // The whole policy on one line — escalation is otherwise invisible until
+    // it fires, and this row is the only place it can be read.
+    const nudge = rule.escalateAfterMinutes != null
+      ? `Nudge after ${describeDuration(rule.escalateAfterMinutes)}, then auto-reject`
+      : 'Auto-reject'
+    return `${nudge} requests${scope}${group} pending longer than ${days}`
   }
   const verb = rule.action === 'approve' ? 'Auto-approve' : 'Auto-reject'
   const app = rule.appPattern && rule.appPattern !== '*' ? `app "${rule.appPattern}"` : 'any app'
@@ -53,6 +69,8 @@ export default function RulesPage() {
   const [groupName, setGroupName] = useState('')
   const [grantTtl, setGrantTtl] = useState<number | null>(null)
   const [expiryDays, setExpiryDays] = useState('')
+  const [escalateAfter, setEscalateAfter] = useState<number | null>(null)
+  const [claimTtl, setClaimTtl] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -82,6 +100,11 @@ export default function RulesPage() {
           groupName: rule.groupName,
           expiryDays: rule.expiryDays,
           grantTtlMinutes: rule.grantTtlMinutes,
+          // Carried through deliberately: this is a full replacement, so
+          // omitting them would silently wipe a rule's escalation settings
+          // every time somebody flicked the enable toggle.
+          escalateAfterMinutes: rule.escalateAfterMinutes ?? null,
+          claimTtlMinutes: rule.claimTtlMinutes ?? null,
         }),
       })
       if (res.status === 403) { setError(FORBIDDEN_MESSAGE); return }
@@ -115,7 +138,8 @@ export default function RulesPage() {
       ? { enabled: true, action, appPattern: appPattern.trim() || null, groupName: groupName.trim() || null,
           expiryDays: null, grantTtlMinutes: action === 'approve' ? grantTtl : null }
       : { enabled: true, action: 'reject', appPattern: appPattern.trim() || null, groupName: groupName.trim() || null,
-          expiryDays: Number(expiryDays), grantTtlMinutes: null }
+          expiryDays: Number(expiryDays), grantTtlMinutes: null,
+          escalateAfterMinutes: escalateAfter, claimTtlMinutes: claimTtl }
     try {
       const res = await fetch('/api/rules', {
         method: 'POST',
@@ -135,6 +159,8 @@ export default function RulesPage() {
       setGroupName('')
       setGrantTtl(null)
       setExpiryDays('')
+      setEscalateAfter(null)
+      setClaimTtl(null)
       load()
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Request failed')
@@ -339,6 +365,55 @@ export default function RulesPage() {
                 />
               </div>
             </div>
+          )}
+
+          {/* Escalation rides on the expiry rule rather than living in its own
+              policy object — one rule reads "nudge at 4 hours, reject at 3
+              days". Visually separated so it still reads as a distinct concern
+              at zero schema and documentation cost. */}
+          {ruleType === 'expiry' && (
+            <details className="rounded-lg border border-gray-200 px-4 py-3">
+              <summary className="text-sm font-medium text-gray-700 cursor-pointer">
+                Escalation <span className="font-normal text-gray-400">(optional)</span>
+              </summary>
+              <div className="grid gap-4 sm:grid-cols-2 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nudge after</label>
+                  <select
+                    value={escalateAfter ?? ''}
+                    onChange={e => setEscalateAfter(e.target.value === '' ? null : Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
+                  >
+                    {ESCALATE_AFTER_OPTIONS.map(o => (
+                      <option key={o.label} value={o.minutes ?? ''}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Notifies the chat channel and the approvers themselves. Must be shorter than
+                    the rejection window above, or it could never fire.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Release an unactioned claim after
+                  </label>
+                  <select
+                    value={claimTtl ?? ''}
+                    onChange={e => setClaimTtl(e.target.value === '' ? null : Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
+                  >
+                    <option value="">Same as the nudge interval</option>
+                    {ESCALATE_AFTER_OPTIONS.filter(o => o.minutes != null).map(o => (
+                      <option key={o.label} value={o.minutes ?? ''}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    An abandoned claim reads as "handled" to everyone else, which is worse than no
+                    claim at all — so it lapses.
+                  </p>
+                </div>
+              </div>
+            </details>
           )}
 
           {formError && <p className="text-red-600 text-sm">{formError}</p>}

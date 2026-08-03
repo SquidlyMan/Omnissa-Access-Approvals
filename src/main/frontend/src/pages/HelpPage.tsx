@@ -878,8 +878,17 @@ export default function HelpPage() {
           <p>
             A stage with nobody acting on it is covered only by the ordinary whole-request expiry
             auto-rule, the same as an unstaged pending request — there is no separate per-stage
-            timeout or escalation. A stage can only require a role or a group, never one specific
-            named person.
+            timeout or escalation.
+          </p>
+          <p className="font-medium text-gray-800">Naming one person</p>
+          <p>
+            A stage set to <span className="font-medium text-gray-800">Specific person</span> is
+            matched against the acting session's own identity — their username or email as they
+            sign in. Unlike an Access group stage, this works for local accounts too. It is also
+            the narrowest option, and therefore the only one that becomes undecidable when that
+            person leaves or changes how they sign in; administrators can always decide any stage,
+            which is what stops that being a dead end. Prefer a role or a group wherever a team,
+            rather than a named individual, is what you actually mean.
           </p>
           <p>
             Every chain decision appears in the{' '}
@@ -888,6 +897,71 @@ export default function HelpPage() {
             into a chain, and <span className="font-medium text-gray-800">stage-approved</span> for
             each stage along the way. The final stage's decision is audited exactly like any other
             approval or rejection.
+          </p>
+        </HelpSection>
+
+        <HelpSection title="Ownership and Escalation">
+          <p>
+            A request nobody attends to used to have exactly one outcome — the expiry rule
+            auto-rejected it after N days, and the requester found out by being denied. Ownership
+            and escalation are the missing middle.
+          </p>
+          <p className="font-medium text-gray-800">Claim, Assign, Release</p>
+          <p>
+            On a pending request, an approver can <span className="font-medium text-gray-800">
+            Claim</span> it (take visible ownership), <span className="font-medium text-gray-800">
+            Assign</span> it to a named approver, or <span className="font-medium text-gray-800">
+            Release</span> it back to the pool. The owner appears as a badge in the queue.
+          </p>
+          <p>
+            <span className="font-medium text-gray-800">Ownership is advisory and never
+            authorization.</span> Any approver can decide any request no matter who holds it. A
+            claim that could block a decision would make a request undecidable the moment its owner
+            went on leave — a convenience turned into an outage — so the Review button stays
+            available to everyone who may decide. Claiming does not steal a claim someone else
+            holds, but any approver may release any claim, so nothing stays welded to somebody who
+            has left.
+          </p>
+          <p>
+            Assigning carries no obligation either: escalation still fires on schedule, and an
+            assignment nobody actions is released automatically just like an abandoned self-claim.
+            The approver list in the Assign picker is resolved live from the Access groups mapped
+            to the Approver and Admin roles in <EnvVar name="OMNISSA_ROLE_MAP" /> — there is no
+            separate approver list to maintain.
+          </p>
+          <p className="font-medium text-gray-800">Escalation</p>
+          <p>
+            Escalation is configured on an <span className="font-medium text-gray-800">expiry
+            rule</span>, under the optional Escalation section, so one rule reads "nudge after 4
+            hours, then auto-reject after 3 days". When a matching request has been pending that
+            long, the tool notifies the chat channel and pushes a Hub Notification to the approvers
+            themselves. It honours the rule's own application-name pattern and group, so you can
+            escalate Finance apps without escalating everything.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              Each request escalates <span className="font-medium text-gray-800">once</span>. A
+              request decided while the sweep is running is skipped rather than nudged.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Escalate now</span> on the request detail
+              page skips the remaining timer. It is the only way to confirm escalation is wired up
+              correctly without waiting, and it is audited as you rather than as the timer.
+            </li>
+            <li>
+              An unactioned claim is released after its own interval — an abandoned claim reads as
+              "handled" to everyone else, which is worse than no claim at all.
+            </li>
+            <li>
+              The audit trail records what actually happened, including when nothing was configured
+              to receive the nudge. It never claims a notification it did not send.
+            </li>
+          </ul>
+          <p>
+            Escalation runs on its own background thread, separate from the sweeps that expire
+            time-bound access, so a slow or unreachable tenant can only ever delay escalation
+            itself. Its health appears alongside the other scheduled jobs under Health and
+            Monitoring.
           </p>
         </HelpSection>
 

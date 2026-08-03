@@ -5,6 +5,7 @@ import StatusBadge from '../components/StatusBadge'
 import ApprovalDialog from '../components/ApprovalDialog'
 import DeleteRequestDialog from '../components/DeleteRequestDialog'
 import RevokeAccessDialog from '../components/RevokeAccessDialog'
+import DelegationPanel from '../components/DelegationPanel'
 import type { CalloutRequest } from '../types'
 import { requesterLabel } from '../utils/requester'
 import { getCsrfToken } from '../utils/csrf'
@@ -160,7 +161,14 @@ export default function RequestDetailPage() {
         </div>
       )}
 
-      {/* Action */}
+      {/* Ownership and escalation (#51) — pending requests only. */}
+      {req.state === 'pending' && mayDecide && (
+        <DelegationPanel request={req} onChanged={setReq} />
+      )}
+
+      {/* Action. Deliberately NOT gated on who holds the request: a claim is
+          advisory, so hiding this button from a non-owner is exactly how
+          decision D1 would die in practice. */}
       {req.state === 'pending' && mayDecide && (
         <button
           onClick={() => setShowDialog(true)}

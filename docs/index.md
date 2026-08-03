@@ -9,7 +9,8 @@ A self-hosted approval gateway for Omnissa Access (Workspace ONE) application re
 - [Deployment](deployment.md) — container quick start, reverse-proxy requirements, NAS example, updates and optional auto-update
 - [Omnissa Access Tenant Setup](omnissa-access-setup.md) — OAuth clients, approvals settings, gating applications (with screenshots)
 - [Access Lifecycle](access-lifecycle.md) — time-bound (JIT) grants, permanent vs temporary decline, revoking active access, allowing re-requests
-- [Multi-Stage Approval Chains](approval-chains.md) — sequential stages by role or Access group, chain-vs-auto-rule precedence, Hub Notifications
+- [Multi-Stage Approval Chains](approval-chains.md) — sequential stages by role, Access group or named person; chain-vs-auto-rule precedence, Hub Notifications
+- [Ownership and Escalation](delegation-escalation.md) — claim/assign/release, timed escalation to the channel and to approvers, claim TTL
 - [Actionable Teams Approvals](teams-approvals.md) — Adaptive Card with deep-link decision buttons via a Power Automate workflow
 - [Configuration Reference](configuration.md) — every environment variable with defaults and examples
 - [Actionable Slack Approvals](slack-approvals.md) — approve/reject from Slack: app setup, signature verification, approver mapping

@@ -58,6 +58,7 @@ public class ApprovalChainController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> deleteChain(@PathVariable Long id) {
         if (!chainRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
@@ -84,6 +85,11 @@ public class ApprovalChainController {
      * client, so there is no way to submit duplicate/gapped ordering.
      */
     @PutMapping("/{id}/stages")
+    // The delete and the re-insert are one unit of work. Without this, a
+    // failure partway through would leave the chain with its old stages gone
+    // and its new ones missing — and a chain with no stages silently matches
+    // nothing, so the requests it was meant to gate would sail straight past it.
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> replaceStages(@PathVariable Long id, @RequestBody List<ApprovalStage> stages) {
         if (!chainRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
@@ -124,8 +130,9 @@ public class ApprovalChainController {
     private String validateStage(ApprovalStage stage) {
         if (stage.getApproverType() == null
                 || !(stage.getApproverType().equalsIgnoreCase("ROLE")
-                     || stage.getApproverType().equalsIgnoreCase("GROUP"))) {
-            return "approverType must be \"ROLE\" or \"GROUP\"";
+                     || stage.getApproverType().equalsIgnoreCase("GROUP")
+                     || stage.getApproverType().equalsIgnoreCase("USER"))) {
+            return "approverType must be \"ROLE\", \"GROUP\" or \"USER\"";
         }
         if (stage.getApproverValue() == null || stage.getApproverValue().isBlank()) {
             return "approverValue must not be blank";

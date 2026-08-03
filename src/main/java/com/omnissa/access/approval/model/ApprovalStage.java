@@ -10,13 +10,9 @@ import jakarta.persistence.Id;
  * (no JPA relationship), matching how the rest of this codebase's entities
  * are related.
  *
- * <p>{@link #approverType} is {@code "ROLE"} or {@code "GROUP"} — a plain
- * String, not an enum, for the same additive-schema reason {@code
- * CalloutRequest.state} is a String. {@code "USER"} (a named individual) is
- * deliberately not supported: this codebase has no reliable, always-current
- * way to enumerate assignable individuals without inventing a second
- * identity surface — the same reasoning that kept #51's claim/delegate
- * flow to self-claim only rather than an "assign to…" picker.
+ * <p>{@link #approverType} is {@code "ROLE"}, {@code "GROUP"} or
+ * {@code "USER"} — a plain String, not an enum, for the same
+ * additive-schema reason {@code CalloutRequest.state} is a String.
  *
  * <ul>
  *   <li>{@code ROLE} — {@link #approverValue} is an authority name (e.g.
@@ -28,7 +24,20 @@ import jakarta.persistence.Id;
  *       check. Local (non-OIDC) accounts can never satisfy a GROUP stage —
  *       they carry no Access group membership to check, so this fails
  *       closed for them by design, not by omission.</li>
+ *   <li>{@code USER} — {@link #approverValue} names one individual, matched
+ *       against the acting session's own identity (preferred_username,
+ *       email or subject for an OIDC user; the username for a local
+ *       account). Unlike a GROUP stage this works for local accounts, and
+ *       it needs no Access call to decide eligibility.</li>
  * </ul>
+ *
+ * <p><strong>A USER stage is the narrowest thing here, and that cuts both
+ * ways.</strong> It is the only stage type that can be satisfied by exactly
+ * one person, so it is also the only one that goes undecidable when that
+ * person leaves, changes their sign-in identity, or is simply away. An
+ * administrator can always decide any stage, which is what stops that being
+ * a dead end — but prefer a GROUP or ROLE stage wherever a team rather than
+ * a named person is really what is meant.
  *
  * <p>No per-stage timeout/escalation in this slice — a stuck stage is
  * covered only by the existing whole-request expiry auto-rule, exactly as

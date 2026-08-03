@@ -44,6 +44,30 @@ public class AutoRule {
     @Nullable
     private Integer grantTtlMinutes;
 
+    /**
+     * Escalation (#51), carried on the EXPIRY rule rather than in a separate
+     * policy object: one rule reads "nudge at 4 hours, reject at 3 days".
+     * Mature tools keep escalation policies separate because many services
+     * reference one policy; a tenant here has one expiry rule, so a second
+     * table and CRUD page would be more configuration, not less.
+     *
+     * <p>Nudge after this many minutes pending; null = escalation off.
+     */
+    @Nullable
+    private Integer escalateAfterMinutes;
+
+    /**
+     * Auto-release an unactioned claim/assignment after this many minutes;
+     * null = inherit {@link #escalateAfterMinutes}.
+     *
+     * <p>A claim that lapses cannot rot. The failure this prevents is
+     * specific: an approver claims at 17:00 and goes home, a second approver
+     * sees the owner badge, reads it as handled, and does nothing — an
+     * abandoned claim is a <em>worse</em> signal than no claim at all.
+     */
+    @Nullable
+    private Integer claimTtlMinutes;
+
     public AutoRule() {}
 
     public Long getId() { return id; }
@@ -66,6 +90,18 @@ public class AutoRule {
 
     @Nullable public Integer getGrantTtlMinutes() { return grantTtlMinutes; }
     public void setGrantTtlMinutes(@Nullable Integer grantTtlMinutes) { this.grantTtlMinutes = grantTtlMinutes; }
+
+    @Nullable public Integer getEscalateAfterMinutes() { return escalateAfterMinutes; }
+    public void setEscalateAfterMinutes(@Nullable Integer escalateAfterMinutes) { this.escalateAfterMinutes = escalateAfterMinutes; }
+
+    @Nullable public Integer getClaimTtlMinutes() { return claimTtlMinutes; }
+    public void setClaimTtlMinutes(@Nullable Integer claimTtlMinutes) { this.claimTtlMinutes = claimTtlMinutes; }
+
+    /** Effective claim TTL: explicit value, else the escalation interval. Null = no auto-release. */
+    @Nullable
+    public Integer effectiveClaimTtlMinutes() {
+        return claimTtlMinutes != null ? claimTtlMinutes : escalateAfterMinutes;
+    }
 
     @Override
     public String toString() {
