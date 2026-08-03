@@ -10,9 +10,28 @@ const ROLE_OPTIONS = ['ROLE_ADMIN', 'ROLE_APPROVER', 'ROLE_VIEWER', 'ROLE_AUDITO
 // ordered list — matches the backend's replace-the-list-in-one-call design
 // (POST /api/chains/{id}/stages), so there's no way to submit gapped/duplicate
 // ordering from here either.
+type ApproverType = 'ROLE' | 'GROUP' | 'USER'
+
 interface DraftStage {
-  approverType: 'ROLE' | 'GROUP'
+  approverType: ApproverType
   approverValue: string
+}
+
+/** Same shape the server persists, so a saved list can be compared to the draft. */
+function serializeStages(stages: DraftStage[]): string {
+  return JSON.stringify(stages.map(s => [s.approverType, s.approverValue]))
+}
+
+const TYPE_LABELS: Record<ApproverType, string> = {
+  ROLE: 'Role',
+  GROUP: 'Access group',
+  USER: 'Specific person',
+}
+
+const VALUE_LABELS: Record<ApproverType, string> = {
+  ROLE: 'Role',
+  GROUP: 'Access group id',
+  USER: 'Username or email',
 }
 
 function describeChain(chain: ApprovalChain): string {
@@ -22,9 +41,9 @@ function describeChain(chain: ApprovalChain): string {
 }
 
 function describeStage(stage: DraftStage): string {
-  return stage.approverType === 'ROLE'
-    ? `Anyone with the ${stage.approverValue} role`
-    : `Anyone in Access group "${stage.approverValue}"`
+  if (stage.approverType === 'ROLE') return `Anyone with the ${stage.approverValue} role`
+  if (stage.approverType === 'USER') return `${stage.approverValue} specifically`
+  return `Anyone in Access group "${stage.approverValue}"`
 }
 
 export default function ChainsPage() {
@@ -35,11 +54,16 @@ export default function ChainsPage() {
 
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [draftStages, setDraftStages] = useState<DraftStage[]>([])
+  /** What the server last confirmed, so "unsaved" is a fact rather than a guess. */
+  const [savedStages, setSavedStages] = useState('')
   const [stagesLoading, setStagesLoading] = useState(false)
   const [stagesError, setStagesError] = useState('')
+  const [stagesSaved, setStagesSaved] = useState(false)
   const [stagesSaving, setStagesSaving] = useState(false)
-  const [newStageType, setNewStageType] = useState<'ROLE' | 'GROUP'>('ROLE')
+  const [newStageType, setNewStageType] = useState<ApproverType>('ROLE')
   const [newStageValue, setNewStageValue] = useState(ROLE_OPTIONS[0])
+
+  const dirty = serializeStages(draftStages) !== savedStages
 
   // Add-chain form state
   const [name, setName] = useState('')
@@ -134,30 +158,44 @@ export default function ChainsPage() {
     }
     setExpandedId(chain.id)
     setStagesLoading(true)
+    // Clear any banner left over from another chain — an error or a "Saved"
+    // that belonged to a different row reads as if it applies to this one.
     setStagesError('')
+    setStagesSaved(false)
     try {
       const res = await fetch(`/api/chains/${chain.id}/stages`, { credentials: 'include' })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const data: ApprovalStage[] = await res.json()
-      setDraftStages(data
+      const loaded: DraftStage[] = data
         .sort((a, b) => a.stageOrder - b.stageOrder)
-        .map(s => ({ approverType: s.approverType, approverValue: s.approverValue })))
+        .map(s => ({ approverType: s.approverType as ApproverType, approverValue: s.approverValue }))
+      setDraftStages(loaded)
+      setSavedStages(serializeStages(loaded))
     } catch {
       setStagesError('Failed to load stages.')
       setDraftStages([])
+      setSavedStages(serializeStages([]))
     } finally {
       setStagesLoading(false)
     }
   }
 
+  /** Any edit invalidates a previous "Saved" — it no longer describes the draft. */
+  function markEdited() {
+    setStagesSaved(false)
+    setStagesError('')
+  }
+
   function addDraftStage() {
     if (!newStageValue.trim()) return
     setDraftStages(prev => [...prev, { approverType: newStageType, approverValue: newStageValue.trim() }])
-    if (newStageType === 'GROUP') setNewStageValue('')
+    if (newStageType !== 'ROLE') setNewStageValue('')
+    markEdited()
   }
 
   function removeDraftStage(index: number) {
     setDraftStages(prev => prev.filter((_, i) => i !== index))
+    markEdited()
   }
 
   function moveDraftStage(index: number, direction: -1 | 1) {
@@ -168,11 +206,13 @@ export default function ChainsPage() {
       ;[next[index], next[target]] = [next[target], next[index]]
       return next
     })
+    markEdited()
   }
 
   async function saveStages(chainId: number) {
     setStagesSaving(true)
     setStagesError('')
+    setStagesSaved(false)
     try {
       const res = await fetch(`/api/chains/${chainId}/stages`, {
         method: 'PUT',
@@ -188,6 +228,16 @@ export default function ChainsPage() {
         } catch { /* non-JSON error body */ }
         throw new Error(msg)
       }
+      // Re-seed the baseline from what the server actually stored, not from
+      // the draft we sent — the server assigns stage order, so this is the
+      // only version that is definitely true.
+      const stored: ApprovalStage[] = await res.json()
+      const confirmed: DraftStage[] = stored
+        .sort((a, b) => a.stageOrder - b.stageOrder)
+        .map(s => ({ approverType: s.approverType as ApproverType, approverValue: s.approverValue }))
+      setDraftStages(confirmed)
+      setSavedStages(serializeStages(confirmed))
+      setStagesSaved(true)
     } catch (err: unknown) {
       setStagesError(err instanceof Error ? err.message : 'Failed to save stages.')
     } finally {
@@ -235,6 +285,14 @@ export default function ChainsPage() {
                     <p className="text-xs text-gray-500 truncate">{describeChain(chain)}</p>
                     {!chain.enabled && <p className="text-xs text-gray-400">Disabled</p>}
                   </button>
+                  {expandedId === chain.id && dirty && (
+                    <span
+                      title="These stage changes have not been saved yet"
+                      className="shrink-0 inline-block rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-medium"
+                    >
+                      Unsaved
+                    </span>
+                  )}
                   <button
                     onClick={() => expandChain(chain)}
                     className="text-xs text-gray-500 underline shrink-0"
@@ -322,19 +380,20 @@ export default function ChainsPage() {
                                 <select
                                   value={newStageType}
                                   onChange={e => {
-                                    const t = e.target.value as 'ROLE' | 'GROUP'
+                                    const t = e.target.value as ApproverType
                                     setNewStageType(t)
                                     setNewStageValue(t === 'ROLE' ? ROLE_OPTIONS[0] : '')
                                   }}
                                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
                                 >
-                                  <option value="ROLE">Role</option>
-                                  <option value="GROUP">Access group</option>
+                                  {(Object.keys(TYPE_LABELS) as ApproverType[]).map(t => (
+                                    <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                                  ))}
                                 </select>
                               </div>
                               <div className="flex-1 min-w-[10rem]">
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  {newStageType === 'ROLE' ? 'Role' : 'Access group id'}
+                                  {VALUE_LABELS[newStageType]}
                                 </label>
                                 {newStageType === 'ROLE' ? (
                                   <select
@@ -349,7 +408,9 @@ export default function ChainsPage() {
                                     type="text"
                                     value={newStageValue}
                                     onChange={e => setNewStageValue(e.target.value)}
-                                    placeholder="Read the id from /api/auth/claims after signing in"
+                                    placeholder={newStageType === 'GROUP'
+                                      ? 'Read the id from /api/auth/claims after signing in'
+                                      : 'Their username or email, as they sign in'}
                                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-omnissa"
                                   />
                                 )}
@@ -361,13 +422,29 @@ export default function ChainsPage() {
                                 Add Stage
                               </button>
                             </div>
-                            <button
-                              onClick={() => saveStages(chain.id)}
-                              disabled={stagesSaving || draftStages.length === 0}
-                              className="px-4 py-2 text-sm rounded-lg bg-omnissa text-white font-medium hover:bg-omnissa-dark disabled:opacity-50 transition-colors"
-                            >
-                              {stagesSaving ? 'Saving…' : 'Save Stages'}
-                            </button>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <button
+                                onClick={() => saveStages(chain.id)}
+                                disabled={stagesSaving || draftStages.length === 0 || !dirty}
+                                className="px-4 py-2 text-sm rounded-lg bg-omnissa text-white font-medium hover:bg-omnissa-dark disabled:opacity-50 transition-colors"
+                              >
+                                {stagesSaving ? 'Saving…' : 'Save Stages'}
+                              </button>
+                              {/* Three distinct states, because "nothing
+                                  happened" was indistinguishable from "saved"
+                                  and from "failed". */}
+                              {dirty && !stagesSaving && (
+                                <span className="text-sm text-amber-700">
+                                  Unsaved changes
+                                </span>
+                              )}
+                              {!dirty && stagesSaved && !stagesSaving && (
+                                <span className="text-sm text-green-700">✓ Stages saved</span>
+                              )}
+                              {!dirty && !stagesSaved && !stagesSaving && draftStages.length > 0 && (
+                                <span className="text-sm text-gray-400">No changes to save</span>
+                              )}
+                            </div>
                           </>
                         )}
                       </>

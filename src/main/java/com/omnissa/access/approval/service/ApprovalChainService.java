@@ -129,6 +129,19 @@ public class ApprovalChainService {
                             + "not currently resolved as a member of (or Access could not be reached to check).";
         }
 
+        if ("USER".equalsIgnoreCase(stage.getApproverType())) {
+            // Matched against the acting session's own identity — the same
+            // string AuditService.currentAdmin() resolves, so whoever the
+            // audit trail would name as the decider is exactly who this
+            // compares. Local accounts work here too (unlike a GROUP stage),
+            // because a username is something they actually have.
+            String required = stage.getApproverValue();
+            if (matchesNamedUser(authentication, required)) {
+                return null;
+            }
+            return "Stage " + current + " of this chain is assigned to " + required + " specifically.";
+        }
+
         return "Stage " + current + " of this chain has an unrecognized approver type ('"
                 + stage.getApproverType() + "') — an admin needs to fix it.";
     }
@@ -149,6 +162,37 @@ public class ApprovalChainService {
             return oidcUser.getEmail() != null ? oidcUser.getEmail() : oidcUser.getPreferredUsername();
         }
         return null;
+    }
+
+    /**
+     * Does the acting session belong to the named individual?
+     *
+     * <p>Compares against every identity string that session legitimately
+     * answers to — preferred_username, email and subject for an OIDC user,
+     * the username for a local account — because an operator naming a person
+     * in a stage will write whichever of those they know, and the stage would
+     * be silently undecidable if only one form matched.
+     */
+    static boolean matchesNamedUser(Authentication authentication, String required) {
+        if (required == null || required.isBlank() || authentication == null) {
+            return false;
+        }
+        String wanted = required.trim();
+        if (authentication.getPrincipal() instanceof OidcUser oidcUser) {
+            if (equalsAny(wanted, oidcUser.getPreferredUsername(), oidcUser.getEmail(), oidcUser.getSubject())) {
+                return true;
+            }
+        }
+        return equalsAny(wanted, authentication.getName());
+    }
+
+    private static boolean equalsAny(String wanted, String... candidates) {
+        for (String candidate : candidates) {
+            if (candidate != null && !candidate.isBlank() && wanted.equalsIgnoreCase(candidate.trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean matchesIdentity(GroupMember member, String identity) {
@@ -215,6 +259,18 @@ public class ApprovalChainService {
                     .map(GroupMember::scimId)
                     .toList();
         }
+        if ("USER".equalsIgnoreCase(stage.getApproverType())) {
+            // One named person. Their SCIM id is found by looking them up
+            // among the approver pool rather than by a separate directory
+            // call — if they hold no approver role there is nobody to notify,
+            // which is itself worth surfacing.
+            String wanted = stage.getApproverValue();
+            return approverDirectoryMembers().stream()
+                    .filter(m -> matchesIdentity(m, wanted))
+                    .map(GroupMember::scimId)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        }
         if ("ROLE".equalsIgnoreCase(stage.getApproverType())) {
             AuthorityName target;
             try {
@@ -232,6 +288,20 @@ public class ApprovalChainService {
             return List.copyOf(scimIds);
         }
         return List.of();
+    }
+
+    /** The whole approver pool, used to find a named user's SCIM id. */
+    private List<GroupMember> approverDirectoryMembers() {
+        Map<String, AuthorityName> parsedRoleMap = GroupRoleMapper.parse(roleMap);
+        Set<String> seen = new LinkedHashSet<>();
+        List<GroupMember> all = new java.util.ArrayList<>();
+        parsedRoleMap.keySet().forEach(groupId ->
+                accessGroupService.resolveMembers(groupId).forEach(m -> {
+                    if (m.scimId() != null && seen.add(m.scimId())) {
+                        all.add(m);
+                    }
+                }));
+        return all;
     }
 
     private static String safe(String value) {

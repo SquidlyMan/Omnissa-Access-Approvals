@@ -79,6 +79,15 @@ class ApprovalChainServiceTest {
         return stage;
     }
 
+    private static ApprovalStage userStage(long chainId, int order, String who) {
+        ApprovalStage stage = new ApprovalStage();
+        stage.setChainId(chainId);
+        stage.setStageOrder(order);
+        stage.setApproverType("USER");
+        stage.setApproverValue(who);
+        return stage;
+    }
+
     private static ApprovalStage groupStage(long chainId, int order, String groupId) {
         ApprovalStage stage = new ApprovalStage();
         stage.setChainId(chainId);
@@ -265,6 +274,69 @@ class ApprovalChainServiceTest {
                 AuthorityUtils.createAuthorityList("ROLE_APPROVER"));
 
         assertThat(service.ineligibilityReason(request, auth)).contains("stage 5");
+    }
+
+    // --- USER stages: one named individual ---
+
+    @Test
+    void userStagePassesForTheNamedLocalAccount() {
+        CalloutRequest request = requestFor("Salesforce");
+        request.setChainId(1L);
+        request.setCurrentStage(1);
+        when(stageRepository.findByChainIdOrderByStageOrderAsc(1L))
+                .thenReturn(List.of(userStage(1, 1, "dave")));
+        Authentication auth = new TestingAuthenticationToken("dave", "n/a",
+                AuthorityUtils.createAuthorityList("ROLE_APPROVER"));
+
+        assertThat(service.ineligibilityReason(request, auth))
+                .as("unlike a GROUP stage, a local account CAN satisfy a named-user stage")
+                .isNull();
+    }
+
+    @Test
+    void userStageFailsForAnyoneElse() {
+        CalloutRequest request = requestFor("Salesforce");
+        request.setChainId(1L);
+        request.setCurrentStage(1);
+        when(stageRepository.findByChainIdOrderByStageOrderAsc(1L))
+                .thenReturn(List.of(userStage(1, 1, "dave")));
+        Authentication auth = new TestingAuthenticationToken("erin", "n/a",
+                AuthorityUtils.createAuthorityList("ROLE_APPROVER"));
+
+        assertThat(service.ineligibilityReason(request, auth)).contains("dave");
+    }
+
+    @Test
+    void userStageMatchesAnyIdentityFormTheSessionAnswersTo() {
+        // An operator naming a person will write whichever identity they know.
+        OidcUser oidcUser = mock(OidcUser.class);
+        when(oidcUser.getPreferredUsername()).thenReturn("jdoe");
+        when(oidcUser.getEmail()).thenReturn("jane@corp.com");
+        when(oidcUser.getSubject()).thenReturn("sub-123");
+        Authentication auth = mock(Authentication.class);
+        when(auth.isAuthenticated()).thenReturn(true);
+        when(auth.getPrincipal()).thenReturn(oidcUser);
+
+        assertThat(ApprovalChainService.matchesNamedUser(auth, "jdoe")).isTrue();
+        assertThat(ApprovalChainService.matchesNamedUser(auth, "JANE@CORP.COM")).isTrue();
+        assertThat(ApprovalChainService.matchesNamedUser(auth, "sub-123")).isTrue();
+        assertThat(ApprovalChainService.matchesNamedUser(auth, "someone-else")).isFalse();
+        assertThat(ApprovalChainService.matchesNamedUser(auth, "")).isFalse();
+        assertThat(ApprovalChainService.matchesNamedUser(auth, null)).isFalse();
+    }
+
+    @Test
+    void adminOverridesAUserStageToo() {
+        CalloutRequest request = requestFor("Salesforce");
+        request.setChainId(1L);
+        request.setCurrentStage(1);
+        Authentication auth = new TestingAuthenticationToken("admin", "n/a",
+                AuthorityUtils.createAuthorityList("ROLE_ADMIN"));
+
+        assertThat(service.ineligibilityReason(request, auth))
+                .as("a named-user stage goes undecidable when that person leaves — "
+                        + "the admin override is what stops that being a dead end")
+                .isNull();
     }
 
     // --- notifyStageApprovers / resolveStageRecipients ---

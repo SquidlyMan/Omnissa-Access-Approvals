@@ -168,7 +168,7 @@ export interface ApprovalStage {
   id: number
   chainId: number
   stageOrder: number
-  approverType: 'ROLE' | 'GROUP'
+  approverType: 'ROLE' | 'GROUP' | 'USER'
   approverValue: string
 }
 
