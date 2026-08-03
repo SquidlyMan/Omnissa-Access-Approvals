@@ -8,6 +8,7 @@ import ApprovalDialog from '../components/ApprovalDialog'
 import type { Page, CalloutRequest, AuditAction, AuditEvent } from '../types'
 import { getCsrfToken } from '../utils/csrf'
 import { requesterLabel } from '../utils/requester'
+import { ownerLabel } from '../components/DelegationPanel'
 import { canDecide, canExportAudit, canExportRequests, canViewAudit, canViewQueue, FORBIDDEN_MESSAGE } from '../lib/permissions'
 
 const STATE_TABS = [
@@ -31,6 +32,11 @@ const AUDIT_ACTION_STYLES: Record<AuditAction, string> = {
   'request-deleted':        'bg-red-100 text-red-800',
   'access-blocked':         'bg-red-100 text-red-800',
   'access-block-failed':    'bg-orange-100 text-orange-800',
+  'chain-matched':          'bg-indigo-100 text-indigo-800',
+  'stage-approved':         'bg-green-100 text-green-800',
+  'request-claimed':        'bg-blue-100 text-blue-800',
+  'request-released':       'bg-gray-100 text-gray-600',
+  'request-escalated':      'bg-amber-100 text-amber-800',
 }
 
 /**
@@ -339,6 +345,27 @@ export default function QueuePage() {
                     </p>
                   </div>
                   <div className="shrink-0 flex items-center gap-3">
+                    {/* Owner badge (#51). Renders the local-part, never the raw
+                        identity: on tenants that emit no preferred_username the
+                        identity falls back to the email address, and a naive
+                        badge would publish an approver's address to every
+                        Viewer who can see the queue. */}
+                    {req.state === 'pending' && req.assignedOwner && (
+                      <span
+                        title="Advisory only — any approver can still decide this request"
+                        className="inline-block rounded-full bg-blue-50 text-blue-700 px-2.5 py-0.5 text-xs font-medium"
+                      >
+                        {ownerLabel(req.assignedOwner)}
+                      </span>
+                    )}
+                    {req.state === 'pending' && (req.escalationStage ?? 0) >= 1 && (
+                      <span
+                        title="Escalated — the chat channel and approvers have been notified"
+                        className="inline-block rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-medium"
+                      >
+                        ⏰ Escalated
+                      </span>
+                    )}
                     <StatusBadge state={req.state} />
                     {req.state === 'pending' && canDecide(user) && (
                       <button

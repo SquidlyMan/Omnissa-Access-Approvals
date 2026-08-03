@@ -366,6 +366,13 @@ public class WebhookNotifier {
      * Human duration for a TTL in minutes: "5 minutes", "1 hour", "7 days".
      */
     public static String humanDuration(int minutes) {
+        // Zero became reachable once escalation started reporting how long a
+        // request had been pending: a request escalated manually the moment it
+        // arrives is 0 minutes old, and the days branch below would render
+        // that as the nonsensical "0 days".
+        if (minutes <= 0) {
+            return "less than a minute";
+        }
         if (minutes % 1440 == 0) {
             int days = minutes / 1440;
             return days + (days == 1 ? " day" : " days");
