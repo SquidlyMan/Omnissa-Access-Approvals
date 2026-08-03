@@ -297,12 +297,24 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/approvals/remote").hasRole("ADMIN")
 
                 // Decisions and entitlement changes.
+                //
+                // These POSTs MUST be enumerated here. The fallback below grants
+                // /api/approvals/** to VIEWER and USER as well, so forgetting one
+                // produces no error at all — it silently lets a Viewer claim,
+                // release or escalate a request. The miss fails OPEN, which is
+                // why claim/release/assign/escalate are listed explicitly
+                // alongside the decision endpoints rather than left to the
+                // fallback.
                 .requestMatchers(HttpMethod.POST,
                         "/api/approvals/response",
                         "/api/approvals/response/all",
                         "/api/approvals/pull",
                         "/api/approvals/requests/*/revoke",
-                        "/api/approvals/requests/*/allow-rerequest")
+                        "/api/approvals/requests/*/allow-rerequest",
+                        "/api/approvals/requests/*/claim",
+                        "/api/approvals/requests/*/release",
+                        "/api/approvals/requests/*/assign",
+                        "/api/approvals/requests/*/escalate")
                         .hasAnyRole("ADMIN", "APPROVER")
 
                 // Reading the queue, catalog and statistics. Deliberately excludes

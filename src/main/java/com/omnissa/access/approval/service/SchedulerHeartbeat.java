@@ -28,9 +28,17 @@ public class SchedulerHeartbeat {
     /** The expiry-rule sweep runs hourly, so it tolerates far more drift. */
     public static final Duration HOURLY_STALE_AFTER = Duration.ofHours(3);
 
+    /**
+     * The escalation sweep runs every five minutes. Reusing
+     * {@link #HOURLY_STALE_AFTER} here would hide a 35-cycle stall, so it gets
+     * its own, much tighter tolerance.
+     */
+    public static final Duration ESCALATION_STALE_AFTER = Duration.ofMinutes(20);
+
     public static final String JIT_EXPIRY = "jitExpiry";
     public static final String JIT_RESTORE = "jitRestore";
     public static final String EXPIRY_RULES = "expiryRules";
+    public static final String ESCALATION = "escalation";
 
     private final Map<String, Instant> lastRun = new ConcurrentHashMap<>();
     private final Instant startedAt = Instant.now();
@@ -52,7 +60,8 @@ public class SchedulerHeartbeat {
     public boolean anyStale() {
         return isStale(JIT_EXPIRY, JIT_STALE_AFTER)
                 || isStale(JIT_RESTORE, JIT_STALE_AFTER)
-                || isStale(EXPIRY_RULES, HOURLY_STALE_AFTER);
+                || isStale(EXPIRY_RULES, HOURLY_STALE_AFTER)
+                || isStale(ESCALATION, ESCALATION_STALE_AFTER);
     }
 
     /** Per-job detail for the authenticated health endpoint. */
@@ -61,6 +70,7 @@ public class SchedulerHeartbeat {
         detail.put(JIT_EXPIRY, describe(JIT_EXPIRY, JIT_STALE_AFTER));
         detail.put(JIT_RESTORE, describe(JIT_RESTORE, JIT_STALE_AFTER));
         detail.put(EXPIRY_RULES, describe(EXPIRY_RULES, HOURLY_STALE_AFTER));
+        detail.put(ESCALATION, describe(ESCALATION, ESCALATION_STALE_AFTER));
         return detail;
     }
 

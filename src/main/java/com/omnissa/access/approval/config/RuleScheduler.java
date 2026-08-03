@@ -54,6 +54,9 @@ public class RuleScheduler {
     @Autowired
     private com.omnissa.access.approval.util.RuleEngine ruleEngine;
 
+    @Autowired
+    private com.omnissa.access.approval.service.EscalationService escalationService;
+
     /** Guards the one-time scope report below. */
     private boolean scopeReported = false;
 
@@ -289,6 +292,48 @@ public class RuleScheduler {
         }
         if (anyRestored) {
             sseController.publishQueueUpdate("queue-updated");
+        }
+    }
+
+    /**
+     * Escalation and claim-TTL sweep (#51).
+     *
+     * <p>Runs on <strong>escalation's own thread pool</strong>, not the shared
+     * default scheduler — see {@code EscalationSchedulerConfig}. It is the one
+     * job here that makes answer-bearing network calls (resolving the approver
+     * pool over SCIM, pushing Hub notifications), and on the shared thread a
+     * slow tenant would stall JIT expiry, which fails silently: time-bound
+     * access would simply never expire while every health check stayed green.
+     */
+    @Scheduled(scheduler = EscalationSchedulerConfig.ESCALATION_SCHEDULER,
+               fixedDelayString = "PT5M", initialDelayString = "PT2M")
+    public void applyEscalation() {
+        try {
+            runApplyEscalation();
+        } finally {
+            schedulerHeartbeat.recordRun(SchedulerHeartbeat.ESCALATION);
+        }
+    }
+
+    private void runApplyEscalation() {
+        List<AutoRule> escalationRules = autoRuleRepository.findAll().stream()
+                .filter(rule -> rule.isEnabled() && rule.getEscalateAfterMinutes() != null
+                        && rule.getEscalateAfterMinutes() > 0)
+                .toList();
+        if (escalationRules.isEmpty()) {
+            return;
+        }
+        for (AutoRule rule : escalationRules) {
+            try {
+                int escalated = escalationService.escalateFor(rule);
+                int released = escalationService.releaseStaleClaims(rule);
+                if (escalated > 0 || released > 0) {
+                    logger.info("Escalation rule #{}: escalated {}, released {} stale claim(s)",
+                            rule.getId(), escalated, released);
+                }
+            } catch (Exception e) {
+                logger.error("Escalation sweep failed for rule #{}", rule.getId(), e);
+            }
         }
     }
 }

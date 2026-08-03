@@ -70,6 +70,18 @@ public class ApprovalController {
     @Autowired
     ApprovalChainService approvalChainService;
 
+    @Autowired
+    com.omnissa.access.approval.service.DelegationService delegationService;
+
+    @Autowired
+    com.omnissa.access.approval.service.ApproverDirectoryService approverDirectory;
+
+    @Autowired
+    com.omnissa.access.approval.service.EscalationService escalationService;
+
+    @Autowired
+    com.omnissa.access.approval.repository.AutoRuleRepository autoRuleRepository;
+
     @GetMapping("/pending/remote")
     public ResponseEntity<?> getRemotePendingApprovals() {
         return ResponseEntity.ok(approvalsInterface.getPendingApprovals());
@@ -377,6 +389,93 @@ public class ApprovalController {
             logger.error("Auto-rule evaluation failed for requestId={}",
                     calloutRequest.getRequestId(), e);
         }
+    }
+
+    /**
+     * Claim, release or assign a pending request (#51).
+     *
+     * <p>All three are <strong>advisory</strong>: they change who the queue
+     * shows as holding a request, never who may decide it. A claimed request
+     * is still decidable by any approver — see {@code DelegationService}.
+     */
+    @PostMapping("/requests/{requestId}/claim")
+    public ResponseEntity<?> claimRequest(@PathVariable String requestId) {
+        var result = delegationService.claim(requestId, auditService.currentAdmin());
+        return delegationResponse(result);
+    }
+
+    @PostMapping("/requests/{requestId}/release")
+    public ResponseEntity<?> releaseRequest(@PathVariable String requestId) {
+        var result = delegationService.release(requestId, auditService.currentAdmin());
+        return delegationResponse(result);
+    }
+
+    @PostMapping("/requests/{requestId}/assign")
+    public ResponseEntity<?> assignRequest(@PathVariable String requestId,
+                                           @RequestBody Map<String, String> body) {
+        var result = delegationService.assign(requestId, body.get("assignee"), auditService.currentAdmin());
+        return delegationResponse(result);
+    }
+
+    private ResponseEntity<?> delegationResponse(com.omnissa.access.approval.service.DelegationService.Result result) {
+        if (result.ok()) {
+            return ResponseEntity.ok(Map.of(
+                    "outcome", "ok",
+                    "message", result.message(),
+                    "assignedOwner", result.request() != null && result.request().getAssignedOwner() != null
+                            ? result.request().getAssignedOwner() : ""));
+        }
+        HttpStatus status = switch (result.outcome()) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case ALREADY_HELD -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(Map.of(
+                "outcome", result.outcome().name().toLowerCase(), "error", result.message()));
+    }
+
+    /**
+     * The approver pool, for the assign picker — resolved live from Omnissa
+     * Access via the groups already mapped to APPROVER/ADMIN in
+     * {@code OMNISSA_ROLE_MAP}. There is deliberately no separate approver
+     * list to maintain.
+     */
+    @GetMapping("/approvers")
+    public ResponseEntity<?> listApprovers() {
+        return ResponseEntity.ok(approverDirectory.escalationRecipients().stream()
+                .map(m -> {
+                    Map<String, String> entry = new java.util.LinkedHashMap<>();
+                    entry.put("identity", m.email() != null ? m.email()
+                            : m.userName() != null ? m.userName() : m.scimId());
+                    entry.put("displayName", m.displayName() != null ? m.displayName() : "");
+                    entry.put("email", m.email() != null ? m.email() : "");
+                    return entry;
+                })
+                .toList());
+    }
+
+    /**
+     * Escalate now (#51) — skips the remaining timer.
+     *
+     * <p>Not a demo convenience: escalation is otherwise unobservable until it
+     * fires, so this is the only way an admin can confirm the rule is wired up
+     * correctly. It advances the same stage counter the sweep uses, so the
+     * timed stage never re-fires, and it is audited with the <em>admin</em> as
+     * actor — the trail must never imply a timer fired when a human pressed a
+     * button.
+     */
+    @PostMapping("/requests/{requestId}/escalate")
+    public ResponseEntity<?> escalateNow(@PathVariable String requestId) {
+        CalloutRequest request = approvalsRepository.findByRequestId(requestId);
+        if (request == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!"pending".equalsIgnoreCase(request.getState())) {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "Only a pending request can be escalated (this one is " + request.getState() + ")."));
+        }
+        var outcome = escalationService.escalateNow(request, auditService.currentAdmin());
+        return ResponseEntity.ok(Map.of("outcome", outcome.name().toLowerCase()));
     }
 
     @PostMapping("/response")
