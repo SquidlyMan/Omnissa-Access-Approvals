@@ -30,6 +30,7 @@ from PIL import Image
 
 # publish asset  <-  ../images source
 COPY = {
+    "architecture.png":             "architecture.png",
     "hub-pending.png":              "hub-request-pending.png",
     "access-oidc-client.png":       "access-oauth-admin-client.png",
     "access-service-client.png":    "access-oauth-service-client.png",

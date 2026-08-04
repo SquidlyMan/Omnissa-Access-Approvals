@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="700" viewBox="0 0 1640 700" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="aNavy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#132250"/>
+    </marker>
+    <marker id="aGrey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7A869C"/>
+    </marker>
+    <marker id="aGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2E8B57"/>
+    </marker>
+  </defs>
+
+  <rect width="1640" height="700" fill="#FFFFFF"/>
+
+  <text x="820" y="46" text-anchor="middle" font-size="28" font-weight="bold" fill="#132250">Access Approval Tool for Omnissa — Architecture</text>
+
+  <!-- ============ inbound row ============ -->
+
+  <!-- End user -->
+  <rect x="40" y="130" width="250" height="118" rx="10" fill="#EAF1FB" stroke="#7C9FD0" stroke-width="1.6"/>
+  <text x="165" y="172" text-anchor="middle" font-size="19" font-weight="bold" fill="#1B4A8A">End User</text>
+  <text x="165" y="200" text-anchor="middle" font-size="13.5" fill="#33445F">Intelligent Hub / Web Catalog</text>
+  <text x="165" y="222" text-anchor="middle" font-size="13.5" fill="#33445F">requests an application</text>
+
+  <path d="M290,189 H356" stroke="#7A869C" stroke-width="2.2" fill="none" marker-end="url(#aGrey)"/>
+  <text x="323" y="177" text-anchor="middle" font-size="11.5" fill="#5A6685" letter-spacing="0.6">REQUEST</text>
+
+  <!-- Omnissa Access tenant -->
+  <rect x="372" y="112" width="288" height="154" rx="10" fill="#DCE9F9" stroke="#6E93C8" stroke-width="1.6"/>
+  <text x="516" y="147" text-anchor="middle" font-size="19" font-weight="bold" fill="#1B4A8A">Omnissa Access Tenant</text>
+  <text x="516" y="172" text-anchor="middle" font-size="13.5" fill="#33445F">SaaS cloud</text>
+  <text x="516" y="207" text-anchor="middle" font-size="13.5" fill="#33445F">Approvals engine: REST API</text>
+  <text x="516" y="229" text-anchor="middle" font-size="13.5" fill="#33445F">catalog &amp; entitlements</text>
+
+  <path d="M660,189 H751" stroke="#132250" stroke-width="2.2" fill="none" marker-end="url(#aNavy)"/>
+  <text x="706" y="177" text-anchor="middle" font-size="11" font-weight="bold" fill="#132250">HTTPS callout</text>
+
+  <!-- Reverse proxy -->
+  <rect x="760" y="130" width="210" height="118" rx="10" fill="#F6EFDC" stroke="#C6A75C" stroke-width="1.6"/>
+  <text x="865" y="170" text-anchor="middle" font-size="17" font-weight="bold" fill="#7A5A18">Reverse Proxy</text>
+  <text x="865" y="196" text-anchor="middle" font-size="13" fill="#5E4715">TLS termination</text>
+  <text x="865" y="217" text-anchor="middle" font-size="13" fill="#5E4715">X-Forwarded headers</text>
+
+  <path d="M970,189 H1151" stroke="#132250" stroke-width="2.2" fill="none" marker-end="url(#aNavy)"/>
+  <text x="1060" y="177" text-anchor="middle" font-size="12" font-weight="bold" fill="#132250">POST /api/approvals/new</text>
+
+  <!-- ============ the tool ============ -->
+  <rect x="1160" y="68" width="440" height="262" rx="14" fill="#132250"/>
+  <text x="1380" y="103" text-anchor="middle" font-size="20" font-weight="bold" fill="#FFFFFF">Access Approval Tool</text>
+  <text x="1380" y="127" text-anchor="middle" font-size="12.5" fill="#A9BCE4">Docker container — Spring Boot + React</text>
+
+  <rect x="1185" y="143" width="195" height="40" rx="8" fill="#22376E"/>
+  <text x="1282" y="168" text-anchor="middle" font-size="13.5" fill="#FFFFFF">Live Queue (SSE)</text>
+  <rect x="1390" y="143" width="195" height="40" rx="8" fill="#22376E"/>
+  <text x="1487" y="168" text-anchor="middle" font-size="13.5" fill="#FFFFFF">Auto-Rules</text>
+
+  <rect x="1185" y="191" width="195" height="40" rx="8" fill="#22376E"/>
+  <text x="1282" y="216" text-anchor="middle" font-size="13.5" fill="#FFFFFF">Audit Trail</text>
+  <rect x="1390" y="191" width="195" height="40" rx="8" fill="#22376E"/>
+  <text x="1487" y="216" text-anchor="middle" font-size="13.5" fill="#FFFFFF">Webhooks</text>
+
+  <rect x="1185" y="239" width="400" height="40" rx="8" fill="#22376E"/>
+  <text x="1385" y="264" text-anchor="middle" font-size="13.5" fill="#FFFFFF">REST API + Admin SPA (OIDC / local login)</text>
+
+  <text x="1385" y="303" text-anchor="middle" font-size="12" fill="#A9BCE4">state: H2 database on mounted volume /app/data</text>
+
+  <!-- ============ decision return to the tenant ============ -->
+  <path d="M1160,300 H520 V274" stroke="#2E8B57" stroke-width="2.2" fill="none" marker-end="url(#aGreen)"/>
+  <text x="820" y="291" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#226E45">decision PUT — tenant API (service client, outbound only)</text>
+
+  <!-- ============ administrator ============ -->
+  <rect x="790" y="440" width="300" height="118" rx="10" fill="#EAF1FB" stroke="#7C9FD0" stroke-width="1.6"/>
+  <text x="940" y="480" text-anchor="middle" font-size="17" font-weight="bold" fill="#1B4A8A">Administrator</text>
+  <text x="940" y="506" text-anchor="middle" font-size="13" fill="#33445F">desktop or phone browser</text>
+  <text x="940" y="527" text-anchor="middle" font-size="13" fill="#33445F">approve / reject / rules</text>
+
+  <!-- hops over the green return line rather than crossing it -->
+  <path d="M1060,440 V313 Q1076,300 1060,287 V220 H975" stroke="#132250" stroke-width="2.2" fill="none" marker-end="url(#aNavy)"/>
+  <text x="1048" y="400" text-anchor="end" font-size="11.5" fill="#132250">HTTPS (LAN ok)</text>
+
+  <!-- ============ outbound notification bus ============ -->
+  <path d="M1185,330 V632" stroke="#2E8B57" stroke-width="2.2" fill="none"/>
+  <path d="M1185,432 H1232" stroke="#2E8B57" stroke-width="2.2" fill="none" marker-end="url(#aGreen)"/>
+  <path d="M1185,532 H1232" stroke="#2E8B57" stroke-width="2.2" fill="none" marker-end="url(#aGreen)"/>
+  <path d="M1185,632 H1232" stroke="#2E8B57" stroke-width="2.2" fill="none" marker-end="url(#aGreen)"/>
+  <circle cx="1185" cy="432" r="3.4" fill="#2E8B57"/>
+  <circle cx="1185" cy="532" r="3.4" fill="#2E8B57"/>
+
+  <text x="1199" y="360" font-size="11.5" font-weight="bold" fill="#226E45">outbound only</text>
+
+  <rect x="1240" y="394" width="360" height="76" rx="10" fill="#E7F6EC" stroke="#4FA46B" stroke-width="1.6"/>
+  <text x="1420" y="425" text-anchor="middle" font-size="16" font-weight="bold" fill="#14663A">Slack / Teams / JSON</text>
+  <text x="1420" y="448" text-anchor="middle" font-size="12.5" fill="#2C5E43">request + decision events</text>
+
+  <rect x="1240" y="494" width="360" height="76" rx="10" fill="#E7F6EC" stroke="#4FA46B" stroke-width="1.6"/>
+  <text x="1420" y="525" text-anchor="middle" font-size="16" font-weight="bold" fill="#14663A">Syslog Collector</text>
+  <text x="1420" y="548" text-anchor="middle" font-size="12.5" fill="#2C5E43">UDP / TCP / TLS + client cert</text>
+
+  <rect x="1240" y="594" width="360" height="76" rx="10" fill="#E7F6EC" stroke="#4FA46B" stroke-width="1.6"/>
+  <text x="1420" y="625" text-anchor="middle" font-size="16" font-weight="bold" fill="#14663A">SMTP (optional)</text>
+  <text x="1420" y="648" text-anchor="middle" font-size="12.5" fill="#2C5E43">requester notifications</text>
+
+  <!-- ============ exposure model ============ -->
+  <rect x="40" y="430" width="450" height="165" rx="10" fill="#FDF1F1" stroke="#C0272D" stroke-width="1.8"/>
+  <text x="66" y="463" font-size="15" font-weight="bold" fill="#A3161C">Exposure model</text>
+  <text x="66" y="492" font-size="12" fill="#7A2020">• Only /api/approvals/new must be internet-reachable</text>
+  <text x="76" y="510" font-size="12" fill="#7A2020">(rate-limited; optional Basic auth)</text>
+  <text x="66" y="536" font-size="12" fill="#7A2020">• Admin UI may remain LAN-only; decisions travel</text>
+  <text x="76" y="554" font-size="12" fill="#7A2020">outbound to the tenant API</text>
+  <text x="66" y="580" font-size="12" fill="#7A2020">• Testing and demonstration use only — never production</text>
+</svg>
