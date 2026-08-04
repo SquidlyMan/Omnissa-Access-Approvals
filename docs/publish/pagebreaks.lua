@@ -33,6 +33,11 @@ local function pagebreak()
 end
 
 function Pandoc(doc)
+  -- A document opts out with `paginate: false` in its own front matter. The
+  -- blog post does: it reads as one continuous piece, where a title page and a
+  -- break at every heading would work against it.
+  if doc.meta.paginate == false then return doc end
+
   local brk = pagebreak()
   if not brk then return doc end
 
