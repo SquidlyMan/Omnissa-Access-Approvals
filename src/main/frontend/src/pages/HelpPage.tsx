@@ -843,11 +843,13 @@ export default function HelpPage() {
               arrival. If both a chain and an auto-rule could match the same request, the chain wins.
             </li>
             <li>
-              Each stage requires either <span className="font-medium text-gray-800">anyone
-              holding a role</span> (Admin, Approver, Viewer or Auditor) or{' '}
+              Each stage requires <span className="font-medium text-gray-800">anyone
+              holding a role</span> (Admin, Approver, Viewer or Auditor),{' '}
               <span className="font-medium text-gray-800">anyone in a specific Access group</span>{' '}
               — read the group's id from the same place role-mapping ids come from,{' '}
-              <Code>GET /api/auth/claims</Code> after signing in.
+              <Code>GET /api/auth/claims</Code> after signing in — or{' '}
+              <span className="font-medium text-gray-800">one named person</span>, matched on the
+              username or email they sign in with.
             </li>
             <li>
               Approving a non-final stage never contacts Omnissa Access — the request stays pending

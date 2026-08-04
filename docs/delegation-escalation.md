@@ -15,6 +15,10 @@ On a pending request an approver can:
 - **Assign** it to a named approver, chosen from the live approver list.
 - **Release** it back to the pool.
 
+![The Ownership panel on an unclaimed request](images/tool-ownership-unclaimed.png)
+
+![The Ownership panel on a claimed, escalated request](images/tool-ownership-claimed.png)
+
 ### Ownership is advisory, never authorization
 
 **Any approver can decide any request no matter who holds it.** This is
@@ -39,6 +43,13 @@ groups mapped to the Approver and Admin roles in `OMNISSA_ROLE_MAP`. There is no
 separate approver list to maintain, and nothing to drift out of step with
 Access — somebody removed from the group stops appearing on the next call.
 
+![The Assign picker, resolved live from the role map](images/tool-assign-picker.png)
+
+The owner badge and the escalation chip are both readable from the queue
+without opening a request, which is what makes an unattended one findable:
+
+![Owner badge and escalated chip in the queue](images/tool-queue-ownership.png)
+
 ## Escalation
 
 Escalation is configured on an **expiry rule**, in its optional *Escalation*
@@ -54,6 +65,13 @@ When a matching request has been pending past the threshold, the tool:
    *new* requests, which is worse than noise.
 2. Pushes a **Hub Notification** to the approvers themselves, resolved live from
    the role map.
+
+![The Escalation section of an expiry rule](images/tool-escalation-rule.png)
+
+The rules list then states the whole policy in one row — a scoped rule rejects
+far less than an unscoped one, and the row is the only place that is visible:
+
+![An escalation-and-expiry policy in the rules list](images/tool-rules-escalation-policy.png)
 
 ### Scoping
 
@@ -124,6 +142,11 @@ tolerance would hide a 35-cycle stall.
 | `request-claimed` | Claimed, or assigned to a named approver |
 | `request-released` | Released — names the owner, how long they held it, and whether a person or the TTL did it |
 | `request-escalated` | Escalated, naming the rule, how long it had been pending, and exactly what was reached |
+
+Each carries its own colour in the trail, alongside the two written by
+[approval chains](approval-chains.md):
+
+![The chain and ownership actions in the audit trail](images/tool-audit-new-actions.png)
 
 ## What is not here
 

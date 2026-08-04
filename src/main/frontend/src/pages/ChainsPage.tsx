@@ -256,9 +256,9 @@ export default function ChainsPage() {
       </p>
       <p className="text-xs text-gray-400 mb-6 max-w-3xl">
         A matched request is exempt from Auto-Approval Rules — a chain exists specifically to
-        require sequential human judgment. Each stage requires either anyone holding a role, or
-        anyone in a specific Access group; a stage nobody can satisfy makes the chain unusable, so
-        a chain with no stages is never matched.
+        require sequential human judgment. Each stage requires anyone holding a role, anyone in a
+        specific Access group, or one named person; a stage nobody can satisfy makes the chain
+        unusable, so a chain with no stages is never matched.
       </p>
 
       {error && (
