@@ -1,7 +1,7 @@
 ---
 title: "Approvals for Omnissa Access, Without the Guesswork"
 author: "Dean Flaming"
-date: "July 2026 • Omnissa Access, Workspace ONE, Lab Projects"
+date: "August 2026 • Omnissa Access, Workspace ONE, Lab Projects"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -34,8 +34,10 @@ you can stand up in an afternoon and demo the entire approvals flow end to end.
 
 It started as a queue with two buttons. It has since grown into something I did
 not entirely plan: time-bound access that expires on its own, approvals from
-Slack and Teams, role-based access control driven by your Access groups, and
-enough operational plumbing to tell you when it is quietly broken.
+Slack and Teams, role-based access control driven by your Access groups,
+sequential approval chains for the applications that should not be one person's
+call, an escalation path for the requests nobody is looking at, and enough
+operational plumbing to tell you when it is quietly broken.
 
 ![](assets/architecture.png)
 
@@ -99,6 +101,41 @@ with optional time-bound grants — plus auto-reject for requests left pending t
 long. Both kinds scope the same way, so *"expire stale Finance requests after
 three days"* is a rule you can actually write.
 
+**Multi-stage approval chains.** Some applications should not be one person's
+decision. A chain matches by application-name pattern and/or Access group and
+then requires sign-off in order — a group, then a named individual, then anyone
+holding a role — before the request reaches Access at all. Approving a non-final
+stage contacts nobody; the request simply moves up. Rejecting at *any* stage
+rejects the whole thing immediately. A chain-matched request is exempt from
+auto-approval rules, because a chain exists precisely to require the judgment a
+rule would skip.
+
+![](assets/approval-chains.png)
+
+*Stages run in order, and each one wants anyone holding a role, anyone in an
+Access group, or one named individual.*
+
+**A queue that admits when it is being ignored.** An approver can claim a
+request, hand it to a named colleague, or release it back to the pool; the owner
+shows as a badge in the queue. Ownership is advisory and never authorization —
+any approver can still decide any request no matter who holds it, because a
+claim that could block a decision would make a request undecidable the moment
+its owner went on leave.
+
+![](assets/queue-ownership.png)
+
+*Who is holding what, and which ones have been sitting long enough to shout
+about.*
+
+**Escalation, on the rule that was already there.** *"Nudge after four hours,
+then auto-reject after three days"* is a single rule, because the nudge and the
+rejection are two points on one timeline rather than two policies. A request
+past the threshold notifies the chat channel *and* the approvers themselves,
+resolved live from the Access groups you already mapped — there is no approver
+list to maintain. An unactioned claim lapses on its own, because an abandoned
+claim reads as "handled" to everybody else, which is a worse signal than no
+claim at all.
+
 **The one door is locked.** Exactly one path faces the internet, because the
 Access cloud does the POSTing rather than you. It requires credentials — the
 same username and password you enter in the tenant's approvals settings — and
@@ -153,9 +190,10 @@ credential you need in an emergency.
 Let me save you a change-request ticket.
 
 This is **not** an Omnissa product, and Omnissa does not support it — the
-trademark belongs to them, the bugs belong to me. It is not an ITSM platform:
-there are no multi-stage approval chains, no delegation trees, no SLA engine
-wearing a tie. It will not replace ServiceNow, and it is not trying to.
+trademark belongs to them, the bugs belong to me. It is not an ITSM platform.
+Approval chains and ownership exist, but there is no SLA engine wearing a tie,
+no ticket, no delegation tree derived from an org chart, no request catalog and
+no reporting suite. It will not replace ServiceNow, and it is not trying to.
 
 One tenant, one container, an embedded database — deliberately simple, because
 its job is to make the Access approvals capability *visible and testable*, not to
