@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.1] - 2026-08-03
+
+### Fixed
+- **The Chains page and the Help page both said a stage requires "either a role or an Access group".** Named-person stages shipped in 1.21.0, so the sentence had been wrong since the moment it was published — in the two places somebody reads to find out what a stage can be. Both now say a stage requires anyone holding a role, anyone in a specific Access group, **or one named person**. The 1.20.0 release notes keep the old wording, which was accurate for that release.
+
+### Documentation
+- **Screenshots retaken for the v1.21.0 interface.** The Help contents list still showed 19 entries where there are now 21, the Chains figure predated named-person stages, and the audit figure was a full-page capture too tall to read as a figure. Ownership, escalation and the chain stage editor had no figures at all — §2.8 Ownership and Escalation had none, and now has four. Every capture comes from a locally-seeded instance carrying fabricated data, so nothing is masked and the states shown are states the tool actually produced.
+- **The published audit figure had grown a black band across its bottom quarter.** `build.sh` crops that capture to a fixed 2760px before scaling, a height chosen when the source was 5400px tall; shortening the source took it under that, and Pillow *pads* a crop that runs past the edge instead of clipping it. The crop is clamped to the source height, so the step no longer depends on how tall the next capture happens to be.
+
 ## [1.21.0] - 2026-08-03
 
 ### Added

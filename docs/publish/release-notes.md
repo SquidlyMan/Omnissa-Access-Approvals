@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.21.0 and complete version history"
+subtitle: "Release Notes — v1.21.1 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.21.1** | Corrected chain-stage wording; v1.21 interface documented | `v1.21.1` |
 | **1.21.0** | Ownership and escalation; named-person chain stages | `v1.21.0` |
 | **1.20.0** | Multi-stage approval chains, Hub Notifications | `v1.20.0` |
 | **1.19.12** | Help documents the credential-save step that makes callout auth take effect | `v1.19.12` |
@@ -92,11 +93,42 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus moving `major.minor` and `latest` tags.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.21.1
+
+### Fixes in this release
+
+- **Two pages described an approval chain stage wrongly.** The Chains page and
+  the Help page both said a stage requires *"either a role or an Access
+  group"*. Named-person stages shipped in 1.21.0, so that sentence was wrong
+  from the moment it was published — and wrong in the two places somebody looks
+  to find out what a stage can be. Both now say a stage requires anyone holding
+  a role, anyone in a specific Access group, or one named person.
+
+### Documentation
+
+- **The v1.21 interface is now actually pictured.** Ownership, escalation and
+  the chain stage editor shipped without a single figure between them; the
+  Ownership and Escalation section had none at all and now has four. The Help
+  contents list had been showing 19 entries where there are 21, and the Chains
+  figure predated named-person stages. Every capture comes from a locally
+  seeded instance carrying fabricated data, so nothing is masked and each state
+  shown — a claimed request, an escalated one, a chain part-way through — is a
+  state the tool genuinely produced rather than a mock-up.
+- **The published audit figure had grown a black band across its lower
+  quarter**, because the build crops that capture to a fixed height chosen when
+  the source was twice as tall, and Pillow pads a crop that overruns the image
+  instead of clipping it.
+
+**Upgrading:** no configuration change, no schema change. Pull `1.21` or
+`v1.21.1` and recreate.
 
 ---
 
@@ -189,7 +221,7 @@ see the companion **Feature Summary** document.
   covered only by the whole-request expiry auto-rule, same as an unstaged
   request.
 - A chain stage can require a role or an Access group, not one specific named
-  individual.
+  individual. **Resolved in 1.21.0.**
 
 ---
 
