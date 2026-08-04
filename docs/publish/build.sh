@@ -89,7 +89,7 @@ for doc in "${DOCS[@]}"; do
   pandoc "$doc.md" \
     --standalone --embed-resources \
     --css=style.css \
-    \
+    --lua-filter=pagebreaks.lua \
     -o "out/$doc.html"
 
   # A blockquote whose first heading carries the alert mark is a hard warning,
@@ -121,6 +121,7 @@ PY
   pandoc "$doc.md" \
     --standalone \
     --reference-doc=reference.docx \
+    --lua-filter=pagebreaks.lua \
     -o "out/$doc.docx"
 
   # Two fixes pandoc cannot express, applied to the finished DOCX:
