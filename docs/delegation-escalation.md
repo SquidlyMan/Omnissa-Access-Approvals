@@ -43,6 +43,8 @@ groups mapped to the Approver and Admin roles in `OMNISSA_ROLE_MAP`. There is no
 separate approver list to maintain, and nothing to drift out of step with
 Access — somebody removed from the group stops appearing on the next call.
 
+![The Assign picker, resolved live from the role map](images/tool-assign-picker.png)
+
 The owner badge and the escalation chip are both readable from the queue
 without opening a request, which is what makes an unattended one findable:
 
