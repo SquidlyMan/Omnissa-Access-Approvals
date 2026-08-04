@@ -64,10 +64,12 @@ for dst, src in COPY.items():
     shutil.copy2(s, d)
     changed.append(dst)
 
-# The audit capture is 2846x5400 — scaled to the text column it is an
-# unreadable sliver, so it is cropped to the top rather than merely resized.
+# A full-page audit capture scaled to the text column is an unreadable sliver,
+# so it is cropped to the top rather than merely resized. Clamp to the source
+# height: PIL pads a crop that runs past the edge instead of clipping it, so an
+# already-short capture would otherwise gain a black band the width of the page.
 img = Image.open("../images/tool-audit.png")
-crop = img.crop((0, 0, img.width, 2760))
+crop = img.crop((0, 0, img.width, min(img.height, 2760)))
 crop.resize((1600, round(1600 * crop.height / crop.width)), Image.LANCZOS) \
     .save("assets/audit-trail.png", optimize=True)
 
