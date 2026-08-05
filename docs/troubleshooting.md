@@ -120,14 +120,21 @@ approvals have drifted, or webhook delivery is failing. See
 
 Grants past their TTL stay active and the app is never revoked.
 
-This is the one failure with no other outward symptom: the container is up, the
-UI works, and every other check is green. All scheduled jobs share a single
-thread, so if one wedges the JIT sweeps stop with it.
+This is the failure with no other outward symptom: the container is up, the UI
+works, and every other check is green. The JIT sweeps share one scheduler
+thread with the expiry-rule sweep and the callout-auth reminder, so a single
+job blocked on a network call stops the rest with it. A liveness check proves
+the process is alive, not that its work is happening.
+
+Escalation is the exception: since 1.21.0 it runs on its own pool, so a slow
+tenant reached from escalation can no longer stall JIT expiry. It cannot wedge
+the sweeps, and the sweeps cannot wedge it.
 
 Check `/api/health/dependencies` — the `scheduler` component reports the age of
-each job's last run. Restarting the container clears a wedged scheduler thread;
-nothing is lost, because the sweep selects on state and expiry rather than
-tracking a cursor, so overdue grants are revoked on the next pass.
+each job's last run, including escalation's. Restarting the container clears a
+wedged scheduler thread; nothing is lost, because the sweep selects on state
+and expiry rather than tracking a cursor, so overdue grants are revoked on the
+next pass.
 
 ## HTTP 429 on the callout endpoint
 

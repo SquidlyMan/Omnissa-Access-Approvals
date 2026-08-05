@@ -12,8 +12,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Records when each scheduled job last completed.
  *
  * <p>This is the highest-value health signal in the tool, because it is the only
- * failure that is otherwise <em>completely silent</em>. All scheduled jobs share
- * Spring's default single-threaded scheduler, so one wedged job stops the rest.
+ * failure that is otherwise <em>completely silent</em>. Every job but escalation
+ * shares Spring's default single-threaded scheduler, so one wedged job stops the
+ * rest of them; escalation was moved to its own pool in 1.21.0 precisely so a
+ * slow tenant reached from it could not stall JIT expiry.
  * If the JIT sweeps stop, time-bound access simply never expires: the container
  * is up, the UI works, every other check is green, and users quietly keep
  * entitlements they should have lost. Nothing surfaces it — which is precisely
