@@ -2,6 +2,10 @@
 title: "Approvals for Omnissa Access, Without the Guesswork"
 author: "Dean Flaming"
 date: "August 2026 • Omnissa Access, Workspace ONE, Lab Projects"
+# A blog post reads as one continuous piece — no title page, no section
+# breaks. The reference documents paginate; see pagebreaks.lua.
+title-page: false
+section-breaks: false
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}

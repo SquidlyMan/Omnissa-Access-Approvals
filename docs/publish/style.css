@@ -148,3 +148,14 @@ hr { border: none; border-top: 1px solid #d7e3ec; margin: 20px 0; }
   color: #55636f;
   margin-bottom: 4px;
 }
+
+/* Page breaks contributed by pagebreaks.lua: a title page of its own, and a
+   fresh page for every major section. Invisible on screen, meaningful in
+   print — the HTML is read as one continuous page, the PDF is paginated. */
+.pagebreak {
+  break-before: page;
+  page-break-before: always;
+}
+@media screen {
+  .pagebreak { display: none; }
+}

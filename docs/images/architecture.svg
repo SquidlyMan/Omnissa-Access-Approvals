@@ -105,7 +105,7 @@
   <rect x="40" y="430" width="450" height="165" rx="10" fill="#FDF1F1" stroke="#C0272D" stroke-width="1.8"/>
   <text x="66" y="463" font-size="15" font-weight="bold" fill="#A3161C">Exposure model</text>
   <text x="66" y="492" font-size="12" fill="#7A2020">• Only /api/approvals/new must be internet-reachable</text>
-  <text x="76" y="510" font-size="12" fill="#7A2020">(rate-limited; optional Basic auth)</text>
+  <text x="76" y="510" font-size="12" fill="#7A2020">(rate-limited; Basic auth required once a tenant is configured)</text>
   <text x="66" y="536" font-size="12" fill="#7A2020">• Admin UI may remain LAN-only; decisions travel</text>
   <text x="76" y="554" font-size="12" fill="#7A2020">outbound to the tenant API</text>
   <text x="66" y="580" font-size="12" fill="#7A2020">• Testing and demonstration use only — never production</text>

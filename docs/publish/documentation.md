@@ -540,9 +540,12 @@ Components checked:
 | `approvalDrift` | Access holds approval requests the queue has no pending record of |
 | `notifications` | Three consecutive webhook delivery failures |
 
-The **scheduler** check is the most valuable: every scheduled job shares a single
-thread, so if the JIT sweeps stall, **time-bound access silently never expires**
-while the container, the UI and every other check stay green.
+The **scheduler** check is the most valuable: the JIT sweeps share one thread
+with the expiry-rule sweep and the callout-auth reminder, so one job blocked on
+a network call stops the rest. If the sweeps stall, **time-bound access silently
+never expires** while the container, the UI and every other check stay green.
+Escalation is the exception — since 1.21.0 it runs on its own pool, reported
+under the same component with a 20-minute tolerance of its own.
 
 The **drift** check catches requests Access is waiting on that never reached the
 tool — a lost callout, a proxy misconfiguration, an outage. Access holds an
