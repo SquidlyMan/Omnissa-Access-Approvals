@@ -3,6 +3,9 @@ title: "Access Approval Tool for Omnissa"
 subtitle: "What was built between v1.2 and v1.21.1"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
+# One graded list — a page break between groups would separate items
+# meant to be read against each other. Title page only.
+section-breaks: false
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
