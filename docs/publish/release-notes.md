@@ -864,9 +864,11 @@ failure modes introduced by the role work in 1.16.1.
   looking the app up in a CasaOS **AppStore**; an externally-managed Compose
   app is never found there, so the check reports "latest version" without ever
   contacting the registry. Verified against a live NAS with the container
-  pinned to an older digest than the registry tag. Use `compose pull`, or the
-  opt-in Watchtower profile. **Open — this is a CasaOS behaviour, not a defect
-  in the tool.**
+  pinned to an older digest than the registry tag. **Resolved in 1.22.0** —
+  not by fixing CasaOS, which cannot be fixed from here, but by replacing it:
+  the console detects newer releases itself and an approved version is applied
+  by a host-side updater. The button remains useless; it is also no longer
+  needed.
 - Teams received no decision, expiry, revoke or reopen notifications.
   **Resolved in 1.16.1.**
 

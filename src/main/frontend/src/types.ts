@@ -195,6 +195,16 @@ export interface UpdateSnapshot {
 }
 
 /** What the console shows: detection, plus any approval the host has not yet consumed. */
+/** The host-side updater's verdict on the last approval. */
+export interface UpdateResult {
+  outcome: 'deployed' | 'rolled-back' | 'failed' | 'refused' | string
+  target: string | null
+  reason: string | null
+  digest: string | null
+  version: string | null
+  at: string
+}
+
 export interface UpdateView {
   detection: UpdateSnapshot
   pendingTarget: string | null
@@ -202,4 +212,5 @@ export interface UpdateView {
   controlDirectoryMounted: boolean
   rollbackFloor: string
   knownVersions: string[]
+  lastResult: UpdateResult | null
 }

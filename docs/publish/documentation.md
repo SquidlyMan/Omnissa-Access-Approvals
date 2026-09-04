@@ -699,11 +699,21 @@ the backup/restore scripts.
 
 ### 4.4 Updates
 
-- **Manual:** `docker compose pull && docker compose up -d`, or re-run
-  `deploy.sh`.
-- **Automatic (opt-in, disabled by default):** a Watchtower service ships behind
-  the `autoupdate` Compose profile. It is label-scoped so it can only touch this
-  application's container.
+- **From the console:** the Dashboard polls the registry daily and shows the
+  newest published release. An administrator approves a version — newer, or an
+  older one to roll back — and the tool writes a one-line request to its
+  `/app/control` mount. A host-side updater (systemd path unit + script,
+  installed by `deploy.sh`) pins the compose file to that exact version, pulls,
+  recreates, and verifies by image digest and the version the application
+  reports; on any failure it restores the previous pin and the Dashboard says
+  so. The approval is audited as `update-approved` before anything is written.
+  Rolling back below **1.19.5** requires the version to be typed again, because
+  it reopens fixed security issues on the callout endpoint.
+- **From the host:** `sudo sh deploy.sh 1.22.0`. The image is pinned to an
+  immutable full version, so a bare `docker compose pull` re-pulls the same
+  digest and changes nothing — name the version.
+- **Never automatic.** The container is never given the Docker socket, and
+  nothing upgrades without a named administrator choosing it.
 
 > **The CasaOS "Check and then update" button does not work for this container,
 > and no image tag changes that.** ZimaOS decides whether an update exists by

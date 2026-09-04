@@ -1009,6 +1009,25 @@ export default function HelpPage() {
               A registry outage shows as <span className="font-medium text-gray-800">last check
               failed</span> with the previous answer still visible. It never errors the page.
             </li>
+            <li>
+              <span className="font-medium text-gray-800">From the host</span> (ZimaCube) —{' '}
+              <Code>sudo sh deploy/zimacube/deploy.sh 1.22.0</Code> pins and deploys that version. The
+              image is pinned to an <span className="font-medium text-gray-800">immutable</span> full
+              version, so a bare <Code>docker compose pull</Code> is no longer an upgrade: it
+              re-pulls the same digest and changes nothing. Name the version.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">CasaOS warning</span> — the CasaOS{' '}
+              <span className="font-medium text-gray-800">"Check and then update"</span> button does
+              NOT work for this container. It always reports{' '}
+              <span className="italic">"is the latest version"</span>, even when a newer image is
+              published. ZimaOS decides whether an update exists by looking the app up in a{' '}
+              <span className="font-medium text-gray-800">CasaOS AppStore</span>; an
+              externally-managed Compose app is never found there, so the check gives up before it
+              ever contacts the registry. No image tag changes this. Use one of the two methods above
+              instead, and treat the version shown on the dashboard as the authoritative answer to
+              what you are running.
+            </li>
           </ul>
           <p>
             Once approved, the banner reads <span className="font-medium text-gray-800">waiting for
@@ -1137,47 +1156,6 @@ export default function HelpPage() {
           </p>
           <p>Example:</p>
           <CodeBlock>{'SYSLOG_HOST=syslog.example.com\nSYSLOG_PORT=6514\nSYSLOG_PROTOCOL=tls\nSYSLOG_CLIENT_CERT_FILE=/app/data/certs/client.pem\nSYSLOG_CLIENT_KEY_FILE=/app/data/certs/client-key.pem'}</CodeBlock>
-        </HelpSection>
-
-        <HelpSection title="Updates">
-          <p>Three ways to update the container to a newly published image:</p>
-          <ul className="list-disc pl-5 space-y-2">
-            <li>
-              <span className="font-medium text-gray-800">Re-run the deploy script</span> (ZimaCube)
-              — <Code>sudo sh deploy/zimacube/deploy.sh</Code> pulls the latest image and recreates
-              the container. Equivalent for any Docker host:
-              <CodeBlock>{'docker compose -f <compose file> pull\ndocker compose -f <compose file> up -d'}</CodeBlock>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">Optional Watchtower auto-update</span> —
-              the ZimaCube compose file includes a Watchtower service behind the{' '}
-              <Code>autoupdate</Code> compose profile. It is{' '}
-              <span className="font-medium text-gray-800">disabled by default</span>; when enabled it
-              checks the registry daily and recreates only this container (label-scoped — it never
-              touches other containers on the host). Enable with:
-              <CodeBlock>{'docker compose -f <compose file> --profile autoupdate up -d'}</CodeBlock>
-              Disable by stopping/removing the watchtower container:
-              <CodeBlock>{'docker compose -f <compose file> --profile autoupdate down watchtower'}</CodeBlock>
-              Note: Watchtower requires the Docker socket, which grants it control of the Docker
-              engine — the reason it ships disabled. See the deployment guide for details.
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">CasaOS warning</span> — the CasaOS{' '}
-              <span className="font-medium text-gray-800">"Check and then update"</span> button does
-              NOT work for this container. It always reports{' '}
-              <span className="italic">"is the latest version"</span>, even when a newer image is
-              published. ZimaOS decides whether an update exists by looking the app up in a{' '}
-              <span className="font-medium text-gray-800">CasaOS AppStore</span>; an
-              externally-managed Compose app is never found there, so the check gives up before it
-              ever contacts the registry. No image tag changes this. Use one of the two methods above
-              instead, and treat the version shown on the dashboard as the authoritative answer to
-              what you are running.
-            </li>
-          </ul>
-          <p>
-            All state (H2 database, certificates) lives on the mounted data volume, so a container
-            recreate during an update loses nothing.
-          </p>
         </HelpSection>
 
         <HelpSection title="Configuration Reference">

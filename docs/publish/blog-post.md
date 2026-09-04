@@ -244,9 +244,11 @@ the queue in real time.
 
 *The user side: PENDING until somebody — or a rule — says yes.*
 
-Updates are a `compose pull` away, and there is an opt-in Watchtower profile for
-daily auto-updates, shipped disabled and scoped so it can only touch this one
-container.
+Updates are approved, not pulled: the Dashboard shows the newest published
+release, an administrator picks a version, and a host-side updater pins,
+pulls, recreates and proves the result — by image digest and reported version,
+rolling back if either fails. The container never holds the Docker socket, and
+nothing upgrades without a name in the audit trail.
 
 ## Resources
 

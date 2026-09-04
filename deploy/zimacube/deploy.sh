@@ -1,15 +1,23 @@
 #!/bin/sh
 # Omnissa Access Approvals — ZimaCube deploy/update script.
-# Run ON the ZimaCube as root:  sudo sh deploy/zimacube/deploy.sh
+# Run ON the ZimaCube as root:
+#   sudo sh deploy/zimacube/deploy.sh            # first install, or re-apply
+#   sudo sh deploy/zimacube/deploy.sh 1.22.0     # pin and deploy that version
+#
 # First run bootstraps everything (repo checkout for compose/env/service
-# assets, env file, firewall unit). Idempotent: update by re-running this
-# script (git pull + image pull + recreate), or opt in to Watchtower
-# auto-updates via the "autoupdate" compose profile (see below). The CasaOS
-# "Check and then update" button does NOT work for this container — ZimaOS
-# looks the app up in a CasaOS AppStore to decide if an update exists, and an
-# externally-managed Compose app is never found there, so it always reports
-# "latest version" without ever contacting the registry. No tag choice fixes
-# this; don't rely on it.
+# assets, env file, firewall unit, the updater units). Idempotent.
+#
+# The image is pinned to an IMMUTABLE full version (1.22.0), never the moving
+# minor line (1.22) — so nothing that pulls can change what is running except
+# an explicit choice. That means "docker compose pull && up -d" is NOT an
+# upgrade path any more: it re-pulls the same digest, prints Pull complete,
+# exits 0, and changes nothing. Upgrade by approving a version in the console
+# (the updater applies it), or by passing the version to this script.
+#
+# The CasaOS "Check and then update" button does NOT work for this container
+# — ZimaOS looks the app up in a CasaOS AppStore to decide if an update
+# exists, and an externally-managed Compose app is never found there. The
+# console's own update banner is the replacement.
 #
 # Follows the zimacube-container-deploy runbook:
 #   - nothing written to / (rootfs is 1.2 GB and ~full)
@@ -26,6 +34,11 @@
 set -eu
 
 APP=omnissa-approvals
+VERSION="${1:-}"
+case "$VERSION" in
+    "") ;;
+    *[!0-9.]*) echo "Version must be N.N.N (got '$VERSION')"; exit 1 ;;
+esac
 RAID_DIR=/media/ZIMARAID/$APP
 SRC_DIR=$RAID_DIR/src
 ENV_FILE=$RAID_DIR/$APP.env
@@ -42,7 +55,10 @@ LAN_SUBNET="${LAN_SUBNET:-${LAN_IP%.*}.0/24}"
 echo "==> LAN: $LAN_IP (subnet $LAN_SUBNET)"
 
 echo "==> Directories on RAID"
-mkdir -p "$RAID_DIR/data" "$RAID_DIR/docker-config"
+# control/ is the host side of the container's /app/control mount — where an
+# approved update is written for the updater. Kept apart from data/, which
+# backup archives, so a restored archive can never carry a pending deploy.
+mkdir -p "$RAID_DIR/data" "$RAID_DIR/control" "$RAID_DIR/docker-config"
 # / is a read-only squashfs on ZimaOS — docker/git must never write to $HOME (/root).
 export DOCKER_CONFIG="$RAID_DIR/docker-config"
 export HOME="$RAID_DIR"
@@ -67,30 +83,56 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 chmod 600 "$ENV_FILE"
 
-echo "==> Pulling image from GHCR"
-docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" pull
+# Which compose file owns the container? Once CasaOS has adopted the app, ITS
+# copy under /var/lib/casaos/apps/<random-id>/ does, and this repository's file
+# governs nothing — a pull driven from here would only appear to work. Ask the
+# running container; fall back to this file only for a first install.
+COMPOSE=$(docker inspect "$APP" --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null || :)
+PROJECT=$(docker inspect "$APP" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || :)
+[ -n "$COMPOSE" ] && [ -f "$COMPOSE" ] || { COMPOSE="$SRC_DIR/deploy/zimacube/docker-compose.yml"; PROJECT=""; }
+echo "==> Compose file in charge: $COMPOSE${PROJECT:+ (project $PROJECT)}"
 
-echo "==> Starting container"
-# Optional auto-updates (disabled by default): run the same compose commands
-# with `--profile autoupdate` to also start the Watchtower service, e.g.
-#   docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" --profile autoupdate up -d
-# To disable again:
-#   docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" --profile autoupdate down watchtower
-# then the normal `up -d` below. See docs/deployment.md "Automatic Updates".
-# Refresh LAN_IP in the compose .env WITHOUT discarding anything else in it —
-# OMNISSA_IMAGE_TAG and the WEBUI_* tile settings live here too, and a plain
-# `>` redirect silently reverted them on every run.
+# Refresh LAN_IP in this repo's compose .env WITHOUT discarding anything else
+# in it — OMNISSA_IMAGE_TAG and the WEBUI_* tile settings live here too, and a
+# plain `>` redirect silently reverted them on every run.
 COMPOSE_ENV="$SRC_DIR/deploy/zimacube/.env"
 touch "$COMPOSE_ENV"
 grep -v '^LAN_IP=' "$COMPOSE_ENV" > "$COMPOSE_ENV.tmp" 2>/dev/null || :
 printf 'LAN_IP=%s\n' "$LAN_IP" >> "$COMPOSE_ENV.tmp"
 mv "$COMPOSE_ENV.tmp" "$COMPOSE_ENV"
-docker compose -f "$SRC_DIR/deploy/zimacube/docker-compose.yml" up -d
+
+if [ -n "$VERSION" ]; then
+    echo "==> Pinning image to $VERSION"
+    IMAGE=ghcr.io/squidlyman/omnissa-access-approvals
+    if grep -qE "^[[:space:]]*image:[[:space:]]*$IMAGE:" "$COMPOSE"; then
+        # The adopted copy carries the tag as a literal on its image: line.
+        sed -i -E "s|(image:[[:space:]]*$IMAGE:)[^[:space:]\"']+|\1$VERSION|" "$COMPOSE"
+    fi
+    # This repo's file interpolates it from .env instead.
+    grep -v '^OMNISSA_IMAGE_TAG=' "$COMPOSE_ENV" > "$COMPOSE_ENV.tmp" 2>/dev/null || :
+    printf 'OMNISSA_IMAGE_TAG=%s\n' "$VERSION" >> "$COMPOSE_ENV.tmp"
+    mv "$COMPOSE_ENV.tmp" "$COMPOSE_ENV"
+fi
+
+echo "==> Pulling image from GHCR"
+docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" pull
+
+echo "==> Starting container"
+docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" up -d
 
 echo "==> Firewall persistence (LAN-only on 8081)"
 sed "s|__LAN_SUBNET__|$LAN_SUBNET|g" "$SRC_DIR/deploy/zimacube/$APP-fw.service" > /etc/systemd/system/$APP-fw.service
+
+echo "==> Updater (applies approvals from the console)"
+# The path unit watches the HOST side of the container's /app/control mount,
+# read from the container so a re-import that moves the compose cannot orphan it.
+CONTROL=$(docker inspect "$APP" --format '{{range .Mounts}}{{if eq .Destination "/app/control"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || :)
+[ -n "$CONTROL" ] || CONTROL="$RAID_DIR/control"
+sed -e "s|__CONTROL_DIR__|$CONTROL|g" -e "s|__SRC_DIR__|$SRC_DIR|g" "$SRC_DIR/deploy/zimacube/$APP-update.service" > /etc/systemd/system/$APP-update.service
+sed "s|__CONTROL_DIR__|$CONTROL|g" "$SRC_DIR/deploy/zimacube/$APP-update.path" > /etc/systemd/system/$APP-update.path
 systemctl daemon-reload
 systemctl enable --now $APP-fw.service
+systemctl enable --now $APP-update.path
 
 echo "==> Verify"
 sleep 5
@@ -104,7 +146,10 @@ done
 echo "  health: $(curl -s "http://$LAN_IP:8081/actuator/health")"
 iptables -C DOCKER-USER -p tcp --dport 8081 ! -s "$LAN_SUBNET" -j DROP && echo "  firewall: rule active"
 systemctl is-enabled $APP-fw.service >/dev/null && echo "  firewall: unit enabled"
+systemctl is-active $APP-update.path >/dev/null && echo "  updater: watching $CONTROL/update-requested"
 ls -ld "$RAID_DIR/data" && echo "  state: on RAID"
+echo "  version: $(curl -s "http://$LAN_IP:8081/actuator/info" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
+echo "  digest:  $(docker image inspect --format '{{index .RepoDigests 0}}' "$(docker inspect --format '{{.Image}}' $APP)" | sed 's/.*@//')"
 
 echo ""
 echo "Done. Next: point your TLS reverse proxy at  http://$LAN_IP:8081"
