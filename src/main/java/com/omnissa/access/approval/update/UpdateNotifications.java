@@ -46,15 +46,26 @@ public class UpdateNotifications implements UpdateNotifier {
     @Override
     public boolean updateAvailable(String runningVersion, String newestVersion) {
         boolean delivered = false;
+        // Each channel on its own: one that throws must not discard the
+        // other's delivery, or the same version is announced again on every
+        // check — the once-only promise broken by the channel that did work.
         if (notifyWebhook) {
-            delivered |= webhook.notifyUpdateAvailable(runningVersion, newestVersion);
+            try {
+                delivered |= webhook.notifyUpdateAvailable(runningVersion, newestVersion);
+            } catch (RuntimeException e) {
+                logger.warn("Update webhook notification threw: {}", e.toString());
+            }
         }
         if (notifyEmail) {
             if (emailTo == null || emailTo.isBlank()) {
                 logger.warn("Update e-mail is enabled but omnissa.update.notify-email-to "
                         + "(OMNISSA_UPDATE_NOTIFY_EMAIL_TO) is blank — nobody to send it to");
             } else {
-                delivered |= mail.sendUpdateAvailable(emailTo, runningVersion, newestVersion);
+                try {
+                    delivered |= mail.sendUpdateAvailable(emailTo, runningVersion, newestVersion);
+                } catch (RuntimeException e) {
+                    logger.warn("Update e-mail notification threw: {}", e.toString());
+                }
             }
         }
         if (!notifyWebhook && !notifyEmail) {

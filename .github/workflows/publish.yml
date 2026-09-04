@@ -33,7 +33,9 @@ jobs:
       # every merge moved an "immutable" tag like 1.21.1 onto different
       # content, so pinning to it pinned nothing. The console's own update
       # detection and the host-side updater now rely on N.N.N tags being
-      # exactly what they say, once, forever.
+      # exactly what they say, once, forever. No moving major.minor tag
+      # either: the only reason to publish one is so that someone can pin to
+      # it, and a moving pin is exactly what the updater exists to end.
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -42,7 +44,6 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=sha
 
       - name: Build and push

@@ -11,11 +11,15 @@ are handed over as deliverables and were then edited in Word: a logo added, a
 footer, a paragraph rewritten, a whole section brought up to date. None of it
 was in the markdown, so rebuilding threw it away. **Anything changed in Word has
 to come back here**, or the next build is a regression. Before overwriting a
-handed-over copy, check who wrote it last:
+handed-over copy, check whether it is newer than the last build:
 
 ```bash
-unzip -p AccessApprovalToolBlogPost.docx docProps/app.xml | grep -o 'Microsoft Word'
+ls -l --time-style=long-iso AccessApprovalTool*.docx out/*.docx
 ```
+
+(Do not use `docProps/app.xml` for this: pandoc copies that file from
+`reference.docx`, so every build claims "Microsoft Word" whether or not Word
+ever touched it.)
 
 ```bash
 ./build.sh              # both documents

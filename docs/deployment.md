@@ -382,10 +382,11 @@ ZimaCube it is `/media/ZIMARAID/omnissa-approvals/control/`.
 2. Validates the request: shape (`N.N.N`), then existence — it asks the
    registry for the manifest, because `1.99.0` passes the regex and would
    otherwise leave a rewritten compose and a stopped container.
-3. Refuses a version below the rollback floor (**1.19.5**) unless the unit
-   sets `OMNISSA_UPDATE_ALLOW_BELOW_FLOOR=yes`. The console already demands
-   the version be typed again for such a rollback; the host default of `no`
-   means a file dropped into the directory by hand does not get that override.
+3. Refuses a version below the rollback floor (**1.19.5**) unless the
+   request carries the console's confirmation. When an administrator types the
+   version to confirm such a rollback, the app writes a second line,
+   `confirmed=below-floor`, under the version; a request without it — dropped
+   into the directory by hand — is refused on the host as well.
 4. Records the current pin and keeps a copy of the compose file.
 5. Rewrites the `image:` tag to the exact version, pulls, recreates.
 6. **Verifies — and not with `/actuator/health`.** Liveness is `UP` on any
@@ -393,20 +394,59 @@ ZimaCube it is `/media/ZIMARAID/omnissa-approvals/control/`.
    Two checks, both required: the running image's digest equals the registry's
    digest for that tag, and `/actuator/info` reports the target version.
 7. On any failure — pull, recreate, health, digest, version — restores the
-   previous pin, recreates, and reports **rolled back**. Nothing is left
-   half-done.
-8. Writes `update-result` beside the intent file (`outcome=`, `target=`,
-   `reason=`, `digest=`, `version=`, `at=`) for the Dashboard to show, and
-   removes `update-requested`.
+   previous pin, recreates, and reports **rolled back**. If the rollback
+   itself does not come back up, it reports **rollback-failed** instead: that
+   is an outage, not a clean revert, and it must not look like one. "Previous"
+   means the last version this host *proved* (`last-known-good`, written only
+   after a verified deploy), not whatever the compose file happens to say — a
+   run killed between pinning and verifying leaves the file pointing at a
+   version nobody has seen work.
+8. Writes `update-result` (`outcome=`, `target=`, `reason=`, `digest=`,
+   `version=`, `at=`) for the Dashboard to show.
+
+Two details of *when* things happen matter. The request is consumed at the
+**start** of the run — `update-requested` is renamed to `update-applying`, so
+the Dashboard shows *the host is applying it now*, the path unit cannot re-fire,
+and an approval made during the run lands in a fresh `update-requested` rather
+than being deleted by the first run's clean-up. And the whole run holds a lock
+(`/media/ZIMARAID/omnissa-approvals/.deploy.lock`) shared with `deploy.sh`, so a
+console approval and a hand-run deploy can never interleave edits to the same
+compose file. The updater never prunes images: the previous tag stays cached,
+so a rollback does not depend on the registry being reachable.
+
+The console, for its part, allows **one deployment at a time** — a second
+approval while one is pending or applying is refused — but a request the host
+has not touched for ten minutes may be replaced, so a missing updater cannot
+lock the console out.
 
 The Dashboard shows the verdict: a green line after a verified deploy, a red
 box naming the reason after a rollback. A rollback is the case that matters —
 the container that comes back is the old one, and nothing in its own state
 says anything happened, so the host has to tell it.
 
-**Manual path:** `sudo sh deploy.sh 1.22.0` pins that version in whichever
-compose file is in charge and deploys it, with the same digest and version
-check printed at the end. `journalctl -u omnissa-approvals-update` has the
+**Manual path:** `sudo sh deploy.sh 1.22.0` first proves the version exists in
+the registry (a typo must not leave the compose file pinned to nothing), then
+pins it in whichever compose file is in charge, deploys, and verifies by
+digest. It writes the same `update-result` the updater does, so a deploy made
+from the host clears a stale *rolled back* verdict on the Dashboard. It does
+**not** roll back on its own: a failed hand deploy says so and leaves the
+return trip to you (`deploy.sh <previous version>`).
+
+### The updater on other Docker hosts
+
+Only the *installation* is ZimaCube-specific. `update.sh` runs on any Linux
+host with `docker compose`, `curl`, `flock` and `sh`, and the two systemd
+units are ordinary path/service units. On such a host, from a checkout:
+
+```bash
+sudo sh deploy/updater/install.sh
+```
+
+It reads the container's `/app/control` mount (a named volume works as well as
+a bind mount), copies the script to `/usr/local/lib/omnissa-approvals/`, and
+installs the units pointing at it. Without an updater, an approval in the
+console is written and never read; after ten minutes the Dashboard says so
+(*nothing has picked it up*) and lets a new request replace it. `journalctl -u omnissa-approvals-update` has the
 updater's log for approvals from the console.
 
 **Why not Watchtower.** Earlier releases shipped an opt-in Watchtower profile.
@@ -461,7 +501,9 @@ leave a name in the audit trail or the shell history.
 The pin lives on the `image:` line of whichever compose file owns the container
 (after CasaOS adoption, its copy). This repository's compose file interpolates
 it from `OMNISSA_IMAGE_TAG` in the adjacent `.env`; `deploy.sh <version>` sets
-both. Version tags are published once, from a `v*` git tag, and never move.
+both. The registry carries exactly three kinds of tag: `N.N.N`, published once
+from a `v*` git tag and never moved; `latest` and a commit sha, moved by every
+push to `main`. There is no `N.N` tag to pin to any more.
 
 Compare what you are running against the registry with:
 
@@ -480,14 +522,19 @@ stale request restored from an archive must never be able to trigger a deploy.
 
 If you assembled your own compose, add it — without the mount the console
 reports *the control directory is not mounted* and refuses to approve. See
-[Configuration → Update Detection](configuration.md#update-detection).
+[Configuration → Update Detection](configuration.md#update-detection). The
+mount alone does not apply anything: something on the host has to be watching
+it — `deploy.sh` installs that on the ZimaCube, `deploy/updater/install.sh` on
+any other systemd host (see [above](#the-updater-on-other-docker-hosts)).
 
 Two files live there, both written for the other side to read:
 
 | File | Written by | Meaning |
 |---|---|---|
-| `update-requested` | the application | one line, the approved version; consumed by the updater |
-| `update-result` | the updater | `outcome=deployed\|rolled-back\|failed\|refused` plus target, reason, digest, version, time |
+| `update-requested` | the application | the approved version, and `confirmed=below-floor` on a second line when a rollback below 1.19.5 was typed to confirm; renamed by the updater the moment it starts |
+| `update-applying` | the updater | the request it is working on; the Dashboard shows *applying* while it exists |
+| `update-result` | the updater, or `deploy.sh` | `outcome=deployed\|rolled-back\|rollback-failed\|failed\|refused` plus target, reason, digest, version, time |
+| `last-known-good` | the updater, or `deploy.sh` | the last version this host verified, and its digest — the rollback target |
 
 The updater is described under [Approved Updates](#approved-updates-the-updater).
 

@@ -87,6 +87,14 @@ public class MailNotification {
      * template against. Returns whether it was sent, so the caller can decide
      * whether the version counts as announced.
      */
+    private static String tenantUrlOrPlaceholder() {
+        try {
+            return RestPreconditions.omnissaServerBaseUrl();
+        } catch (RuntimeException notConfigured) {
+            return "(no tenant configured)";
+        }
+    }
+
     public boolean sendUpdateAvailable(String to, String runningVersion, String newestVersion) {
         JavaMailSender sender = mailSender.getIfAvailable();
         if (sender == null) {
@@ -94,7 +102,9 @@ public class MailNotification {
                     + "(SPRING_MAIL_HOST), or turn off OMNISSA_UPDATE_NOTIFY_EMAIL.");
             return false;
         }
-        String omnissaURL = RestPreconditions.omnissaServerBaseUrl();
+        // A tenant is not required for this message — an unconfigured install
+        // can still be told a newer release exists.
+        final String omnissaURL = tenantUrlOrPlaceholder();
         try {
             sender.send((MimeMessage mimeMessage) -> {
                 MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false);

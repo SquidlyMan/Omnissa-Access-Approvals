@@ -21,8 +21,6 @@ name: omnissa-approvals
 
 services:
   omnissa-approvals:
-    # Pin OMNISSA_IMAGE_TAG to the minor line (e.g. 1.4) for CasaOS-detectable
-    # updates; defaults to :latest so existing deployments are unaffected.
     image: ghcr.io/squidlyman/omnissa-access-approvals:${OMNISSA_IMAGE_TAG:-latest}
     container_name: omnissa-approvals
     restart: unless-stopped

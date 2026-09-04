@@ -38,6 +38,8 @@ const AUDIT_ACTION_STYLES: Record<AuditAction, string> = {
   'request-released':       'bg-gray-100 text-gray-600',
   'request-escalated':      'bg-amber-100 text-amber-800',
   'update-approved':        'bg-purple-100 text-purple-800',
+  'update-approval-failed': 'bg-red-100 text-red-800',
+  'update-result-dismissed': 'bg-gray-100 text-gray-700',
 }
 
 /**

@@ -703,7 +703,8 @@ the backup/restore scripts.
   newest published release. An administrator approves a version — newer, or an
   older one to roll back — and the tool writes a one-line request to its
   `/app/control` mount. A host-side updater (systemd path unit + script,
-  installed by `deploy.sh`) pins the compose file to that exact version, pulls,
+  installed by `deploy.sh` on the ZimaCube or `deploy/updater/install.sh` on
+  any other systemd host) pins the compose file to that exact version, pulls,
   recreates, and verifies by image digest and the version the application
   reports; on any failure it restores the previous pin and the Dashboard says
   so. The approval is audited as `update-approved` before anything is written.
@@ -986,9 +987,11 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
   decision is made in the tool's own UI after sign-in.
 - **Teams delivery cannot be confirmed:** Power Automate returns `202 Accepted`,
   meaning queued.
-- **The updater is packaged for the ZimaCube** (a systemd path unit). Another
-  Docker host needs its own watcher for the two-file contract in the control
-  directory; `update.sh` itself runs anywhere with `docker compose` and `curl`.
+- **The updater needs systemd.** `deploy/updater/install.sh` installs it on
+  any systemd host running the container from Docker Compose; a host without
+  systemd needs its own watcher for the two-file contract in the control
+  directory (`update.sh` itself runs anywhere with `docker compose`, `curl`
+  and `flock`).
 - **The entitlements API is not guaranteed to be a complete view** of what Access
   uses for authorization. A divergence has been observed once, resolved by
   recreating the application in Access.

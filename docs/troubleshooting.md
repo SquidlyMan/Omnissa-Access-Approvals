@@ -184,6 +184,53 @@ Note that deleting a **pending** request locally causes the same divergence, and
 is now refused with HTTP 409 for that reason — Access would be left waiting on a
 decision that could never be given. Decline it first, then delete the record.
 
+## A deployment was refused, failed, or rolled back
+
+The Dashboard shows the host's verdict in a red box after an approved update
+did not stick. The `reason` is the host's own words; the cases:
+
+- **refused — not a release version / no manifest / below the floor and not
+  confirmed.** The request never got as far as Docker. Approve it again from
+  the console (which validates the same things first); for a rollback below
+  1.19.5 the console asks for the version to be typed, and only then does the
+  host accept it.
+- **rolled back — running digest does not match / the application reports
+  version X, not Y.** The pull or recreate did not produce the image the
+  registry says that tag is. The previous version is back. Check
+  `journalctl -u omnissa-approvals-update` on the host and the registry's tag.
+- **rolled back — container never became healthy.** The new version started
+  and failed. The previous version is back; `docker logs omnissa-approvals`
+  from the failed start is the evidence — a missing environment variable the
+  new version requires is the usual cause.
+- **rollback-failed — … and the rollback did not come back up.** The new
+  version failed *and* the previous one did not start either. This is an
+  outage. On the host: `docker logs omnissa-approvals`, then
+  `docker compose -p <project> -f <compose file> up -d` (both named in
+  `journalctl -u omnissa-approvals-update`), or `sudo sh deploy.sh <version>`.
+- **failed — cannot resolve the compose file.** The container was not running
+  when the updater fired, or CasaOS moved the compose file. `sudo sh deploy.sh`
+  re-resolves and reinstalls the units.
+- **failed — cannot detect the LAN address.** The health probe had nowhere to
+  go. Set `OMNISSA_UPDATE_HEALTH_URL` in `omnissa-approvals-update.service`
+  and `systemctl daemon-reload`.
+
+**Nothing happens after approval.** *Waiting for the host to pick it up* for
+more than a minute means the path unit is not watching:
+`systemctl status omnissa-approvals-update.path` on the host, and
+`sudo sh deploy.sh` (ZimaCube) or `sudo sh deploy/updater/install.sh` (any
+other systemd host) to install it. After ten minutes the Dashboard turns the
+notice amber and lets a new approval replace the unanswered one.
+
+**The picker is empty and the banner says "no release versions".** The
+registry answered but listed nothing that looks like `N.N.N` — an incident on
+its side, or `OMNISSA_UPDATE_REGISTRY_REPO` pointing at the wrong repository.
+The previous list is kept, so rollback targets are not lost; **Check now**
+once it recovers.
+
+**Deployed from the host, but the Dashboard still says rolled back.** A
+`deploy.sh <version>` since 1.22.1 writes its own verdict and clears it; on an
+older host, delete `update-result` from the control directory.
+
 ## Behind a Unified Access Gateway (UAG): disable Identity Bridging
 
 If you publish the tool through a UAG Web Reverse Proxy and enable **Identity Bridging**, Omnissa Access cannot deliver approval callouts and the **Settings > Approvals** page fails to save with **"Unable to connect to the URI."**

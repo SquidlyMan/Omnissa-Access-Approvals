@@ -96,4 +96,37 @@ class UpdateEndpointRolesTest {
                 .andExpect(jsonPath("$.error").exists())
                 .andExpect(jsonPath("$.confirmationRequired").value(false));
     }
+
+    @Test
+    @DisplayName("nobody signed in — status is refused, not leaked")
+    void anonymousStatusIsRefused() throws Exception {
+        mockMvc.perform(get("/api/updates/status"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("an Admin without the CSRF token cannot approve — a cross-site form cannot deploy")
+    void adminWithoutCsrfCannotApprove() throws Exception {
+        mockMvc.perform(post("/api/updates/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"target\":\"1.22.0\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "APPROVER")
+    @DisplayName("an Approver cannot dismiss the host's verdict")
+    void approverCannotDismiss() throws Exception {
+        mockMvc.perform(post("/api/updates/dismiss-result").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("an Admin can dismiss the host's verdict (nothing to dismiss is still 200)")
+    void adminCanDismiss() throws Exception {
+        mockMvc.perform(post("/api/updates/dismiss-result").with(csrf()))
+                .andExpect(status().isOk());
+    }
 }
