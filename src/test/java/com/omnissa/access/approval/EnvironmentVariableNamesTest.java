@@ -104,4 +104,18 @@ class EnvironmentVariableNamesTest {
         assertThat(bind("OMNISSA_UPDATE_REGISTRY_REPO", "example/app", "omnissa.update.registry-repo"))
                 .isEqualTo("example/app");
     }
+
+    @Test
+    @DisplayName("the update-approval settings bind from their documented names")
+    void updateApproval() {
+        assertThat(bind("OMNISSA_UPDATE_NOTIFY_WEBHOOK", "true", "omnissa.update.notify-webhook"))
+                .isEqualTo("true");
+        assertThat(bind("OMNISSA_UPDATE_NOTIFY_EMAIL", "true", "omnissa.update.notify-email"))
+                .isEqualTo("true");
+        assertThat(bind("OMNISSA_UPDATE_NOTIFY_EMAIL_TO", "ops@example.com", "omnissa.update.notify-email-to"))
+                .isEqualTo("ops@example.com");
+        assertThat(bind("OMNISSA_UPDATE_CONTROL_DIR", "/srv/control", "omnissa.update.control-dir"))
+                .as("if this does not bind, approvals are written where the host is not watching")
+                .isEqualTo("/srv/control");
+    }
 }

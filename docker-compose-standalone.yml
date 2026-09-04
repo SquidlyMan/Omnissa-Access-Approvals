@@ -40,6 +40,10 @@ services:
     volumes:
       - ./config:/app/config:ro   # keystore.p12 lives here
       - app_data:/app/data
+      # Approved updates are written here for the host-side updater (#83).
+      # A separate volume from app_data, which backup archives — a restored
+      # archive must never carry a pending deploy.
+      - app_control:/app/control
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fk", "https://localhost:8443/actuator/health"]
@@ -49,3 +53,4 @@ services:
 
 volumes:
   app_data:
+  app_control:

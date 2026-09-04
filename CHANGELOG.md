@@ -16,12 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Announces a version once.** The announced version is persisted, so a container restart — which this feature will cause — does not repeat it. Until a real channel exists, the only notifier is the log.
   - `/actuator/info` is exposed unauthenticated with the build version, so a deploy can be verified against what actually came up. Liveness cannot prove that; it is `UP` on any version.
   - New: `OMNISSA_UPDATE_CHECK_ENABLED`, `OMNISSA_UPDATE_CHECK_INTERVAL` (ISO-8601), `OMNISSA_UPDATE_REGISTRY_REPO`.
+- **Update approval (#83, part 2 of 3).** An administrator picks a version — the newest, or any published release for rollback — and the tool writes a one-line request to a control directory for a host-side updater. That is the whole of what the application does; pulling, recreating and verifying stay on the host, where the Docker privilege already is.
+  - **Admin-only.** Deploying an image is the most privileged act in the tool. Approver, Viewer and Auditor see the banner and get 403 on the rest.
+  - **Rollback floor at 1.19.5.** Below it the picker refuses until the version is typed again, and the refusal names what the rollback reopens — unauthenticated callout ingest, the exempt `OPTIONS` probe, the fail-open Slack approver map. Between 1.19.5 and 1.19.8 it warns instead: callouts are refused with 401 there, a break rather than a hole. The floor is a constant, not a setting.
+  - **Audited first, or not at all.** A new `update-approved` event carries target, previous version and administrator, and is written through a variant of the audit service that *does not* swallow a persistence failure — the approval aborts if the row cannot be committed, because a restart follows within seconds and a deploy with no trace of who asked is the worse outcome.
+  - **Validated before anything is touched.** The target must be a release the registry actually listed; `1.99.0` matches the version regex and would otherwise leave the host with a rewritten compose and a stopped container.
+  - **The control directory is its own mount** (`/app/control`), added to every shipped compose file. `/app/data` is what backup archives, and a stale request restored from an archive must never trigger a deploy.
+  - **Announcements are opt-in per channel** — webhook, reusing `WEBHOOK_URL` and its format, and e-mail through the existing relay — and fire once per version, remembered across restarts.
+  - Help gains an *Updates* section (the contents list is now 22).
+  - New: `OMNISSA_UPDATE_NOTIFY_WEBHOOK`, `OMNISSA_UPDATE_NOTIFY_EMAIL`, `OMNISSA_UPDATE_NOTIFY_EMAIL_TO`, `OMNISSA_UPDATE_CONTROL_DIR`.
 
 ### Changed
 - The running version comes from Maven `build-info` rather than the jar manifest, so it is present when running from an IDE too. The dashboard tile used to read `dev` there.
 
 ### Tests
-- 395 → 411.
+- 395 → 427.
 
 ## [1.21.1] - 2026-08-03
 
