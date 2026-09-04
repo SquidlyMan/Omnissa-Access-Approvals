@@ -23,10 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Validated before anything is touched.** The target must be a release the registry actually listed; `1.99.0` matches the version regex and would otherwise leave the host with a rewritten compose and a stopped container.
   - **The control directory is its own mount** (`/app/control`), added to every shipped compose file. `/app/data` is what backup archives, and a stale request restored from an archive must never trigger a deploy.
   - **Announcements are opt-in per channel** — webhook, reusing `WEBHOOK_URL` and its format, and e-mail through the existing relay — and fire once per version, remembered across restarts.
-  - Help gains an *Updates* section (the contents list is now 22).
+  - Help's *Updates* section is rewritten around detection and approval.
   - New: `OMNISSA_UPDATE_NOTIFY_WEBHOOK`, `OMNISSA_UPDATE_NOTIFY_EMAIL`, `OMNISSA_UPDATE_NOTIFY_EMAIL_TO`, `OMNISSA_UPDATE_CONTROL_DIR`.
+- **The updater (#83, part 3 of 3).** The host side of an approval: `deploy/zimacube/update.sh` with a systemd path unit that fires when `update-requested` appears in the control mount. It resolves the compose file that actually owns the container from the container's labels — after CasaOS adoption that is its copy under a random app id, and this repository's file governs nothing — validates the version against the registry, rewrites the pin, pulls, recreates, and **proves the result**: the running image's digest must equal the registry's for that tag *and* `/actuator/info` must report the target. `/actuator/health` is `UP` on any version and would have passed a deploy that changed nothing. Any failure restores the previous pin and recreates; the verdict is written to `update-result` and the Dashboard shows it, because the container that comes back after a rollback is the old one and nothing in its own state says anything happened.
+  - `deploy.sh <version>` pins and deploys by hand, in whichever compose file is in charge, and installs the updater units. Its summary now prints the digest and reported version.
+  - The image is pinned to the **immutable full version**. A moving `major.minor` pin let any pull — a CasaOS tile click, a settings save — upgrade with nobody approving; that path is closed. A bare `docker compose pull` now changes nothing.
+  - The host refuses a version below the rollback floor unless the unit opts in (`OMNISSA_UPDATE_ALLOW_BELOW_FLOOR=yes`), so a file dropped into the directory by hand does not inherit the console's typed override.
 
 ### Changed
+- **Version tags are published once, from a `v*` git tag.** CI used to re-publish the pom version on every push to `main`, so an "immutable" tag like `1.21.1` moved onto different content with every merge and pinning to it pinned nothing. A push to `main` now publishes `latest` and the commit sha only.
+
+### Removed
+- **The Watchtower profile.** It needed the Docker socket inside a container and upgraded on its own schedule with nobody approving. Both objections are what the updater exists to answer. The `autoupdate` profile, the `com.centurylinklabs.watchtower.enable` label, and every reference in the docs, README, Help page and blog post are gone; the 1.1.1 changelog entry stays as history.
 - The running version comes from Maven `build-info` rather than the jar manifest, so it is present when running from an IDE too. The dashboard tile used to read `dev` there.
 
 ### Tests

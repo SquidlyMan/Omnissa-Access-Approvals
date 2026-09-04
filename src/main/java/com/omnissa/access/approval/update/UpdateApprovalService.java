@@ -162,4 +162,9 @@ public class UpdateApprovalService {
     public boolean controlDirectoryMounted() {
         return Files.isDirectory(controlDir);
     }
+
+    /** The host's verdict on the last approval, if it has reported one. */
+    public Optional<UpdateResult> lastResult() {
+        return UpdateResult.read(controlDir);
+    }
 }

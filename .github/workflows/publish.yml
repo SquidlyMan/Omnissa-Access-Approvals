@@ -23,18 +23,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Read the app version straight from pom.xml so main-branch builds carry a
-      # real, incrementing version tag (not just :latest). CasaOS's "Check and
-      # update" reliably detects a moved *version* tag but special-cases :latest
-      # as "always current" — so the deployment tracks the moving major.minor
-      # tag (e.g. 1.4) published below.
-      - name: Read project version
-        id: ver
-        run: |
-          V=$(grep -m1 '<version>' pom.xml | sed -E 's/.*<version>([^<]+)<.*/\1/')
-          echo "full=$V"        >> "$GITHUB_OUTPUT"
-          echo "minor=${V%.*}"  >> "$GITHUB_OUTPUT"
-
+      # Version tags come ONLY from a v* git tag. A push to main publishes
+      # :latest and the commit sha, nothing else.
+      #
+      # It used to publish the pom version on every main push too, on the
+      # theory that CasaOS's "Check and update" would notice a moved version
+      # tag. It never did — that button never contacts the registry for an
+      # externally-managed app — and the side effect was worse than useless:
+      # every merge moved an "immutable" tag like 1.21.1 onto different
+      # content, so pinning to it pinned nothing. The console's own update
+      # detection and the host-side updater now rely on N.N.N tags being
+      # exactly what they say, once, forever.
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -42,8 +41,6 @@ jobs:
           images: ghcr.io/squidlyman/omnissa-access-approvals
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.ver.outputs.full }},enable={{is_default_branch}}
-            type=raw,value=${{ steps.ver.outputs.minor }},enable={{is_default_branch}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha

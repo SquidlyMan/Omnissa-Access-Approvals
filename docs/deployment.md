@@ -205,10 +205,11 @@ sudo sh /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/deploy.sh
 # first run creates the env file and stops — edit it, then re-run
 ```
 
-**Updates:** re-run `deploy.sh` (git pull + image pull + recreate), run
-`docker compose -f <compose file> pull && docker compose -f <compose file>
-up -d` yourself, or opt in to Watchtower auto-updates — see
-[Automatic Updates](#automatic-updates-optional-disabled-by-default) below.
+**Updates:** approve a version in the console and the host-side updater
+applies it, or run `deploy.sh <version>` — see
+[Approved Updates](#approved-updates-the-updater) below. The image is pinned
+to an immutable full version, so a bare `docker compose pull` re-pulls the same
+digest and changes nothing; name the version.
 Do **not** use the CasaOS **"Check and then update"** button — it always
 reports "is the latest version" for this container regardless of the image tag,
 because it never checks the registry; see
@@ -350,53 +351,70 @@ new Slack app) and you only want the data back.
 > `/media/ZIMARAID/omnissa-approvals/pre-restore-<timestamp>/`, so a rehearsal is
 > low-risk — but it does briefly stop the app.
 
-## Automatic Updates (optional, disabled by default)
+## Approved Updates (the updater)
 
-The ZimaCube compose file
-([`deploy/zimacube/docker-compose.yml`](../deploy/zimacube/docker-compose.yml))
-ships an optional [Watchtower](https://containrrr.dev/watchtower/) service
-behind the `autoupdate` Docker Compose profile. **It does not run unless you
-explicitly enable the profile** — a plain `docker compose up -d` (what
-`deploy.sh` runs) never starts it.
+Nothing upgrades this container unless an administrator chose a version. The
+console detects newer releases ([Configuration → Update
+Detection](configuration.md#update-detection)); approving one is a separate,
+admin-only act, and what it does is deliberately small: the application writes
+a one-line file naming the version to its `/app/control` mount. Everything with
+Docker privilege happens on the host, where that privilege already lives.
 
-When enabled, Watchtower polls GHCR once a day; when a new
-`ghcr.io/squidlyman/omnissa-access-approvals` image is published, it pulls
-it, recreates the approvals container with the same settings, and removes
-the superseded image (`WATCHTOWER_CLEANUP`). All application state is
-bind-mounted to `/media/ZIMARAID`, so the recreate loses nothing.
+**On the host** (`deploy/zimacube/`), installed by `deploy.sh`:
 
-**Enable:**
+| File | Role |
+|---|---|
+| `omnissa-approvals-update.path` | systemd path unit watching `<control dir>/update-requested` |
+| `omnissa-approvals-update.service` | oneshot that runs the script when the file appears |
+| `update.sh` | the updater |
 
-```bash
-docker compose -f /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/docker-compose.yml \
-  --profile autoupdate up -d
-```
+The control directory on the host is whatever the container mounts at
+`/app/control` — `deploy.sh` reads it from the running container, so a CasaOS
+re-import that moves the compose file cannot orphan the watcher. On the
+ZimaCube it is `/media/ZIMARAID/omnissa-approvals/control/`.
 
-**Disable** (stop and remove only the Watchtower container; the app keeps
-running):
+**What `update.sh` does, in order:**
 
-```bash
-docker compose -f /media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/docker-compose.yml \
-  --profile autoupdate down watchtower
-```
+1. Resolves the compose file that owns the container from the container's own
+   labels (`com.docker.compose.project.config_files`). Once CasaOS has adopted
+   the app its copy under `/var/lib/casaos/apps/<random-id>/` is authoritative
+   and this repository's file governs nothing; the id is never hardcoded.
+2. Validates the request: shape (`N.N.N`), then existence — it asks the
+   registry for the manifest, because `1.99.0` passes the regex and would
+   otherwise leave a rewritten compose and a stopped container.
+3. Refuses a version below the rollback floor (**1.19.5**) unless the unit
+   sets `OMNISSA_UPDATE_ALLOW_BELOW_FLOOR=yes`. The console already demands
+   the version be typed again for such a rollback; the host default of `no`
+   means a file dropped into the directory by hand does not get that override.
+4. Records the current pin and keeps a copy of the compose file.
+5. Rewrites the `image:` tag to the exact version, pulls, recreates.
+6. **Verifies — and not with `/actuator/health`.** Liveness is `UP` on any
+   version, so it cannot tell an upgrade from a pull that silently did nothing.
+   Two checks, both required: the running image's digest equals the registry's
+   digest for that tag, and `/actuator/info` reports the target version.
+7. On any failure — pull, recreate, health, digest, version — restores the
+   previous pin, recreates, and reports **rolled back**. Nothing is left
+   half-done.
+8. Writes `update-result` beside the intent file (`outcome=`, `target=`,
+   `reason=`, `digest=`, `version=`, `at=`) for the Dashboard to show, and
+   removes `update-requested`.
 
-**Change the poll interval:** the default is daily
-(`WATCHTOWER_POLL_INTERVAL: "86400"`, in seconds). Edit that value in the
-compose file's `watchtower` service, or set it in a compose override file,
-then re-run the enable command.
+The Dashboard shows the verdict: a green line after a verified deploy, a red
+box naming the reason after a rollback. A rollback is the case that matters —
+the container that comes back is the old one, and nothing in its own state
+says anything happened, so the host has to tell it.
 
-**Scoping guarantee:** Watchtower runs with `WATCHTOWER_LABEL_ENABLE=true`,
-so it only ever manages containers that carry the
-`com.centurylinklabs.watchtower.enable: "true"` label — in this deployment,
-exactly the `omnissa-approvals` container. Other containers on the host are
-never touched.
+**Manual path:** `sudo sh deploy.sh 1.22.0` pins that version in whichever
+compose file is in charge and deploys it, with the same digest and version
+check printed at the end. `journalctl -u omnissa-approvals-update` has the
+updater's log for approvals from the console.
 
-**Security consideration:** Watchtower needs the Docker socket
-(`/var/run/docker.sock`) mounted to pull images and recreate containers.
-This is the standard Watchtower deployment model, but a process with the
-Docker socket effectively has root-level control of the host's Docker
-engine — which is why this ships disabled and opt-in. Only enable it if
-that trade-off is acceptable in your environment.
+**Why not Watchtower.** Earlier releases shipped an opt-in Watchtower profile.
+It needed the Docker socket mounted into a container — root-level control of
+the engine handed to a process whose only job was to poll a registry — and it
+upgraded on its own schedule, with nobody approving anything. The updater
+above keeps every privileged step on the host and every upgrade behind a named
+administrator in the audit trail (`update-approved`). The profile is gone.
 
 ### CasaOS "Check and then update"
 
@@ -424,36 +442,34 @@ pointed at a newer digest: the button still reported "latest version".
 
 **Use one of these instead:**
 
-- re-run `deploy.sh` (git pull + image pull + recreate), or
-- `docker compose -f <compose file> pull && docker compose -f <compose file> up -d`, or
-- enable the `autoupdate` Watchtower profile above for hands-off updates.
+- approve the version on the Dashboard (the updater above applies it), or
+- `sudo sh deploy.sh <version>` on the host.
 
-The **dashboard version banner** is the authoritative answer to "what am I
-running?" — check it there, not in CasaOS.
+The **Dashboard** is the authoritative answer to both "is there a newer
+release?" and "what am I running?" — check it there, not in CasaOS.
 
-#### `OMNISSA_IMAGE_TAG`
+#### The image pin
 
-CI publishes a moving **`major.minor`** tag (e.g. `1.19`) that advances on every
-`main` merge, plus the immutable full version (e.g. `1.19.2`). Pinning is still
-worth doing — it makes deployments deterministic and keeps you on one minor
-line — but it is **not** a fix for the CasaOS button. Set it in the compose
-project's `.env` (next to the compose file, i.e.
-`/media/ZIMARAID/omnissa-approvals/src/deploy/zimacube/.env`):
+The container is pinned to the **immutable full version** — `image:
+ghcr.io/squidlyman/omnissa-access-approvals:1.22.0` — never `latest` and never
+the moving `major.minor` line. A moving pin lets *any* pull upgrade the
+container with nobody approving it: a CasaOS tile click, a settings save that
+recreates, a `compose pull` run for another reason. With the full version
+pinned, the only ways the running version changes are the two above, and both
+leave a name in the audit trail or the shell history.
+
+The pin lives on the `image:` line of whichever compose file owns the container
+(after CasaOS adoption, its copy). This repository's compose file interpolates
+it from `OMNISSA_IMAGE_TAG` in the adjacent `.env`; `deploy.sh <version>` sets
+both. Version tags are published once, from a `v*` git tag, and never move.
+
+Compare what you are running against the registry with:
 
 ```bash
-OMNISSA_IMAGE_TAG=1.19
+docker image inspect --format '{{index .RepoDigests 0}}' \
+  "$(docker inspect --format '{{.Image}}' omnissa-approvals)"
+curl -s http://127.0.0.1:8081/actuator/info
 ```
-
-Bump it only when the **minor** increments — `1.20`, `1.21`, …. A patch
-release such as 1.19.1 → 1.19.2 moves the `1.19` tag, so a `compose pull`
-picks it up with no pin change. Compare what you are running against the registry with:
-
-```bash
-docker image inspect ghcr.io/squidlyman/omnissa-access-approvals:1.9 \
-  --format '{{index .RepoDigests 0}}'
-```
-
-If that digest differs from the registry's, pull and recreate.
 
 ## The control mount (updates)
 
@@ -465,4 +481,13 @@ stale request restored from an archive must never be able to trigger a deploy.
 If you assembled your own compose, add it — without the mount the console
 reports *the control directory is not mounted* and refuses to approve. See
 [Configuration → Update Detection](configuration.md#update-detection).
+
+Two files live there, both written for the other side to read:
+
+| File | Written by | Meaning |
+|---|---|---|
+| `update-requested` | the application | one line, the approved version; consumed by the updater |
+| `update-result` | the updater | `outcome=deployed\|rolled-back\|failed\|refused` plus target, reason, digest, version, time |
+
+The updater is described under [Approved Updates](#approved-updates-the-updater).
 

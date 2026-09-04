@@ -78,8 +78,28 @@ export default function UpdateBanner({ isAdmin }: { isAdmin: boolean }) {
     </div>
   )
 
+  // The host's verdict on the last approval. A rollback is the case that
+  // matters: the container that comes back is the old one and nothing in its
+  // own state says anything happened, so this is the only place it shows.
+  const result = view.lastResult
+  const verdict = result && result.outcome !== 'deployed' ? (
+    <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-5 py-4">
+      <p className="font-semibold text-red-900">
+        {result.outcome === 'rolled-back' ? 'Deployment rolled back' : `Deployment ${result.outcome}`}
+        {result.target && <span className="font-normal text-red-800"> — {result.target}</span>}
+      </p>
+      <p className="text-xs text-red-800 mt-0.5">
+        {result.reason ?? 'The host reported no reason.'} · {formatDate(result.at)}
+        {result.version && <> · running {result.version}</>}
+      </p>
+    </div>
+  ) : result && result.target === d.runningVersion ? (
+    <p className="-mt-3 mb-4 text-xs text-green-700">Deployed {result.target} {formatDate(result.at)} — digest and version verified by the host.</p>
+  ) : null
+
   return (
     <>
+      {verdict}
       {d.updateAvailable ? (
         <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">

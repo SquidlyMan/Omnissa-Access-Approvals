@@ -10,7 +10,8 @@ public record UpdateView(
         Date pendingSince,
         boolean controlDirectoryMounted,
         String rollbackFloor,
-        List<String> knownVersions) {
+        List<String> knownVersions,
+        UpdateResult lastResult) {
 
     public static UpdateView of(UpdateSnapshot detection, UpdateApprovalService approvals) {
         UpdateApprovalService.Approval pending = approvals.pending().orElse(null);
@@ -20,6 +21,7 @@ public record UpdateView(
                 pending != null ? pending.requestedAt() : null,
                 approvals.controlDirectoryMounted(),
                 RollbackFloor.FLOOR.toString(),
-                detection.knownVersions());
+                detection.knownVersions(),
+                approvals.lastResult().orElse(null));
     }
 }
