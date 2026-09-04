@@ -35,10 +35,9 @@ set -eu
 
 APP=omnissa-approvals
 VERSION="${1:-}"
-case "$VERSION" in
-    "") ;;
-    *[!0-9.]*) echo "Version must be N.N.N (got '$VERSION')"; exit 1 ;;
-esac
+if [ -n "$VERSION" ] && ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "Version must be N.N.N (got '$VERSION')"; exit 1
+fi
 RAID_DIR=/media/ZIMARAID/$APP
 SRC_DIR=$RAID_DIR/src
 ENV_FILE=$RAID_DIR/$APP.env
@@ -59,6 +58,11 @@ echo "==> Directories on RAID"
 # approved update is written for the updater. Kept apart from data/, which
 # backup archives, so a restored archive can never carry a pending deploy.
 mkdir -p "$RAID_DIR/data" "$RAID_DIR/control" "$RAID_DIR/docker-config"
+
+# One deploy at a time — shared with update.sh, so a console approval and a
+# hand-run deploy cannot interleave edits to the same compose file.
+exec 9>"$RAID_DIR/.deploy.lock"
+flock -w 900 9 || { echo "another deploy has held the lock for 15 minutes; giving up"; exit 1; }
 # / is a read-only squashfs on ZimaOS — docker/git must never write to $HOME (/root).
 export DOCKER_CONFIG="$RAID_DIR/docker-config"
 export HOME="$RAID_DIR"
@@ -101,9 +105,19 @@ grep -v '^LAN_IP=' "$COMPOSE_ENV" > "$COMPOSE_ENV.tmp" 2>/dev/null || :
 printf 'LAN_IP=%s\n' "$LAN_IP" >> "$COMPOSE_ENV.tmp"
 mv "$COMPOSE_ENV.tmp" "$COMPOSE_ENV"
 
+IMAGE=ghcr.io/squidlyman/omnissa-access-approvals
+REPO=${IMAGE#ghcr.io/}
 if [ -n "$VERSION" ]; then
-    echo "==> Pinning image to $VERSION"
-    IMAGE=ghcr.io/squidlyman/omnissa-access-approvals
+    # Prove the version exists BEFORE touching the pin. A typo that got as far
+    # as `pull` would leave the compose file pointing at nothing, and the next
+    # recreate — CasaOS does them on its own — would fail on it.
+    TOKEN=$(curl -fsS "https://ghcr.io/token?scope=repository:$REPO:pull" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+    [ -n "$TOKEN" ] || { echo "registry token unavailable — is ghcr.io reachable?"; exit 1; }
+    WANT_DIGEST=$(curl -fsSI -H "Authorization: Bearer $TOKEN" \
+        -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
+        "https://ghcr.io/v2/$REPO/manifests/$VERSION" 2>/dev/null | tr -d '\r' | awk 'tolower($1)=="docker-content-digest:"{print $2}')
+    [ -n "$WANT_DIGEST" ] || { echo "no such published version: $IMAGE:$VERSION"; exit 1; }
+    echo "==> Pinning image to $VERSION ($WANT_DIGEST)"
     if grep -qE "^[[:space:]]*image:[[:space:]]*$IMAGE:" "$COMPOSE"; then
         # The adopted copy carries the tag as a literal on its image: line.
         sed -i -E "s|(image:[[:space:]]*$IMAGE:)[^[:space:]\"']+|\1$VERSION|" "$COMPOSE"
@@ -148,8 +162,26 @@ iptables -C DOCKER-USER -p tcp --dport 8081 ! -s "$LAN_SUBNET" -j DROP && echo "
 systemctl is-enabled $APP-fw.service >/dev/null && echo "  firewall: unit enabled"
 systemctl is-active $APP-update.path >/dev/null && echo "  updater: watching $CONTROL/update-requested"
 ls -ld "$RAID_DIR/data" && echo "  state: on RAID"
-echo "  version: $(curl -s "http://$LAN_IP:8081/actuator/info" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
-echo "  digest:  $(docker image inspect --format '{{index .RepoDigests 0}}' "$(docker inspect --format '{{.Image}}' $APP)" | sed 's/.*@//')"
+REPORTED=$(curl -s "http://$LAN_IP:8081/actuator/info" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
+RUNNING=$(docker image inspect --format '{{index .RepoDigests 0}}' "$(docker inspect --format '{{.Image}}' $APP)")
+echo "  version: ${REPORTED:-(none reported — pre-1.22.0 image)}"
+echo "  digest:  ${RUNNING#*@}"
+if [ -n "$VERSION" ]; then
+    # Tell the console what happened, the same way update.sh does, so a
+    # deploy made from here clears a stale "rolled back" verdict from an
+    # earlier approval — and a mismatch is not hidden behind an exit 0.
+    case "$RUNNING" in
+        *"$WANT_DIGEST") OUTCOME=deployed; REASON="deployed from the host by deploy.sh; digest verified" ;;
+        *) OUTCOME=failed; REASON="deploy.sh pinned $VERSION but the running digest ${RUNNING#*@} is not the registry's $WANT_DIGEST" ;;
+    esac
+    { printf 'outcome=%s\ntarget=%s\nreason=%s\ndigest=%s\nversion=%s\nat=%s\n' \
+        "$OUTCOME" "$VERSION" "$REASON" "$RUNNING" "${REPORTED:-}" "$(date -u +%FT%TZ)"; } > "$CONTROL/update-result.tmp" \
+        && mv -f "$CONTROL/update-result.tmp" "$CONTROL/update-result"
+    echo "  result:  $OUTCOME — $REASON"
+    # The updater rolls back to the last PROVEN version, which this now is.
+    [ "$OUTCOME" = deployed ] && printf '%s %s\n' "$VERSION" "$RUNNING" > "$CONTROL/last-known-good"
+    [ "$OUTCOME" = deployed ] || { echo "  This script does not roll back; to return: sudo sh deploy.sh <previous version>"; exit 1; }
+fi
 
 echo ""
 echo "Done. Next: point your TLS reverse proxy at  http://$LAN_IP:8081"

@@ -7,7 +7,4 @@ Requires=docker.service
 Type=oneshot
 # The host side of the container's /app/control mount. deploy.sh fills this in.
 Environment=OMNISSA_CONTROL_DIR=__CONTROL_DIR__
-# A confirmed rollback below 1.19.5 is typed in the console; the app writes the
-# file only then. Set to "yes" to let this host honour such a file at all.
-Environment=OMNISSA_UPDATE_ALLOW_BELOW_FLOOR=no
 ExecStart=/bin/sh __SRC_DIR__/deploy/zimacube/update.sh

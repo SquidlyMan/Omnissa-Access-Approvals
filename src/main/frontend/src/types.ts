@@ -119,6 +119,8 @@ export type AuditAction =
   | 'request-escalated'
   // Update detection and approval (#83)
   | 'update-approved'
+  | 'update-approval-failed'
+  | 'update-result-dismissed'
 
 export interface AuditEvent {
   id: number
@@ -209,6 +211,7 @@ export interface UpdateView {
   detection: UpdateSnapshot
   pendingTarget: string | null
   pendingSince: string | null
+  pendingPhase: 'requested' | 'applying' | null
   controlDirectoryMounted: boolean
   rollbackFloor: string
   knownVersions: string[]

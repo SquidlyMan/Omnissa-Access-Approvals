@@ -323,8 +323,8 @@ is the only place a newer release can appear.
 | Variable | Default | Purpose |
 |---|---|---|
 | `OMNISSA_UPDATE_CHECK_ENABLED` | `true` | `false` stops the poller and hides the banner |
-| `OMNISSA_UPDATE_CHECK_INTERVAL` | `P1D` | How often to check, as an ISO-8601 duration (`PT6H`, `P1D`) — the same form every other schedule in the tool uses |
-| `OMNISSA_UPDATE_REGISTRY_REPO` | `squidlyman/omnissa-access-approvals` | The GHCR repository to watch. Change only for a fork |
+| `OMNISSA_UPDATE_CHECK_INTERVAL` | `P1D` | How often to check, as an ISO-8601 duration (`PT6H`, `P1D`) — the same form every other schedule in the tool uses. A value that does not parse falls back to `P1D` with a warning rather than failing startup; anything under `PT5M` is raised to `PT5M` so a typo cannot hammer the registry |
+| `OMNISSA_UPDATE_REGISTRY_REPO` | `squidlyman/omnissa-access-approvals` | The GHCR repository to watch. Change only for a fork. Must be `owner/name` in lowercase; anything else is ignored with a warning and the default is watched |
 | `OMNISSA_UPDATE_NOTIFY_WEBHOOK` | `false` | Also announce a newer release to the configured webhook (`WEBHOOK_URL` / `WEBHOOK_FORMAT`) |
 | `OMNISSA_UPDATE_NOTIFY_EMAIL` | `false` | Also announce it by e-mail through the configured SMTP relay |
 | `OMNISSA_UPDATE_NOTIFY_EMAIL_TO` | — | Who receives that e-mail. Required when the toggle above is on |
@@ -368,6 +368,15 @@ registry listed on the last check — older ones too, for rollback — and:
 
 Notifications, when enabled, fire **once per version** and the announced
 version is remembered across restarts — this feature causes restarts.
+
+Three behaviours worth knowing. A registry answer that lists **no** `N.N.N`
+tags keeps the previous list and records *no release versions* as the last
+error — an empty answer is an incident, not a registry with nothing in it, and
+overwriting the list would refuse every rollback until it recovered. **Check
+now** while a check is already running returns the last-known result rather
+than a second, racing check. And the check is never allowed to fail the
+application: a registry error is recorded (truncated to what the status row
+holds) and the next check tries again.
 
 ## Server
 

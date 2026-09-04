@@ -60,4 +60,13 @@ class UpdateNotificationsTest {
         UpdateNotifications n = new UpdateNotifications(webhook, mail, true, false, "");
         assertThat(n.updateAvailable("1.21.1", "1.22.0")).isFalse();
     }
+
+    @Test
+    @DisplayName("a channel that throws does not discard the other channel's delivery")
+    void throwingChannelDoesNotDiscardTheOther() {
+        when(webhook.notifyUpdateAvailable("1.21.1", "1.22.0")).thenReturn(true);
+        when(mail.sendUpdateAvailable("dean@example.com", "1.21.1", "1.22.0")).thenThrow(new IllegalStateException("no tenant"));
+        UpdateNotifications n = new UpdateNotifications(webhook, mail, true, true, "dean@example.com");
+        assertThat(n.updateAvailable("1.21.1", "1.22.0")).as("the webhook did deliver; announce once").isTrue();
+    }
 }

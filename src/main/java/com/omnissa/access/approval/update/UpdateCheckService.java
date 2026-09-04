@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Finds out whether a newer release has been published, and remembers the
@@ -35,6 +36,11 @@ public class UpdateCheckService {
     private final UpdateNotifier notifier;
     private final boolean enabled;
     private final String checkInterval;
+    /** One check at a time, whether from the scheduler or the button — the status row is a singleton. */
+    private final ReentrantLock inFlight = new ReentrantLock();
+
+    /** Matches {@code UpdateStatus.lastError}'s column; a longer message would fail the save. */
+    static final int MAX_ERROR_LENGTH = 500;
 
     public UpdateCheckService(RegistryClient registry,
                               UpdateStatusRepository repository,
@@ -59,6 +65,22 @@ public class UpdateCheckService {
      * scheduler or a button; never throws.
      */
     public UpdateSnapshot check() {
+        // "Check now" runs on a request thread, the scheduler on its own; two
+        // of them interleaving load→save on the singleton row would lose one
+        // side's writes — including the once-only announcement stamp. The
+        // second caller gets the last-known result rather than a queue.
+        if (!inFlight.tryLock()) {
+            logger.info("An update check is already running; returning the last-known result");
+            return current();
+        }
+        try {
+            return doCheck();
+        } finally {
+            inFlight.unlock();
+        }
+    }
+
+    private UpdateSnapshot doCheck() {
         UpdateStatus status = load();
         String running = appVersion.current();
 
@@ -71,21 +93,42 @@ public class UpdateCheckService {
                     .toList();
 
             status.setLastCheckedAt(new Date());
-            status.setLastError(null);
-            status.setKnownVersions(String.join(",", releases));
-            status.setNewestVersion(releases.isEmpty() ? null : releases.get(0));
-
-            announceIfNew(status, running);
+            if (releases.isEmpty()) {
+                // A registry that lists nothing is not a registry with nothing
+                // in it — it is an incident, a wrong repository, or a page of
+                // moving tags. Overwriting the known list with nothing would
+                // refuse every approval, rollback included, until it recovers.
+                status.setLastError("The registry listed no release versions (N.N.N); keeping the previous list");
+                logger.warn("Update check against {}: no release tags in the response — keeping the last-known list",
+                        registry.repository());
+            } else {
+                status.setLastError(null);
+                status.setKnownVersions(String.join(",", releases));
+                status.setNewestVersion(releases.get(0));
+                announceIfNew(status, running);
+            }
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             status.setLastCheckedAt(new Date());
-            status.setLastError(reason);
+            status.setLastError(truncate(reason));
             logger.warn("Update check against {} failed — keeping the last-known result: {}",
                     registry.repository(), reason);
         }
 
-        repository.save(status);
+        try {
+            repository.save(status);
+        } catch (Exception e) {
+            // Never out of here: the scheduler would log and retry identically
+            // for ever, and the button would 500. What was measured is still
+            // returned for this call; the next check tries the save again.
+            logger.error("Could not persist the update status; the last-known result on the Dashboard is stale: {}",
+                    e.getMessage());
+        }
         return snapshot(status, running);
+    }
+
+    static String truncate(String reason) {
+        return reason.length() <= MAX_ERROR_LENGTH ? reason : reason.substring(0, MAX_ERROR_LENGTH - 1) + "…";
     }
 
     /** The last-known state, without touching the registry. */

@@ -59,4 +59,22 @@ class UpdateResultTest {
         Files.writeString(control.resolve(UpdateResult.FILE), "outcome=deployed\nat=yesterday\n");
         assertNotNull(UpdateResult.read(control).orElseThrow().at());
     }
+
+    @Test
+    void firstOccurrenceOfAKeyWins() throws Exception {
+        // The host writes keys in a fixed order; a value that somehow carried a
+        // second "version=" line must not redefine what the host measured.
+        Files.writeString(control.resolve(UpdateResult.FILE),
+                "outcome=deployed\ntarget=1.22.0\nversion=1.22.0\nreason=x\nversion=9.9.9\noutcome=rolled-back\n");
+        UpdateResult r = UpdateResult.read(control).orElseThrow();
+        assertEquals("deployed", r.outcome());
+        assertEquals("1.22.0", r.version());
+    }
+
+    @Test
+    void extremeTimestampFallsBackToTheFile() throws Exception {
+        // A valid ISO instant that Date cannot hold must not 500 every status call.
+        Files.writeString(control.resolve(UpdateResult.FILE), "outcome=deployed\nat=+1000000000-01-01T00:00:00Z\n");
+        assertNotNull(UpdateResult.read(control).orElseThrow().at());
+    }
 }

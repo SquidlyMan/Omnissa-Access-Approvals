@@ -982,7 +982,14 @@ export default function HelpPage() {
             to a control directory, and a small updater on the host does the pull, the recreate and
             the verification. Approval is admin-only and is recorded in the Audit trail as{' '}
             <span className="font-medium text-gray-800">update-approved</span> before the request is
-            written, so a deploy can never happen without a trace of who asked.
+            written, so a deploy can never happen without a trace of who asked. One deployment at a
+            time: a second approval while one is pending or being applied is refused, but a request
+            the host has not picked up in ten minutes may be replaced, so a missing updater cannot
+            lock the console out. The host's verdict — <span className="italic">deployed</span>,{' '}
+            <span className="italic">rolled back</span>, or <span className="italic">rollback failed</span>{' '}
+            (the previous version did not come back either: an outage) — shows on the Dashboard until
+            an administrator dismisses it, which is audited. Turning the daily check off does not hide
+            a pending request or a verdict.
           </p>
           <ul className="list-disc ml-5 space-y-1">
             <li>
@@ -991,13 +998,15 @@ export default function HelpPage() {
               <span className="font-medium text-gray-800">1.19.5</span> the picker refuses unless the
               version is typed to confirm, and names what the rollback reopens — that is where the
               callout endpoint stops requiring credentials. The floor is fixed in the code, not a
-              setting.
+              setting, and the host enforces it too: the typed confirmation travels with the request,
+              and a request without it is refused there as well.
             </li>
             <li>
               <span className="font-medium text-gray-800">Check now</span> asks the registry
               immediately; otherwise it runs daily (<Code>OMNISSA_UPDATE_CHECK_INTERVAL</Code>) on its
               own scheduler thread, so a slow registry can never delay the sweep that revokes expired
-              access.
+              access. An interval that does not parse falls back to daily rather than stopping the
+              application; anything under five minutes is raised to five.
             </li>
             <li>
               A newer version can also be announced to the chat channel and by e-mail —{' '}
@@ -1010,10 +1019,17 @@ export default function HelpPage() {
               failed</span> with the previous answer still visible. It never errors the page.
             </li>
             <li>
+              <span className="font-medium text-gray-800">On another Docker host</span> — only the
+              installation is ZimaCube-specific: <Code>sudo sh deploy/updater/install.sh</Code> installs
+              the same updater on any systemd host running the container from Docker Compose. Without
+              it an approval is written and never read; the Dashboard says so after ten minutes.
+            </li>
+            <li>
               <span className="font-medium text-gray-800">From the host</span> (ZimaCube) —{' '}
-              <Code>sudo sh deploy/zimacube/deploy.sh 1.22.0</Code> pins and deploys that version. The
-              image is pinned to an <span className="font-medium text-gray-800">immutable</span> full
-              version, so a bare <Code>docker compose pull</Code> is no longer an upgrade: it
+              <Code>sudo sh deploy/zimacube/deploy.sh 1.22.0</Code> checks the version exists, pins it
+              and deploys it, and reports the result to the Dashboard the same way the updater does.
+              The image is pinned to an <span className="font-medium text-gray-800">immutable</span>{' '}
+              full version, so a bare <Code>docker compose pull</Code> is no longer an upgrade: it
               re-pulls the same digest and changes nothing. Name the version.
             </li>
             <li>

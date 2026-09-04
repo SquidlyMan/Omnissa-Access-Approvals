@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +39,9 @@ public record UpdateResult(String outcome, String target, String reason, String 
             for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
                 int eq = line.indexOf('=');
                 if (eq > 0) {
-                    kv.put(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
+                    // First occurrence wins: the host writes its keys in a fixed
+                    // order, so nothing later in the file can redefine them.
+                    kv.putIfAbsent(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
                 }
             }
             String outcome = kv.get("outcome");
@@ -49,7 +50,7 @@ public record UpdateResult(String outcome, String target, String reason, String 
             }
             return Optional.of(new UpdateResult(outcome, blankToNull(kv.get("target")), blankToNull(kv.get("reason")),
                     blankToNull(kv.get("digest")), blankToNull(kv.get("version")), parseWhen(kv.get("at"), file)));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             return Optional.empty();
         }
     }
@@ -58,8 +59,10 @@ public record UpdateResult(String outcome, String target, String reason, String 
         if (at != null && !at.isBlank()) {
             try {
                 return Date.from(Instant.parse(at));
-            } catch (DateTimeParseException ignored) {
-                // fall through to the file's own timestamp
+            } catch (RuntimeException ignored) {
+                // unparseable, or a valid instant outside Date's range (which
+                // surfaces as more than one exception type) — fall through to
+                // the file's own timestamp
             }
         }
         return new Date(Files.getLastModifiedTime(file).toMillis());

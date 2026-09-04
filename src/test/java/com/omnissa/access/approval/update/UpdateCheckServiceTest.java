@@ -9,11 +9,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -145,5 +149,72 @@ class UpdateCheckServiceTest {
         UpdateCheckService svc = new UpdateCheckService(registryWith("1.21.1"), memoryRepo(previous),
                 running("1.21.1"), new RecordingNotifier(), true, "P1D");
         assertThat(svc.check().updateAvailable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a registry error longer than the column is truncated, not thrown from the save")
+    void longErrorIsTruncated() {
+        RegistryClient registry = mock(RegistryClient.class);
+        when(registry.repository()).thenReturn("example/app");
+        when(registry.listTags()).thenThrow(new IllegalStateException("x".repeat(2000)));
+        UpdateStatusRepository repo = memoryRepo(null);
+        UpdateCheckService s = new UpdateCheckService(registry, repo, running("1.21.1"), new RecordingNotifier(), true, "P1D");
+        UpdateSnapshot snap = s.check();
+        assertThat(snap.lastError()).hasSizeLessThanOrEqualTo(UpdateCheckService.MAX_ERROR_LENGTH);
+        assertThat(repo.findById(UpdateStatus.SINGLETON_ID)).get()
+                .extracting(UpdateStatus::getLastError).asString().hasSizeLessThanOrEqualTo(UpdateCheckService.MAX_ERROR_LENGTH);
+    }
+
+    @Test
+    @DisplayName("a failing save never escapes check() — the scheduler must not fail identically for ever")
+    void persistFailureDoesNotThrow() {
+        UpdateStatusRepository repo = mock(UpdateStatusRepository.class);
+        when(repo.findById(UpdateStatus.SINGLETON_ID)).thenReturn(Optional.empty());
+        when(repo.save(any(UpdateStatus.class))).thenThrow(new RuntimeException("disk full"));
+        UpdateCheckService s = new UpdateCheckService(registryWith("1.22.0"), repo, running("1.21.1"), new RecordingNotifier(), true, "P1D");
+        UpdateSnapshot snap = s.check();
+        assertThat(snap.newestVersion()).as("what was measured is still returned").isEqualTo("1.22.0");
+    }
+
+    @Test
+    @DisplayName("an empty tag list keeps the previous list and records an error — never wipes rollback targets")
+    void emptyTagListKeepsPreviousList() {
+        UpdateStatus seed = new UpdateStatus();
+        seed.setKnownVersions("1.21.1,1.21.0");
+        seed.setNewestVersion("1.21.1");
+        UpdateStatusRepository repo = memoryRepo(seed);
+        UpdateCheckService s = new UpdateCheckService(registryWith(), repo, running("1.21.1"), new RecordingNotifier(), true, "P1D");
+        UpdateSnapshot snap = s.check();
+        assertThat(snap.knownVersions()).containsExactly("1.21.1", "1.21.0");
+        assertThat(snap.newestVersion()).isEqualTo("1.21.1");
+        assertThat(snap.lastError()).contains("no release versions");
+    }
+
+    @Test
+    @DisplayName("a check while one is running returns the last-known result instead of racing the row")
+    void concurrentCheckReturnsCurrent() throws Exception {
+        CountDownLatch inside = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        RegistryClient registry = mock(RegistryClient.class);
+        when(registry.repository()).thenReturn("example/app");
+        when(registry.listTags()).thenAnswer(inv -> {
+            inside.countDown();
+            release.await(5, TimeUnit.SECONDS);
+            return List.of("1.22.0");
+        });
+        UpdateStatusRepository repo = memoryRepo(null);
+        UpdateCheckService s = new UpdateCheckService(registry, repo, running("1.21.1"), new RecordingNotifier(), true, "P1D");
+        Thread first = new Thread(s::check);
+        first.start();
+        assertThat(inside.await(5, TimeUnit.SECONDS)).isTrue();
+
+        long started = System.nanoTime();
+        UpdateSnapshot second = s.check();
+        assertThat(System.nanoTime() - started).as("did not wait for the first check").isLessThan(TimeUnit.SECONDS.toNanos(2));
+        assertThat(second.newestVersion()).as("the last-known result, which is nothing yet").isNull();
+
+        release.countDown();
+        first.join(5000);
+        verify(registry, org.mockito.Mockito.times(1)).listTags();
     }
 }

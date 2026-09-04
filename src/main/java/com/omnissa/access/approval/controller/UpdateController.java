@@ -77,6 +77,13 @@ public class UpdateController {
         }
     }
 
+    /** Clear the host's last verdict from the Dashboard. Audited. */
+    @PostMapping("/dismiss-result")
+    public ResponseEntity<UpdateView> dismissResult() {
+        approvals.dismissResult(audit.currentAdmin());
+        return ResponseEntity.ok(view(checks.current()));
+    }
+
     private UpdateView view(com.omnissa.access.approval.update.UpdateSnapshot snapshot) {
         return UpdateView.of(snapshot, approvals);
     }
