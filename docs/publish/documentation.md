@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.22.0 • MIT License"
+date: "Version 1.22.1 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
