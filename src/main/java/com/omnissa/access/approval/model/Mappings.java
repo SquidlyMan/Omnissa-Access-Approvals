@@ -9,4 +9,5 @@ public final class Mappings {
     public static final String CONFIG       = API_ROOT + "/config";
     public static final String STATISTICS   = API_ROOT + "/statistics";
     public static final String USERS        = API_ROOT + "/users";
+    public static final String UPDATES      = API_ROOT + "/updates";
 }

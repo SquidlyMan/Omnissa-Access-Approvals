@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSse } from '../hooks/useSse'
+import { useAuth } from '../hooks/useAuth'
+import { canAdminister } from '../lib/permissions'
+import UpdateBanner from '../components/UpdateBanner'
 import StatusBadge from '../components/StatusBadge'
 import AppIcon from '../components/AppIcon'
 import type { Stats, Page, CalloutRequest, TenantStatus } from '../types'
@@ -72,6 +75,7 @@ function TenantStatusCard() {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [stats, setStats] = useState<Stats>({ pending: 0, approved: 0, rejected: 0, deactivated: 0 })
   const [recent, setRecent] = useState<CalloutRequest[]>([])
 
@@ -99,6 +103,9 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+
+      {/* Newer release published? Detection only; approval is a separate act. */}
+      <UpdateBanner isAdmin={canAdminister(user)} />
 
       {/* Access tenant connectivity */}
       <TenantStatusCard />

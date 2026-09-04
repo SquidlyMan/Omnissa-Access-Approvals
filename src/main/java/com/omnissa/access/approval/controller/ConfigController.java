@@ -30,6 +30,9 @@ public class ConfigController {
     @Autowired
     private TenantStatusService tenantStatusService;
 
+    @Autowired
+    private com.omnissa.access.approval.update.AppVersion appVersion;
+
     @Value("${omnissa.auth.local-login-disabled:false}")
     private boolean localLoginDisabled;
 
@@ -70,10 +73,10 @@ public class ConfigController {
     @GetMapping("/status")
     public ResponseEntity<?> getConnectivityStatus() {
         TenantStatusService.TenantStatus tenant = tenantStatusService.current();
-        String version = ConfigController.class.getPackage().getImplementationVersion();
+        String version = appVersion.current();
 
         Map<String, Object> status = new LinkedHashMap<>();
-        status.put("version", version != null ? version : "dev");
+        status.put("version", version);
         status.put("tenantUrl", tenant.tenantUrl());
         status.put("reachable", tenant.reachable());
         status.put("checkedAt", tenant.checkedAt());

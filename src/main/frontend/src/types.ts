@@ -179,3 +179,15 @@ export interface TenantStatus {
   checkedAt: string
   error: string | null
 }
+
+/** Update detection (#83). Read-only shape of /api/updates/status. */
+export interface UpdateSnapshot {
+  enabled: boolean
+  checkInterval: string
+  runningVersion: string
+  newestVersion: string | null
+  updateAvailable: boolean
+  lastCheckedAt: string | null
+  lastError: string | null
+  knownVersions: string[]
+}

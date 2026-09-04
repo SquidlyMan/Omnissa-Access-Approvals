@@ -5,7 +5,7 @@
 
     <groupId>com.omnissa.access</groupId>
     <artifactId>omnissa-approval</artifactId>
-    <version>1.21.1</version>
+    <version>1.22.0</version>
     <packaging>jar</packaging>
 
     <name>omnissaApproval</name>
@@ -135,6 +135,16 @@
                 <configuration>
                     <mainClass>com.omnissa.access.approval.OmnissaApprovalApplication</mainClass>
                 </configuration>
+                <executions>
+                    <execution>
+                        <!-- build-info.properties: the running version, available
+                             to /actuator/info and to the app itself even when
+                             not packaged as a jar. -->
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Update detection (#83, part 1 of 3).** The tool now polls the public container registry for newer release tags and shows the result on the Dashboard: *Update available — 1.22.0 (running 1.21.1)*, or *You're up to date · last checked …*, with a **Check now** button for administrators. **Detection only** — nothing installs without an explicit approval, which is the next part; the container never restarts itself, because that would need the Docker socket, the privilege trade already rejected for Watchtower. ZimaOS v1.7 has no "check for updates" for an externally-managed container, so this is the only place a newer release can appear.
+  - Runs on **its own scheduler thread**, following escalation's 1.21.0 precedent: every other job shares one, and a registry that hangs must not be able to stall JIT expiry.
+  - **Asks the registry for a 1000-tag page.** `tags/list` truncates at 100 with no indication; the repository has 197 tags, and on the default page the newest minor line was simply absent while `GET /manifests/` resolved it fine. A checker that misses this under-reports forever.
+  - **Compares versions numerically.** Sorted as strings, the registry's published tags put `1.9.5` above `1.21.1` — twelve minors behind. A string comparator would report `1.9.5` as newest today and never fire again.
+  - **Fails soft.** A registry outage is recorded on the persisted status and shown as *last check failed*; the previous answer stays visible with its timestamp.
+  - **Announces a version once.** The announced version is persisted, so a container restart — which this feature will cause — does not repeat it. Until a real channel exists, the only notifier is the log.
+  - `/actuator/info` is exposed unauthenticated with the build version, so a deploy can be verified against what actually came up. Liveness cannot prove that; it is `UP` on any version.
+  - New: `OMNISSA_UPDATE_CHECK_ENABLED`, `OMNISSA_UPDATE_CHECK_INTERVAL` (ISO-8601), `OMNISSA_UPDATE_REGISTRY_REPO`.
+
+### Changed
+- The running version comes from Maven `build-info` rather than the jar manifest, so it is present when running from an IDE too. The dashboard tile used to read `dev` there.
+
+### Tests
+- 395 → 411.
+
 ## [1.21.1] - 2026-08-03
 
 ### Fixed

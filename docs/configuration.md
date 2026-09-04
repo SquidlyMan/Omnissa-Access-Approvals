@@ -312,6 +312,37 @@ Count the entries in that line. If a request that traverses fewer proxies than
 configured arrives — someone reaching the container directly — the header is
 ignored for that request and the socket peer is used instead.
 
+## Update Detection
+
+The tool polls the public container registry for newer release tags and shows
+the result on the Dashboard. **Detection only** — nothing installs without an
+administrator's explicit approval, and the container never restarts itself.
+ZimaOS has no "check for updates" for an externally-managed container, so this
+is the only place a newer release can appear.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OMNISSA_UPDATE_CHECK_ENABLED` | `true` | `false` stops the poller and hides the banner |
+| `OMNISSA_UPDATE_CHECK_INTERVAL` | `P1D` | How often to check, as an ISO-8601 duration (`PT6H`, `P1D`) — the same form every other schedule in the tool uses |
+| `OMNISSA_UPDATE_REGISTRY_REPO` | `squidlyman/omnissa-access-approvals` | The GHCR repository to watch. Change only for a fork |
+
+Three things about the check are worth knowing:
+
+- **It runs on its own scheduler thread.** Every other job except escalation
+  shares one, and a registry that hangs must not be able to stall the sweep
+  that revokes expired access. Connect and read timeouts are 5 s and 10 s.
+- **It fails soft.** A registry outage is logged and shown on the banner as
+  *last check failed*; the previous answer stays visible with its timestamp.
+  It never errors the console.
+- **Only immutable `N.N.N` tags count.** The moving `1.21` and `latest` tags
+  are ignored, and versions are compared numerically — sorted as strings, the
+  registry's own tags put `1.9.5` above `1.21.1`.
+
+The running version is also exposed unauthenticated at `/actuator/info` — not
+sensitive, it is on the dashboard and in every document footer — so a host-side
+deploy can confirm which version actually came up. `/actuator/health` cannot:
+it is liveness only and reports `UP` on any version.
+
 ## Server
 
 | Variable | Default | Description |

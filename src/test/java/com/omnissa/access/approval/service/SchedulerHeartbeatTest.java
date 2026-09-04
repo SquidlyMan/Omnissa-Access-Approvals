@@ -13,10 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Scheduler staleness (#44). This is the only failure in the tool with no other
- * outward symptom: all scheduled jobs share Spring's single-threaded scheduler,
- * so if the JIT sweeps wedge, time-bound access silently never expires while
- * everything else stays green.
+ * Scheduler staleness (#44). This is the failure in the tool with no other
+ * outward symptom: every job except escalation and the update check shares
+ * Spring's single-threaded scheduler, so if the JIT sweeps wedge, time-bound
+ * access silently never expires while everything else stays green.
  */
 class SchedulerHeartbeatTest {
 
