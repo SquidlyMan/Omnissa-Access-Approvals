@@ -143,8 +143,17 @@ case "$GOT_DIGEST" in
     *"$WANT_DIGEST") ;;
     *) rollback "running digest ${GOT_DIGEST#*@} does not match the registry's $WANT_DIGEST for $TARGET — the deploy changed nothing" ;;
 esac
+# /actuator/info exists from 1.22.0. An older target cannot report its
+# version, so a rollback to one rests on the digest check alone — otherwise
+# every such rollback would be reverted for a check the target cannot pass.
 GOT_VERSION=$(reported_version)
-[ "$GOT_VERSION" = "$TARGET" ] || rollback "the application reports version '${GOT_VERSION:-?}', not $TARGET"
+if [ "$GOT_VERSION" != "$TARGET" ]; then
+    if [ "$1" -gt 1 ] || { [ "$1" -eq 1 ] && [ "$2" -ge 22 ]; }; then
+        rollback "the application reports version '${GOT_VERSION:-?}', not $TARGET"
+    fi
+    log "$TARGET predates /actuator/info; accepted on digest alone"
+    GOT_VERSION="$TARGET (by digest)"
+fi
 
 # ---- 7. done ---------------------------------------------------------------------------------
 rm -f "$COMPOSE.pre-update"

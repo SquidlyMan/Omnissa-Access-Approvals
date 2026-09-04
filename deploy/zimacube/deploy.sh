@@ -88,8 +88,9 @@ chmod 600 "$ENV_FILE"
 # governs nothing — a pull driven from here would only appear to work. Ask the
 # running container; fall back to this file only for a first install.
 COMPOSE=$(docker inspect "$APP" --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null || :)
-[ -n "$COMPOSE" ] && [ -f "$COMPOSE" ] || COMPOSE="$SRC_DIR/deploy/zimacube/docker-compose.yml"
-echo "==> Compose file in charge: $COMPOSE"
+PROJECT=$(docker inspect "$APP" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || :)
+[ -n "$COMPOSE" ] && [ -f "$COMPOSE" ] || { COMPOSE="$SRC_DIR/deploy/zimacube/docker-compose.yml"; PROJECT=""; }
+echo "==> Compose file in charge: $COMPOSE${PROJECT:+ (project $PROJECT)}"
 
 # Refresh LAN_IP in this repo's compose .env WITHOUT discarding anything else
 # in it — OMNISSA_IMAGE_TAG and the WEBUI_* tile settings live here too, and a
@@ -114,10 +115,10 @@ if [ -n "$VERSION" ]; then
 fi
 
 echo "==> Pulling image from GHCR"
-docker compose -f "$COMPOSE" pull
+docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" pull
 
 echo "==> Starting container"
-docker compose -f "$COMPOSE" up -d
+docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" up -d
 
 echo "==> Firewall persistence (LAN-only on 8081)"
 sed "s|__LAN_SUBNET__|$LAN_SUBNET|g" "$SRC_DIR/deploy/zimacube/$APP-fw.service" > /etc/systemd/system/$APP-fw.service
