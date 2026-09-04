@@ -214,12 +214,16 @@ did not stick. The `reason` is the host's own words; the cases:
   go. Set `OMNISSA_UPDATE_HEALTH_URL` in `omnissa-approvals-update.service`
   and `systemctl daemon-reload`.
 
+![The host's verdict on the Dashboard, with Dismiss for an administrator](images/tool-update-rolled-back.png)
+
 **Nothing happens after approval.** *Waiting for the host to pick it up* for
 more than a minute means the path unit is not watching:
 `systemctl status omnissa-approvals-update.path` on the host, and
 `sudo sh deploy.sh` (ZimaCube) or `sudo sh deploy/updater/install.sh` (any
 other systemd host) to install it. After ten minutes the Dashboard turns the
 notice amber and lets a new approval replace the unanswered one.
+
+![Ten minutes with no pickup: the notice turns amber and a new request may replace it](images/tool-update-stale.png)
 
 **The picker is empty and the banner says "no release versions".** The
 registry answered but listed nothing that looks like `N.N.N` — an incident on

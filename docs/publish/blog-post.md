@@ -250,6 +250,11 @@ pulls, recreates and proves the result — by image digest and reported version,
 rolling back if either fails. The container never holds the Docker socket, and
 nothing upgrades without a name in the audit trail.
 
+![](assets/update-available.png)
+
+*A newer release, detected by the tool itself. Approve… is the whole of what the
+container does; the host does the rest.*
+
 ## Resources
 
 - **Repository (MIT):** <https://github.com/SquidlyMan/Omnissa-Access-Approvals>

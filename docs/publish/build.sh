@@ -51,6 +51,14 @@ COPY = {
     "users.png":                    "tool-users.png",
     "delete-confirm.png":           "app_request_delete_confirm.png",
     "help-contents.png":            "tool_help_overview.png",
+    "update-available.png":         "tool-update-available.png",
+    "update-approve.png":           "tool-update-approve.png",
+    "update-rollback-floor.png":    "tool-update-rollback-floor.png",
+    "update-applying.png":          "tool-update-applying.png",
+    "update-stale.png":             "tool-update-stale.png",
+    "update-rolled-back.png":       "tool-update-rolled-back.png",
+    "update-deployed.png":          "tool-update-deployed.png",
+    "update-audit.png":             "tool-update-audit.png",
 }
 digest = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
 

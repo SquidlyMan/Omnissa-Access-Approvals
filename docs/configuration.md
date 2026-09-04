@@ -330,6 +330,8 @@ is the only place a newer release can appear.
 | `OMNISSA_UPDATE_NOTIFY_EMAIL_TO` | — | Who receives that e-mail. Required when the toggle above is on |
 | `OMNISSA_UPDATE_CONTROL_DIR` | `/app/control` | Where an approved deployment is written for the host-side updater. **Must be a mount the host watches**, and a separate one from `/app/data` |
 
+![The Dashboard with a newer release detected](images/tool-update-available.png)
+
 Three things about the check are worth knowing:
 
 - **It runs on its own scheduler thread.** Every other job except escalation
@@ -351,6 +353,8 @@ it is liveness only and reports `UP` on any version.
 
 Only an **Admin** can approve. The version picker offers every release the
 registry listed on the last check — older ones too, for rollback — and:
+
+![Approve a deployment: any published version can be chosen](images/tool-update-approve.png)
 
 - **Below 1.19.5 it refuses** unless the version is typed again, and the
   refusal names what the rollback reopens (unauthenticated callout ingest, the

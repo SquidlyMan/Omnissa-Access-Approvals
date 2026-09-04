@@ -360,6 +360,8 @@ admin-only act, and what it does is deliberately small: the application writes
 a one-line file naming the version to its `/app/control` mount. Everything with
 Docker privilege happens on the host, where that privilege already lives.
 
+![The Dashboard with a newer release detected](images/tool-update-available.png)
+
 **On the host** (`deploy/zimacube/`), installed by `deploy.sh`:
 
 | File | Role |
@@ -404,6 +406,8 @@ ZimaCube it is `/media/ZIMARAID/omnissa-approvals/control/`.
 8. Writes `update-result` (`outcome=`, `target=`, `reason=`, `digest=`,
    `version=`, `at=`) for the Dashboard to show.
 
+![Rolling back below the security floor: the console names what it reopens and asks for the version to be typed](images/tool-update-rollback-floor.png)
+
 Two details of *when* things happen matter. The request is consumed at the
 **start** of the run — `update-requested` is renamed to `update-applying`, so
 the Dashboard shows *the host is applying it now*, the path unit cannot re-fire,
@@ -423,6 +427,10 @@ The Dashboard shows the verdict: a green line after a verified deploy, a red
 box naming the reason after a rollback. A rollback is the case that matters —
 the container that comes back is the old one, and nothing in its own state
 says anything happened, so the host has to tell it.
+
+![The host's verdict after a deploy that did not stick](images/tool-update-rolled-back.png)
+
+![The line after a verified deploy](images/tool-update-deployed.png)
 
 **Manual path:** `sudo sh deploy.sh 1.22.0` first proves the version exists in
 the registry (a typo must not leave the compose file pinned to nothing), then

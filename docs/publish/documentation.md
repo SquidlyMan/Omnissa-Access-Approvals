@@ -629,6 +629,49 @@ section, and each section offers a back-to-top link.*
 
 ---
 
+### 2.19 Updates
+
+The tool watches its own container registry for newer releases and shows the
+result on the Dashboard: *Update available — 1.22.1 (running 1.21.1)*, or
+*You're up to date* with when it last checked. The check runs daily on its own
+scheduler thread — a slow registry can never delay the sweep that revokes
+expired access — compares versions numerically, and fails soft: a registry
+outage shows as *last check failed* with the previous answer still visible.
+
+![](assets/update-available.png)
+
+*Figure 25 — the Dashboard with a newer release detected. Check now asks the
+registry immediately; Approve… opens the picker.*
+
+Nothing installs on its own. An administrator approves a version — the newest,
+or any published release for rollback — and the tool writes a one-line request
+to its `/app/control` mount. A host-side updater (§4.4) pins the compose file
+to that exact version, pulls, recreates, and proves the result by image digest
+and reported version. Below **1.19.5** the picker refuses until the version is
+typed again, and names what the rollback would reopen.
+
+![](assets/update-rollback-floor.png)
+
+*Figure 26 — a rollback below the security floor: the console names what it
+reopens and asks for the version to be typed. The floor is a constant, not a
+setting, and the host enforces it too.*
+
+The approval is audited as `update-approved` before the request is written.
+The host's verdict comes back to the Dashboard — a green line after a verified
+deploy, a red box after a rollback — and an administrator can dismiss it, which
+is audited as `update-result-dismissed`.
+
+![](assets/update-rolled-back.png)
+
+*Figure 27 — the host's verdict after a deploy that did not stick. The container
+that came back is the old one; this is the only place that says anything
+happened.*
+
+![](assets/update-audit.png)
+
+*Figure 28 — the audit trail carries the approval and the dismissal, and by
+whom.*
+
 ## 3. Requirements
 
 | Requirement | Detail |
@@ -699,6 +742,8 @@ the backup/restore scripts.
 
 ### 4.4 Updates
 
+The console side is described in §2.19; this is the host side.
+
 - **From the console:** the Dashboard polls the registry daily and shows the
   newest published release. An administrator approves a version — newer, or an
   older one to roll back — and the tool writes a one-line request to its
@@ -738,7 +783,7 @@ the backup/restore scripts.
 
 ![](assets/access-service-client.png)
 
-*Figure 25 — service client in Omnissa Access (Service Client Token, admin scope).*
+*Figure 29 — service client in Omnissa Access (Service Client Token, admin scope).*
 
 ### 5.2 OIDC Admin Login Client
 
@@ -759,7 +804,7 @@ the backup/restore scripts.
 
 ![](assets/access-oidc-client.png)
 
-*Figure 26 — OIDC admin login client (authorization code + PKCE). Note: the scope
+*Figure 30 — OIDC admin login client (authorization code + PKCE). Note: the scope
 list must also include `group` for role resolution.*
 
 ### 5.3 Approvals Settings
@@ -772,7 +817,7 @@ DNS, TLS, or reachability problems (Section 9).
 
 ![](assets/access-approvals-settings.png)
 
-*Figure 27 — Settings → Approvals: REST API engine pointed at the callout URI.*
+*Figure 31 — Settings → Approvals: REST API engine pointed at the callout URI.*
 
 ### 5.4 Putting Applications Behind Approval
 
@@ -785,11 +830,11 @@ recorded in the tool.
 
 ![](assets/access-license-approval.png)
 
-*Figure 28 — License Approval Required on an application.*
+*Figure 32 — License Approval Required on an application.*
 
 ![](assets/access-assignment.png)
 
-*Figure 29 — assignment deployment type selection (User-Activated / Automatic).*
+*Figure 33 — assignment deployment type selection (User-Activated / Automatic).*
 
 ---
 
@@ -905,7 +950,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 
 ![](assets/hub-pending.png)
 
-*Figure 30 — the user side: PENDING until somebody, or a rule, says yes.*
+*Figure 34 — the user side: PENDING until somebody, or a rule, says yes.*
 
 ---
 
