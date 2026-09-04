@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.21.1"
+subtitle: "What was built between v1.2 and v1.22.0"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 # One graded list — a page break between groups would separate items
@@ -21,7 +21,7 @@ Omnissa Access, showed them in a list, and posted approve or reject back. Every
 administrator who could sign in could do everything. Every approval was
 permanent.
 
-The list below is what was added between then and v1.21.1, grouped by what it
+The list below is what was added between then and v1.22.0, grouped by what it
 does rather than by the release it arrived in. The version each item shipped in
 is given in brackets.
 
@@ -128,6 +128,17 @@ is given in brackets.
   TypeScript 6, with no intended behaviour or visual change [1.4.0]
 - **In-app Help** gained condensed Slack and Teams setup walkthroughs [1.9.5]
   and a navigable contents list with back-to-top links
+- **Update detection** — the Dashboard shows the newest published release,
+  checked daily on its own scheduler thread, compared numerically, announced
+  once to chat or e-mail if asked [1.22.0]
+- **Approved deployment** — an administrator picks a version (newer, or older
+  to roll back, with a typed confirmation below the 1.19.5 security floor);
+  the tool audits the approval and writes a request to a dedicated control
+  mount; a host-side updater pins, pulls, recreates and proves the result by
+  image digest and reported version, rolling back on any failure. The
+  container never holds the Docker socket [1.22.0]
+- **Immutable image pin** — a bare `compose pull` changes nothing; every
+  upgrade has a name behind it [1.22.0]
 
 ## Decision automation
 

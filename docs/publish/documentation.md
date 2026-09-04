@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.21.1 • MIT License"
+date: "Version 1.22.0 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -849,6 +849,13 @@ All settings are container environment values. Required rows are marked ●.
 | `OMNISSA_API_CHALLENGE_OPTIONS` | `true` | Challenge the `OPTIONS` probe Access uses to decide whether credentials are required. Turning it off stops Access authenticating at all |
 | `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` | `0` | Reverse proxies in front of the container; decides which `X-Forwarded-For` entry is believed |
 | `OMNISSA_API_RATE_LIMIT` | `60` | Callout requests/minute per source IP; `0` disables |
+| `OMNISSA_UPDATE_CHECK_ENABLED` | `true` | Poll the container registry for newer releases |
+| `OMNISSA_UPDATE_CHECK_INTERVAL` | `P1D` | How often, ISO-8601 duration |
+| `OMNISSA_UPDATE_REGISTRY_REPO` | `squidlyman/omnissa-access-approvals` | The GHCR repository to watch |
+| `OMNISSA_UPDATE_NOTIFY_WEBHOOK` | `false` | Announce a newer release to the chat channel (`WEBHOOK_URL`), once per version |
+| `OMNISSA_UPDATE_NOTIFY_EMAIL` | `false` | Announce by e-mail, once per version |
+| `OMNISSA_UPDATE_NOTIFY_EMAIL_TO` | — | Recipient for the e-mail announcement |
+| `OMNISSA_UPDATE_CONTROL_DIR` | `/app/control` | Where an approved deployment is written for the host-side updater |
 | `SERVER_PORT` | `8081` | HTTP listen port |
 | `APP_BASE_URL` | — | Public URL. **Required** for Slack/Teams deep links |
 | `WEBHOOK_URL` | — | Notification destination; blank disables |
@@ -937,6 +944,11 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 - **Privileged operations** — permanent decline, revoke and block, allow
   re-request — change entitlements in your tenant, are confirmation-gated, and
   are recorded with the acting identity.
+- **Updates never hand the container the Docker socket.** Approving a
+  deployment writes one line to a dedicated control mount; pulling, recreating
+  and verifying happen on the host, where that privilege already lives.
+  Approval is admin-only, audited before the request is written, and a
+  rollback below the 1.19.5 security floor must be typed to confirm.
 - **Vulnerability reports:** GitHub → Security → "Report a vulnerability"
   (private advisories).
 
@@ -974,6 +986,9 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
   decision is made in the tool's own UI after sign-in.
 - **Teams delivery cannot be confirmed:** Power Automate returns `202 Accepted`,
   meaning queued.
+- **The updater is packaged for the ZimaCube** (a systemd path unit). Another
+  Docker host needs its own watcher for the two-file contract in the control
+  directory; `update.sh` itself runs anywhere with `docker compose` and `curl`.
 - **The entitlements API is not guaranteed to be a complete view** of what Access
   uses for authorization. A divergence has been observed once, resolved by
   recreating the application in Access.

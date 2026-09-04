@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.22.0] - 2026-09-04
 
 ### Added
 - **Update detection (#83, part 1 of 3).** The tool now polls the public container registry for newer release tags and shows the result on the Dashboard: *Update available — 1.22.0 (running 1.21.1)*, or *You're up to date · last checked …*, with a **Check now** button for administrators. **Detection only** — nothing installs without an explicit approval, which is the next part; the container never restarts itself, because that would need the Docker socket, the privilege trade already rejected for Watchtower. ZimaOS v1.7 has no "check for updates" for an externally-managed container, so this is the only place a newer release can appear.

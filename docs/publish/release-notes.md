@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.21.1 and complete version history"
+subtitle: "Release Notes — v1.22.0 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.22.0** | Update detection, approved deployment, and the host-side updater | `v1.22.0` |
 | **1.21.1** | Corrected chain-stage wording; v1.21 interface documented | `v1.21.1` |
 | **1.21.0** | Ownership and escalation; named-person chain stages | `v1.21.0` |
 | **1.20.0** | Multi-stage approval chains, Hub Notifications | `v1.20.0` |
@@ -98,6 +99,96 @@ Published images: `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.1
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.22.0
+
+### Key Capabilities in this release
+
+- **The tool knows when a newer release exists.** It polls its own container
+  registry once a day and shows the answer on the Dashboard — *Update
+  available — 1.23.0 (running 1.22.0)*, or *You're up to date* with when it last
+  checked — with a **Check now** button for administrators. ZimaOS has no
+  "check for updates" for an externally-managed container, so this is the only
+  place a newer release can appear. The check runs on its own scheduler thread
+  (a registry that hangs must not stall JIT expiry), compares versions
+  numerically (the registry's own tag order puts `1.9.5` above `1.21.1`), asks
+  for a 1000-tag page (`tags/list` truncates at 100 without saying so), and
+  fails soft — an outage shows as *last check failed* with the previous answer
+  still visible. A new version can also be announced once to the chat channel
+  and by e-mail, each opt-in.
+- **An administrator approves a deployment; the host applies it.** Any
+  published version can be chosen — the newest, or an older one to roll back.
+  The tool validates the target against what the registry actually listed,
+  writes an `update-approved` audit event *first* through a path that does not
+  swallow persistence failures, and then writes a one-line request to a
+  dedicated `/app/control` mount. That is everything the application does. A
+  host-side updater (a systemd path unit and `update.sh`, installed by
+  `deploy.sh`) resolves the compose file that owns the container from the
+  container's own labels, pins it to that exact version, pulls, recreates, and
+  **proves the result two ways**: the running image digest equals the
+  registry's for that tag, and `/actuator/info` reports the target. Liveness
+  cannot do that — it is `UP` on any version. Any failure restores the previous
+  pin, and the Dashboard shows the verdict: a green line after a verified
+  deploy, a red box with the reason after a rollback. The container is never
+  given the Docker socket.
+- **A rollback floor at 1.19.5.** Below it the picker refuses until the version
+  is typed again, and the refusal names what the rollback reopens —
+  unauthenticated callout ingest, the exempt `OPTIONS` probe, the fail-open
+  Slack approver map. Between 1.19.5 and 1.19.8 it warns instead: callouts are
+  refused with 401 there, a break rather than a hole. The floor is a constant,
+  not a setting, and the host refuses to be driven below it by anything other
+  than the console's confirmed request.
+- **The image is pinned to the immutable full version.** A moving
+  `major.minor` pin let any pull — a CasaOS tile click, a settings save —
+  upgrade the container with nobody approving. That path is closed: a bare
+  `docker compose pull` now changes nothing, and `deploy.sh <version>` is the
+  manual way to move.
+- **`/actuator/info`** is exposed unauthenticated with the build version, so a
+  deploy can be verified against what actually came up.
+
+### Fixes
+
+- **Version tags are published once, from a `v*` git tag.** CI used to
+  re-publish the pom version on every push to `main`, so an "immutable" tag
+  such as `1.21.1` moved onto different content with every merge, and pinning
+  to it pinned nothing.
+
+### Removed
+
+- **The Watchtower profile.** It needed the Docker socket inside a container
+  and upgraded on its own schedule with nobody approving — the two objections
+  the updater exists to answer. The `autoupdate` profile and its label are
+  gone.
+
+> **⚠ Upgrade note.** Three things, all on the host:
+>
+> 1. **Add the `/app/control` mount** to the compose file that owns the
+>    container (on a CasaOS-adopted install, its copy — edit it in the YAML
+>    tab). Without it the console refuses to approve and says why.
+> 2. **Pin the image to the full version**, e.g. `:1.22.0`, not `:1.22` or
+>    `:latest`.
+> 3. **Re-run `deploy.sh`** on the ZimaCube to install the updater units; the
+>    first move *to* 1.22.0 is made from the host (`deploy.sh 1.22.0`), since an
+>    older console has no Approve button yet.
+>
+> New settings, all optional: `OMNISSA_UPDATE_CHECK_ENABLED`,
+> `OMNISSA_UPDATE_CHECK_INTERVAL`, `OMNISSA_UPDATE_REGISTRY_REPO`,
+> `OMNISSA_UPDATE_NOTIFY_WEBHOOK`, `OMNISSA_UPDATE_NOTIFY_EMAIL`,
+> `OMNISSA_UPDATE_NOTIFY_EMAIL_TO`, `OMNISSA_UPDATE_CONTROL_DIR`.
+
+### Known Issues
+
+- The updater is packaged for the ZimaCube (a systemd path unit). Another
+  Docker host needs its own watcher; the contract is two files in the control
+  directory — `update-requested` in, `update-result` out — and `update.sh`
+  itself runs anywhere with `docker compose`, `curl` and `sh`.
+- A rollback target older than 1.22.0 cannot report its version (`/actuator/info`
+  did not exist), so the updater accepts such a target on the digest check
+  alone.
+- Escalation is a single stage. There is no second stage, no email escalation,
+  and no per-stage SLA inside an approval chain.
 
 ---
 
