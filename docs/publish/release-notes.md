@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.22.0 and complete version history"
+subtitle: "Release Notes — v1.22.1 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.22.1** | The update feature after an adversarial review: 28 fixes | `v1.22.1` |
 | **1.22.0** | Update detection, approved deployment, and the host-side updater | `v1.22.0` |
 | **1.21.1** | Corrected chain-stage wording; v1.21 interface documented | `v1.21.1` |
 | **1.21.0** | Ownership and escalation; named-person chain stages | `v1.21.0` |
@@ -99,6 +100,73 @@ Published images: `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.1
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.22.1
+
+An adversarial review of 1.22.0's update feature — code, host scripts and
+documentation, by three independent reviewers plus a hands-on pass — produced
+twenty-eight fixes. None changes what the feature is; several change whether
+it can be trusted.
+
+### Fixes in this release
+
+- **A confirmed rollback below the floor was refused by the host anyway.** The
+  console asked for the version to be typed, then the updater refused the
+  request unless its unit had been hand-edited. The confirmation now travels
+  with the request and the host honours exactly that; a request without it —
+  dropped in by hand — is still refused.
+- **A second approval made while the host was working was silently deleted.**
+  The request is now consumed the moment a run starts (the Dashboard shows
+  *the host is applying it now*), a second approval is refused while one is
+  pending or applying, and a request nobody has picked up in ten minutes may
+  be replaced — a missing updater cannot lock the console out.
+- **The update check could still take the console down.** A registry error
+  longer than the status row's column failed the save outside the fail-soft
+  guard: the button returned 500, the scheduler failed identically for ever,
+  and the Dashboard kept a green, stale *up to date*. An empty tag list wiped
+  every known version — every rollback refused until the registry recovered.
+  Two checks could race on the singleton row and re-announce a version. All
+  three closed: truncated and guarded, previous list kept, one check at a time.
+- **The registry answer was read without a cap**, redirects were followed
+  with the token, pagination was ignored, and a malformed repository name
+  produced confusing failures. Now: a 1 MB limit, redirects refused,
+  `Link: rel="next"` followed, `owner/name` validated with a warning and a
+  fallback.
+- **A bad `OMNISSA_UPDATE_CHECK_INTERVAL` stopped the application from
+  starting.** It falls back to `P1D` with a warning; anything under `PT5M` is
+  raised to `PT5M`.
+- **The updater's rollback could report a clean revert over an outage**, its
+  rollback target was whatever the compose file said rather than the last
+  version the host had *proved*, its pin rewrite used a line number captured
+  minutes earlier, its health probe fell back to loopback, and a rollback whose
+  re-pull failed left the container down. Each fixed: `rollback-failed` is its
+  own verdict, `last-known-good` is the target, the pin is rewritten by pattern,
+  the probe fails fast, the recreate runs from the local image.
+- **`deploy.sh 1.99.0` rewrote the pin before finding out the version does not
+  exist.** It proves the manifest first, and writes the same verdict the
+  updater does, so a hand deploy clears a stale *rolled back* on the Dashboard.
+- **Nothing consumed an approval on a host that was not the ZimaCube.** The
+  mount was there, the console approved, and the request was never read.
+  `deploy/updater/install.sh` installs the same updater on any systemd host;
+  the Dashboard says *nothing has picked it up* after ten minutes either way.
+- **Dashboard:** the pending notice no longer hides the controls; the host's
+  verdict can be dismissed by an administrator (audited); turning the daily
+  check off hides only the detection, never a pending request or a rollback;
+  an approval whose request could not be written leaves a compensating
+  `update-approval-failed` audit row.
+- No more moving `major.minor` image tag; the updater and `deploy.sh` share a
+  lock; no host-wide `docker image prune`; the seven `OMNISSA_UPDATE_*`
+  settings are in both `.env.example` files; Troubleshooting gains *A
+  deployment was refused, failed, or rolled back*.
+
+### Known Issues
+
+- The updater needs systemd. A host without it needs its own watcher for the
+  two-file contract in the control directory.
+- Escalation is a single stage. There is no second stage, no email escalation,
+  and no per-stage SLA inside an approval chain.
 
 ---
 

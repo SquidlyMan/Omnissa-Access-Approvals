@@ -31,7 +31,7 @@ ever touched it.)
 | `blog-post.md` | Introductory blog post — leads with the unsupported / non-production disclaimer |
 | `documentation.md` | Complete reference: features, deployment, tenant setup, configuration, POC walkthrough |
 | `release-notes.md` | Per-version capabilities, fixes and known issues, plus what is planned. No dates — versions, not calendars |
-| `feature-summary.md` | Everything built between v1.2 and v1.22.0, grouped by capability rather than release. For briefing someone who last saw v1.2 |
+| `feature-summary.md` | Everything built between v1.2 and v1.22.1, grouped by capability rather than release. For briefing someone who last saw v1.2 |
 | `style.css` | Shared print/screen styling, so both documents look like one product |
 | `reference.docx` | Word styling for the DOCX output — fonts, paragraph styles, page setup, running footer. Derived from a copy styled by hand in Word, with body content and images stripped, since pandoc reads only styling from a reference document |
 | `assets/` | Diagrams and screenshots referenced by both documents, plus `logo.png` for the title pages |

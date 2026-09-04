@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.22.1] - 2026-09-04
 
 ### Fixed
 - **A confirmed rollback below the floor was refused by the host anyway.** The console made the administrator type the version, then the updater refused the request unless its unit had been hand-edited to allow it — the override existed in one place and was enforced in another. The confirmation now travels with the request (`confirmed=below-floor` on a second line) and the host honours exactly that; a request without it, dropped in by hand, is still refused.
