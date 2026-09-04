@@ -967,6 +967,56 @@ export default function HelpPage() {
           </p>
         </HelpSection>
 
+        <HelpSection title="Updates">
+          <p>
+            The tool watches its own container registry for newer releases and shows the result on
+            the Dashboard: <span className="font-medium text-gray-800">Update available</span> with
+            the version, or <span className="font-medium text-gray-800">You're up to date</span> with
+            when it last checked. ZimaOS has no "check for updates" for an externally-managed
+            container, so this is the only place a newer release can appear.
+          </p>
+          <p>
+            <span className="font-medium text-gray-800">Nothing installs on its own.</span> The
+            container cannot restart itself — that would need the Docker socket, the privilege trade
+            this tool refuses — so an administrator approves a version, the tool writes that request
+            to a control directory, and a small updater on the host does the pull, the recreate and
+            the verification. Approval is admin-only and is recorded in the Audit trail as{' '}
+            <span className="font-medium text-gray-800">update-approved</span> before the request is
+            written, so a deploy can never happen without a trace of who asked.
+          </p>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>
+              <span className="font-medium text-gray-800">Any published version can be chosen</span>,
+              including an older one for rollback. Below{' '}
+              <span className="font-medium text-gray-800">1.19.5</span> the picker refuses unless the
+              version is typed to confirm, and names what the rollback reopens — that is where the
+              callout endpoint stops requiring credentials. The floor is fixed in the code, not a
+              setting.
+            </li>
+            <li>
+              <span className="font-medium text-gray-800">Check now</span> asks the registry
+              immediately; otherwise it runs daily (<Code>OMNISSA_UPDATE_CHECK_INTERVAL</Code>) on its
+              own scheduler thread, so a slow registry can never delay the sweep that revokes expired
+              access.
+            </li>
+            <li>
+              A newer version can also be announced to the chat channel and by e-mail —{' '}
+              <Code>OMNISSA_UPDATE_NOTIFY_WEBHOOK</Code>, <Code>OMNISSA_UPDATE_NOTIFY_EMAIL</Code> and{' '}
+              <Code>OMNISSA_UPDATE_NOTIFY_EMAIL_TO</Code>, each off by default. Announced once per
+              version, remembered across restarts.
+            </li>
+            <li>
+              A registry outage shows as <span className="font-medium text-gray-800">last check
+              failed</span> with the previous answer still visible. It never errors the page.
+            </li>
+          </ul>
+          <p>
+            Once approved, the banner reads <span className="font-medium text-gray-800">waiting for
+            the host to apply it</span> until the updater runs. The container restarts; the running
+            version is the proof it worked, not the health check, which is UP on any version.
+          </p>
+        </HelpSection>
+
         <HelpSection title="Health and Monitoring">
           <p>
             Two endpoints, because "the container is down" and "something it depends on is

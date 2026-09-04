@@ -325,6 +325,10 @@ is the only place a newer release can appear.
 | `OMNISSA_UPDATE_CHECK_ENABLED` | `true` | `false` stops the poller and hides the banner |
 | `OMNISSA_UPDATE_CHECK_INTERVAL` | `P1D` | How often to check, as an ISO-8601 duration (`PT6H`, `P1D`) — the same form every other schedule in the tool uses |
 | `OMNISSA_UPDATE_REGISTRY_REPO` | `squidlyman/omnissa-access-approvals` | The GHCR repository to watch. Change only for a fork |
+| `OMNISSA_UPDATE_NOTIFY_WEBHOOK` | `false` | Also announce a newer release to the configured webhook (`WEBHOOK_URL` / `WEBHOOK_FORMAT`) |
+| `OMNISSA_UPDATE_NOTIFY_EMAIL` | `false` | Also announce it by e-mail through the configured SMTP relay |
+| `OMNISSA_UPDATE_NOTIFY_EMAIL_TO` | — | Who receives that e-mail. Required when the toggle above is on |
+| `OMNISSA_UPDATE_CONTROL_DIR` | `/app/control` | Where an approved deployment is written for the host-side updater. **Must be a mount the host watches**, and a separate one from `/app/data` |
 
 Three things about the check are worth knowing:
 
@@ -342,6 +346,28 @@ The running version is also exposed unauthenticated at `/actuator/info` — not
 sensitive, it is on the dashboard and in every document footer — so a host-side
 deploy can confirm which version actually came up. `/actuator/health` cannot:
 it is liveness only and reports `UP` on any version.
+
+### Approving a deployment
+
+Only an **Admin** can approve. The version picker offers every release the
+registry listed on the last check — older ones too, for rollback — and:
+
+- **Below 1.19.5 it refuses** unless the version is typed again, and the
+  refusal names what the rollback reopens (unauthenticated callout ingest, the
+  exempt `OPTIONS` probe, the fail-open Slack approver map). The floor is a
+  constant in the application, not a setting: a floor an operator can lower in
+  an environment variable is not a floor.
+- **The audit trail gets `update-approved` first** — target, previous version,
+  administrator — and the approval aborts if that row cannot be written. A
+  restart follows within seconds; a deploy with no trace of who asked is the
+  worse outcome.
+- **Then a single line is written** to `$OMNISSA_UPDATE_CONTROL_DIR/update-requested`.
+  That is all the application ever does. Pulling, recreating and verifying
+  happen on the host, which is where the Docker privilege already lives — the
+  container is never handed the socket.
+
+Notifications, when enabled, fire **once per version** and the announced
+version is remembered across restarts — this feature causes restarts.
 
 ## Server
 

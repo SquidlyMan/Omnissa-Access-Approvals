@@ -82,6 +82,39 @@ public class MailNotification {
         }
     }
 
+    /**
+     * A newer release is published (#83). Plain text; there is no request to
+     * template against. Returns whether it was sent, so the caller can decide
+     * whether the version counts as announced.
+     */
+    public boolean sendUpdateAvailable(String to, String runningVersion, String newestVersion) {
+        JavaMailSender sender = mailSender.getIfAvailable();
+        if (sender == null) {
+            logger.warn("No update e-mail sent: mail is not configured. Set spring.mail.host "
+                    + "(SPRING_MAIL_HOST), or turn off OMNISSA_UPDATE_NOTIFY_EMAIL.");
+            return false;
+        }
+        String omnissaURL = RestPreconditions.omnissaServerBaseUrl();
+        try {
+            sender.send((MimeMessage mimeMessage) -> {
+                MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false);
+                helper.setSubject("Access Approval Tool " + newestVersion + " is available");
+                helper.setFrom(fromAddress);
+                helper.setTo(to);
+                helper.setText("A newer release of the Access Approval Tool is published.\n\n"
+                        + "  Available : " + newestVersion + "\n"
+                        + "  Running   : " + runningVersion + "\n"
+                        + "  Tenant    : " + omnissaURL + "\n\n"
+                        + "Nothing installs until an administrator approves it on the Dashboard.\n", false);
+            });
+            logger.info("Update e-mail sent to {}: {} available (running {})", to, newestVersion, runningVersion);
+            return true;
+        } catch (MailException e) {
+            logger.error("Failed to send update e-mail to {}", to, e);
+            return false;
+        }
+    }
+
     private String getMail(CalloutRequest request) {
         if (request.getUserAttributes() == null
                 || request.getUserAttributes().get("email") == null

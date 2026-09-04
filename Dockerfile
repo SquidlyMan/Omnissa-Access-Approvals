@@ -14,8 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 WORKDIR /app
 COPY --from=build /app/target/omnissa-approval-*.jar app.jar
 
-# Config, keystore, and database live on mounted volumes
-VOLUME ["/app/config", "/app/data"]
+# Config, keystore, and database live on mounted volumes. /app/control is
+# where an approved update is written for the host-side updater — kept apart
+# from /app/data so a restored backup can never carry a pending deploy.
+VOLUME ["/app/config", "/app/data", "/app/control"]
 
 # 8081 for Caddy mode (HTTP internal), 8443+8080 for standalone SSL mode
 EXPOSE 8081 8443 8080

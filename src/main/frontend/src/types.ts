@@ -117,6 +117,8 @@ export type AuditAction =
   | 'request-claimed'
   | 'request-released'
   | 'request-escalated'
+  // Update detection and approval (#83)
+  | 'update-approved'
 
 export interface AuditEvent {
   id: number
@@ -189,5 +191,15 @@ export interface UpdateSnapshot {
   updateAvailable: boolean
   lastCheckedAt: string | null
   lastError: string | null
+  knownVersions: string[]
+}
+
+/** What the console shows: detection, plus any approval the host has not yet consumed. */
+export interface UpdateView {
+  detection: UpdateSnapshot
+  pendingTarget: string | null
+  pendingSince: string | null
+  controlDirectoryMounted: boolean
+  rollbackFloor: string
   knownVersions: string[]
 }

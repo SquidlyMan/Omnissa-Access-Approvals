@@ -50,6 +50,10 @@ services:
     volumes:
       # H2 database — the only state the app writes (Spring workdir /app/data)
       - /media/ZIMARAID/omnissa-approvals/data:/app/data
+        # Approved updates are written here for the host-side updater (#83).
+        # A separate mount from data/, which backup archives — a restored
+        # archive must never carry a pending deploy.
+      - /media/ZIMARAID/omnissa-approvals/control:/app/control
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 30s

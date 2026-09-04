@@ -31,6 +31,10 @@ services:
       SPRING_MAIL_PASSWORD:             ${SPRING_MAIL_PASSWORD:-}
     volumes:
       - app_data:/app/data
+      # Approved updates are written here for the host-side updater (#83).
+      # A separate volume from app_data, which backup archives — a restored
+      # archive must never carry a pending deploy.
+      - app_control:/app/control
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
@@ -58,3 +62,4 @@ volumes:
   app_data:
   caddy_data:
   caddy_config:
+  app_control:

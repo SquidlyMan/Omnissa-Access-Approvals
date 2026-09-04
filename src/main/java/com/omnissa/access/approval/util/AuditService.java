@@ -93,6 +93,39 @@ public class AuditService {
     }
 
     /**
+     * Like {@link #record}, but a persistence failure propagates instead of
+     * being logged and swallowed.
+     *
+     * <p>{@code record} tolerates a failed write because an audit row must never
+     * be the reason a decision does not reach Access. This exists for the
+     * opposite case: an action where the row is the <em>precondition</em> —
+     * approving a deployment, which restarts the container moments later. If
+     * that row cannot be written, the approval must not proceed; an upgrade
+     * that happened with no trace of who asked for it is the worse outcome.
+     *
+     * <p>Not transactional, on purpose: the caller must be able to rely on the
+     * row being committed when this returns, before it writes the file that
+     * triggers the restart.
+     */
+    public void recordOrThrow(String action, String requestId, String resourceName, String message,
+                              String actor) {
+        String admin = (actor != null && !actor.isBlank()) ? actor : currentAdmin();
+        if (message != null && message.length() > MAX_MESSAGE_LENGTH) {
+            message = message.substring(0, MAX_MESSAGE_LENGTH);
+        }
+        AuditEvent event = new AuditEvent();
+        event.setTimestamp(new Date());
+        event.setAdminUsername(admin);
+        event.setAction(action);
+        event.setRequestId(requestId);
+        event.setResourceName(resourceName);
+        event.setMessage(message);
+        auditEventRepository.saveAndFlush(event);
+        auditLogger.info("AUDIT action={} admin={} requester=- requestId={} app={} message={}",
+                action, admin, requestId, resourceName, message);
+    }
+
+    /**
      * Resolves the acting admin from the security context: OIDC users by
      * preferred_username/email, local users by username, and unauthenticated
      * threads (callout ingestion, schedulers) as "system".

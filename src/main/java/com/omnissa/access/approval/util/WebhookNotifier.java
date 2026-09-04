@@ -303,6 +303,56 @@ public class WebhookNotifier {
     }
 
     /**
+     * A newer release is published (#83). Synchronous and answer-bearing like
+     * escalation, because the caller records the version as announced only if
+     * this reached the channel — a failed post is retried on the next check.
+     * Ignores {@code notify-lifecycle}: this is not a request event.
+     */
+    public boolean notifyUpdateAvailable(String runningVersion, String newestVersion) {
+        if (webhookUrl == null || webhookUrl.isBlank()) {
+            return false;
+        }
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            restTemplate.postForEntity(URI.create(webhookUrl),
+                    new HttpEntity<>(buildUpdatePayload(runningVersion, newestVersion), headers), String.class);
+            notificationHealth.recordSuccess();
+            logger.info("Update notification sent: {} available (running {})", newestVersion, runningVersion);
+            return true;
+        } catch (Exception e) {
+            notificationHealth.recordFailure(
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            logger.warn("Update notification FAILED for {}: {}", newestVersion, e.getMessage());
+            return false;
+        }
+    }
+
+    Map<String, Object> buildUpdatePayload(String runningVersion, String newestVersion) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        String format = resolvedFormat();
+        String base = appBaseUrl == null ? "" : appBaseUrl.replaceAll("/+$", "");
+        String where = base.isBlank() ? "the admin console" : base + "/dashboard";
+
+        if ("slack".equals(format) || "teams".equals(format)) {
+            String text = "\uD83D\uDD14 Access Approval Tool " + newestVersion + " is available (running "
+                    + runningVersion + "). Nothing installs until an administrator approves it in " + where + ".";
+            if ("teams".equals(format)) {
+                return teamsTextMessage(text);
+            }
+            payload.put("text", text);
+            return payload;
+        }
+
+        payload.put("event", "update.available");
+        payload.put("runningVersion", runningVersion);
+        payload.put("newestVersion", newestVersion);
+        payload.put("approveAt", base.isBlank() ? null : base + "/dashboard");
+        payload.put("timestamp", Instant.now().toString());
+        return payload;
+    }
+
+    /**
      * Visually distinct from a new-request notification. Rendered identically,
      * five escalations would read as five <em>new</em> requests, which is
      * worse than noise. Carries the same deep link — the action needed is the

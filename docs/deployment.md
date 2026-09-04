@@ -454,3 +454,15 @@ docker image inspect ghcr.io/squidlyman/omnissa-access-approvals:1.9 \
 ```
 
 If that digest differs from the registry's, pull and recreate.
+
+## The control mount (updates)
+
+Every shipped compose file mounts **`/app/control`** beside `/app/data`. That is
+where an approved update is written for the host-side updater to pick up. It is
+deliberately a *separate* mount: `/app/data` is what backup archives, and a
+stale request restored from an archive must never be able to trigger a deploy.
+
+If you assembled your own compose, add it — without the mount the console
+reports *the control directory is not mounted* and refuses to approve. See
+[Configuration → Update Detection](configuration.md#update-detection).
+
