@@ -25,6 +25,7 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 - **Audit trail** recording both the **acting identity** (including chat approvers) and **who the access was for**, so an entry survives the deletion of the request it describes — plus **CSV export**
 - **Notifications** — SMTP email to requestors; webhooks in generic/Slack/Teams formats for new requests, decisions, and access-revoked / app-reopened lifecycle events
 - **Ops** — [backup & restore](docs/deployment.md#backup-and-restore) for the database and secrets, log bundle download, syslog export (UDP/TCP/TLS with client certs), and a [dependency health API](docs/deployment.md#monitoring) that separates "the container is down" from "something it depends on is unhealthy" — including detection of approval requests Omnissa Access is waiting on that never reached the queue
+- **Approved updates** — the Dashboard detects newer releases; an administrator approves a version (newer, or older to roll back — below the 1.19.5 security floor only with the version typed again), and a host-side updater pins, pulls, recreates and proves the result by image digest and reported version, rolling back on failure. The container never holds the Docker socket ([details](docs/deployment.md#approved-updates-the-updater))
 - **Role-based access control** — Admin / Approver / Viewer / Auditor, resolved from Omnissa Access group membership ([details](#roles))
 - **API hardening** — Basic auth (required once a tenant is configured) and per-caller rate limiting on the callout endpoint, the only endpoint that must be internet-reachable. Rate limits and login throttling key on an address the caller cannot forge
 - **Sign-in protection** — failed local sign-ins are progressively delayed and a persistent source is refused, with *no* account lockout: locking would let anyone reach the login page and disable the break-glass credential. Password policy is configurable ([details](docs/configuration.md#password-rules))
@@ -42,6 +43,10 @@ When a user requests access to an application, Omnissa Access POSTs a callout to
 | Sign-in (local + OIDC) | OAuth-only mode |
 |---|---|
 | ![Login](docs/images/tool-login-local-admin-enabled.png) | ![OAuth-only login](docs/images/tool-login-local-admin-disabled.png) |
+
+| Update detected | Rolling back below the security floor |
+|---|---|
+| ![Update available](docs/images/tool-update-available.png) | ![Rollback floor](docs/images/tool-update-rollback-floor.png) |
 
 ## Quick Start
 

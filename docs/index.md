@@ -6,7 +6,7 @@ A self-hosted approval gateway for Omnissa Access (Workspace ONE) application re
 
 ## Guides
 
-- [Deployment](deployment.md) — container quick start, reverse-proxy requirements, NAS example, updates and optional auto-update
+- [Deployment](deployment.md) — container quick start, reverse-proxy requirements, NAS example, approved updates and the host-side updater
 - [Omnissa Access Tenant Setup](omnissa-access-setup.md) — OAuth clients, approvals settings, gating applications (with screenshots)
 - [Access Lifecycle](access-lifecycle.md) — time-bound (JIT) grants, permanent vs temporary decline, revoking active access, allowing re-requests
 - [Multi-Stage Approval Chains](approval-chains.md) — sequential stages by role, Access group or named person; chain-vs-auto-rule precedence, Hub Notifications

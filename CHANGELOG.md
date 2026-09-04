@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+- **The update feature is pictured.** Eight figures captured from a seeded local instance — the Dashboard with a release detected, the approve dialog, a rollback below the security floor with its typed confirmation, the applying and unanswered notices, the host's verdict (deployed and rolled back), and the audit rows — placed in the deployment, configuration and troubleshooting guides, the README, the published documentation (new §2.19 *Updates*; later figures renumbered) and the blog post.
+
 ## [1.22.1] - 2026-09-04
 
 ### Fixed
