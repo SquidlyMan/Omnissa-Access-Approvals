@@ -93,4 +93,15 @@ class EnvironmentVariableNamesTest {
                         + "believes they disabled it — or worse, the reverse")
                 .isEqualTo("false");
     }
+
+    @Test
+    @DisplayName("the update-check settings bind from their documented names")
+    void updateCheck() {
+        assertThat(bind("OMNISSA_UPDATE_CHECK_ENABLED", "false", "omnissa.update.check-enabled"))
+                .isEqualTo("false");
+        assertThat(bind("OMNISSA_UPDATE_CHECK_INTERVAL", "PT6H", "omnissa.update.check-interval"))
+                .isEqualTo("PT6H");
+        assertThat(bind("OMNISSA_UPDATE_REGISTRY_REPO", "example/app", "omnissa.update.registry-repo"))
+                .isEqualTo("example/app");
+    }
 }

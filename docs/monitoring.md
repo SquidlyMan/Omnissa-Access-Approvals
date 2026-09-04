@@ -12,6 +12,7 @@ first should page someone, the second should not.
 | Endpoint | Auth | Answers |
 |---|---|---|
 | `GET /actuator/health` | public | **Liveness only.** Is this container running? |
+| `GET /actuator/info` | public | The build version. What a deploy should verify against — liveness is `UP` on any version |
 | `GET /api/health/deps` | public | Aggregate dependency status: `UP`, `DEGRADED` or `DOWN`. Nothing else. |
 | `GET /api/health/dependencies` | session | Full per-component detail. |
 

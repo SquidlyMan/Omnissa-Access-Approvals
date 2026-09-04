@@ -224,6 +224,11 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // Liveness probe for Docker, deploy.sh, CasaOS and the UAG.
                 .requestMatchers("/actuator/health").permitAll()
+                // Build version for the host-side updater to confirm a deploy.
+                // Not sensitive: the same value is on the dashboard and in every
+                // document footer. Liveness alone cannot prove which version is
+                // up — it is UP on any of them.
+                .requestMatchers("/actuator/info").permitAll()
                 // Dependency status for an external monitor. Aggregate word only —
                 // no tenant hostname, no error strings, no counts. The detailed
                 // view at /api/health/dependencies stays behind a session.
@@ -251,6 +256,12 @@ public class SecurityConfig {
                 // Dependency detail names the tenant and carries error strings.
                 .requestMatchers("/api/health/**")
                         .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
+
+                // Update detection: the banner is for everyone; running a check
+                // is an administrator's act, and so is anything that follows.
+                .requestMatchers(HttpMethod.GET, "/api/updates/status")
+                        .hasAnyRole("ADMIN", "APPROVER", "VIEWER", "AUDITOR", "USER")
+                .requestMatchers("/api/updates/**").hasRole("ADMIN")
 
                 // Tenant configuration, users, log bundle — admin only. The log
                 // bundle is admin-gated because it contains request payloads.
