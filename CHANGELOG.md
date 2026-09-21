@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.23.0] - 2026-09-20
 
 ### Added
 - **The login-page notice is configurable.** The legal & non-production disclaimer at the foot of the login page can be replaced with an operator's own notice — `OMNISSA_UI_LOGIN_NOTICE` under `OMNISSA_UI_LOGIN_NOTICE_TITLE` (default *Notice*), rendered as plain text in a neutral style, with a literal `\n` as a line break — or removed with `OMNISSA_UI_DISCLAIMER_DISABLED=true`, which shows nothing there and wins if both are set. The choice is resolved in one place on the server and logged at startup: a disabled disclaimer is a warning, and a custom notice that the disable flag renders moot is a warning naming it. The Help page, README and published documents keep the legal text.

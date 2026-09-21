@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.22.1 and complete version history"
+subtitle: "Release Notes — v1.23.0 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.23.0** | Configurable login-page notice; the update feature pictured | `v1.23.0` |
 | **1.22.1** | The update feature after an adversarial review: 28 fixes | `v1.22.1` |
 | **1.22.0** | Update detection, approved deployment, and the host-side updater | `v1.22.0` |
 | **1.21.1** | Corrected chain-stage wording; v1.21 interface documented | `v1.21.1` |
@@ -100,6 +101,39 @@ Published images: `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.1
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.23.0
+
+### Key Capabilities in this release
+
+- **The login-page notice is configurable.** The legal & non-production
+  disclaimer at the foot of the login page can be replaced with an operator's
+  own notice — `OMNISSA_UI_LOGIN_NOTICE` under `OMNISSA_UI_LOGIN_NOTICE_TITLE`
+  (default *Notice*), rendered as plain text in a neutral style, a literal
+  `\n` as a line break — or removed with `OMNISSA_UI_DISCLAIMER_DISABLED=true`,
+  which shows nothing there and wins if both are set. One rule on the server
+  decides, so the page and the documentation cannot disagree, and the startup
+  log records the choice: a disabled disclaimer is a warning, and a custom
+  notice that the disable flag renders moot is a warning naming it. The Help
+  page, README and these documents keep the legal text in their own right.
+
+### Documentation
+
+- **The update feature is pictured.** Eight figures from a seeded instance —
+  the Dashboard with a release detected, the approve dialog, a rollback below
+  the security floor with its typed confirmation, the applying and unanswered
+  notices, the host's verdict, and the audit rows — in the deployment,
+  configuration and troubleshooting guides, the README, this documentation
+  (§2.19) and the blog post.
+
+### Known Issues
+
+- The updater needs systemd. A host without it needs its own watcher for the
+  two-file contract in the control directory.
+- Escalation is a single stage. There is no second stage, no email escalation,
+  and no per-stage SLA inside an approval chain.
 
 ---
 

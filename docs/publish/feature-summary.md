@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.22.1"
+subtitle: "What was built between v1.2 and v1.23.0"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 # One graded list — a page break between groups would separate items
@@ -21,7 +21,7 @@ Omnissa Access, showed them in a list, and posted approve or reject back. Every
 administrator who could sign in could do everything. Every approval was
 permanent.
 
-The list below is what was added between then and v1.22.1, grouped by what it
+The list below is what was added between then and v1.23.0, grouped by what it
 does rather than by the release it arrived in. The version each item shipped in
 is given in brackets.
 
@@ -93,6 +93,10 @@ is given in brackets.
 - **Sign-in throttling with deliberately no account lockout.** Locking an
   account would let anyone who can reach the login page disable the one
   credential that exists for emergencies [1.19.0]
+
+- **A configurable login-page notice** — replace the legal disclaimer with your
+  own text (a logging-and-monitoring notice, say) or remove it; the choice is
+  logged at startup [1.23.0]
 
 ## Operability
 
