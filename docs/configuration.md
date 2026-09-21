@@ -92,6 +92,31 @@ which state you are in.
 | Variable | Default | Description |
 |---|---|---|
 | `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED` | `false` | `true` hides the local username/password form entirely — OAuth2-only admin sign-in. Requires a working `OMNISSA_ADMIN_OAUTH_*` setup |
+| `OMNISSA_UI_DISCLAIMER_DISABLED` | `false` | `true` removes the legal & non-production disclaimer from the foot of the login page — and shows nothing there, even if a custom notice is set. Logged at startup |
+| `OMNISSA_UI_LOGIN_NOTICE` | — | Your own text in the disclaimer's place, e.g. a logging-and-monitoring notice. Plain text; a literal `\n` is a line break. Ignored while the disclaimer is disabled |
+| `OMNISSA_UI_LOGIN_NOTICE_TITLE` | `Notice` | Heading above the custom notice |
+
+### The login-page notice
+
+By default the login page ends with the **legal & non-production disclaimer**.
+Two switches change that, and one rule decides between them — *disable wins*:
+
+| `OMNISSA_UI_DISCLAIMER_DISABLED` | `OMNISSA_UI_LOGIN_NOTICE` | The login page shows |
+|---|---|---|
+| unset / `false` | unset | the disclaimer |
+| unset / `false` | set | your notice, under its title |
+| `true` | unset | nothing |
+| `true` | set | nothing — the notice is ignored, and startup logs a warning naming it |
+
+The custom notice is rendered as text, never as HTML or Markdown, in a neutral
+grey where the red disclaimer sits; the title is bold above it. Neither switch
+touches the Help page, the README or the published documents, which carry the
+legal text in their own right.
+
+```bash
+OMNISSA_UI_LOGIN_NOTICE_TITLE="Authorised use only"
+OMNISSA_UI_LOGIN_NOTICE="This system is monitored. All access is logged.\nBy signing in you consent to monitoring."
+```
 
 ## Roles (RBAC)
 

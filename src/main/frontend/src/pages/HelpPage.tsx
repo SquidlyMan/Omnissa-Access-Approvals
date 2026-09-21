@@ -127,6 +127,9 @@ const CONFIG_VARS: ConfigVar[] = [
   { name: 'OMNISSA_ADMIN_OAUTH_ISSUER_URI', def: '—', purpose: 'Tenant OIDC issuer, e.g. https://<tenant>/SAAS/auth.' },
   { name: 'OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT', def: 'false', purpose: 'true disables the Access client user-consent prompt at startup (needs admin rights).' },
   { name: 'OMNISSA_AUTH_LOCAL_LOGIN_DISABLED', def: 'false', purpose: 'true hides the local username/password form; OAuth-only sign-in.' },
+  { name: 'OMNISSA_UI_DISCLAIMER_DISABLED', def: 'false', purpose: 'true removes the legal & non-production disclaimer from the login page and shows nothing there — wins over a custom notice; logged at startup.' },
+  { name: 'OMNISSA_UI_LOGIN_NOTICE', def: '—', purpose: 'Your own login-page notice in the disclaimer\'s place (plain text; a literal \\n is a line break). Ignored while the disclaimer is disabled.' },
+  { name: 'OMNISSA_UI_LOGIN_NOTICE_TITLE', def: 'Notice', purpose: 'Heading above the custom notice.' },
   { name: 'OMNISSA_API_USERNAME', def: '—', purpose: 'Enables HTTP Basic authentication on the approval callout API (username).' },
   { name: 'OMNISSA_API_PASSWORD', def: '—', purpose: 'Password for callout API Basic authentication.' },
   { name: 'OMNISSA_API_RATE_LIMIT', def: '60', purpose: 'Callout requests per minute per source IP; 0 disables rate limiting.' },
@@ -316,6 +319,16 @@ export default function HelpPage() {
             Setting <EnvVar name="OMNISSA_AUTH_LOCAL_LOGIN_DISABLED" />=<Code>true</Code> forces
             OAuth-only sign-in: the local username/password form is hidden and only "Sign in with
             Omnissa Access" is available.
+          </p>
+          <p className="mt-4">
+            <span className="font-medium text-gray-800">The notice at the foot of the login page.</span>{' '}
+            By default it is the legal &amp; non-production disclaimer. <EnvVar name="OMNISSA_UI_LOGIN_NOTICE" />{' '}
+            replaces it with your own text — a logging-and-monitoring notice, say — under the heading in{' '}
+            <EnvVar name="OMNISSA_UI_LOGIN_NOTICE_TITLE" /> (default <Code>Notice</Code>); a literal{' '}
+            <Code>\n</Code> is a line break and nothing else is interpreted. <EnvVar name="OMNISSA_UI_DISCLAIMER_DISABLED" />=
+            <Code>true</Code> removes the disclaimer and shows nothing there. If both are set, disabling wins: the
+            notice is ignored and the startup log says so. Neither touches this Help page or the documents,
+            which carry the legal text in their own right.
           </p>
         </HelpSection>
 

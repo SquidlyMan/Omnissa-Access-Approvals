@@ -36,6 +36,10 @@ public class ConfigController {
     @Value("${omnissa.auth.local-login-disabled:false}")
     private boolean localLoginDisabled;
 
+    /** What the foot of the login page shows — resolved server-side so the page and the docs cannot disagree. */
+    @Autowired
+    private com.omnissa.access.approval.ui.LoginNoticeSettings loginNotice;
+
     /**
      * Present only when an admin OIDC client is configured — see
      * {@link AdminOAuthEnvironmentPostProcessor}.
@@ -58,9 +62,15 @@ public class ConfigController {
         ClientRegistrationRepository registrations = clientRegistrations.getIfAvailable();
         boolean oauthEnabled = registrations != null && registrations.findByRegistrationId(
                 AdminOAuthEnvironmentPostProcessor.REGISTRATION_ID) != null;
+        com.omnissa.access.approval.ui.LoginNotice notice = loginNotice.notice();
+        java.util.Map<String, Object> noticeJson = new java.util.LinkedHashMap<>();
+        noticeJson.put("kind", notice.kind());
+        if (notice.title() != null) noticeJson.put("title", notice.title());
+        if (notice.text() != null) noticeJson.put("text", notice.text());
         return ResponseEntity.ok(Map.of(
                 "localLoginDisabled", localLoginDisabled,
-                "oauthEnabled", oauthEnabled
+                "oauthEnabled", oauthEnabled,
+                "notice", noticeJson
         ));
     }
 

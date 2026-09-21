@@ -118,4 +118,16 @@ class EnvironmentVariableNamesTest {
                 .as("if this does not bind, approvals are written where the host is not watching")
                 .isEqualTo("/srv/control");
     }
+
+    @Test
+    @DisplayName("the login-page notice switches bind from their documented names")
+    void loginNotice() {
+        assertThat(bind("OMNISSA_UI_DISCLAIMER_DISABLED", "true", "omnissa.ui.disclaimer-disabled"))
+                .as("an unbound disable flag leaves the disclaimer up while the operator believes it is off")
+                .isEqualTo("true");
+        assertThat(bind("OMNISSA_UI_LOGIN_NOTICE_TITLE", "Monitored", "omnissa.ui.login-notice-title"))
+                .isEqualTo("Monitored");
+        assertThat(bind("OMNISSA_UI_LOGIN_NOTICE", "All access is logged.", "omnissa.ui.login-notice"))
+                .isEqualTo("All access is logged.");
+    }
 }

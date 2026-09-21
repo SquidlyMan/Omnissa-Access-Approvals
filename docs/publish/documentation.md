@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.22.1 • MIT License"
+date: "Version 1.23.0 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -474,6 +474,12 @@ never blocks request ingestion or decisions.
   also starts, logging an error naming the missing property — failing to start
   is not recoverable, running with one sign-in method is.
 
+The foot of the login page carries the legal & non-production disclaimer.
+`OMNISSA_UI_LOGIN_NOTICE` (with `OMNISSA_UI_LOGIN_NOTICE_TITLE`) replaces it with
+an operator's own text — a logging-and-monitoring notice, say — rendered as
+plain text in a neutral style; `OMNISSA_UI_DISCLAIMER_DISABLED=true` removes it
+and shows nothing, and wins if both are set (§6.1).
+
 **Sign-in throttling.** Repeated failed local sign-ins are progressively delayed,
 and an address making sustained attempts is refused with HTTP 429. Counters
 expire on their own and clear on success.
@@ -859,6 +865,9 @@ All settings are container environment values. Required rows are marked ●.
 | `OMNISSA_ADMIN_OAUTH_SCOPE` | `openid,email,profile,group` | Requested scopes. **`group` is what makes roles work** |
 | `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT` | `false` | Disable the Access consent prompt at startup |
 | `OMNISSA_AUTH_LOCAL_LOGIN_DISABLED` | `false` | `true` = OAuth-only sign-in. Consider leaving local login enabled as break-glass |
+| `OMNISSA_UI_DISCLAIMER_DISABLED` | `false` | `true` removes the legal & non-production disclaimer from the login page and shows nothing there (wins over a custom notice; logged at startup) |
+| `OMNISSA_UI_LOGIN_NOTICE` | — | Your own login-page notice in the disclaimer's place (plain text; `\n` is a line break) |
+| `OMNISSA_UI_LOGIN_NOTICE_TITLE` | `Notice` | Heading above the custom notice |
 
 ### 6.2 Roles
 
