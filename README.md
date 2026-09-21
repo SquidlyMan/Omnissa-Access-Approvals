@@ -185,6 +185,8 @@ Two OAuth clients are required in your tenant (a Client Credentials service clie
 - **Local admin (default)** — on first startup, if `OMNISSA_BOOTSTRAP_ADMIN_USERNAME` and `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` are set and the user table is empty, a local admin account is created automatically. Sign in with those credentials.
 - **Omnissa Access OAuth2** — if the `OMNISSA_ADMIN_OAUTH_*` variables are configured, a **Sign in with Omnissa Access** button appears on the login page. What a user may then *do* is decided by their Omnissa Access group membership — see [Roles](#roles) below. Signing in successfully grants **Viewer** and nothing more until a group is mapped to a higher role.
 
+The foot of the login page carries the legal & non-production disclaimer. `OMNISSA_UI_LOGIN_NOTICE` (with `OMNISSA_UI_LOGIN_NOTICE_TITLE`) replaces it with your own notice; `OMNISSA_UI_DISCLAIMER_DISABLED=true` removes it and shows nothing, and wins if both are set — see [the login-page notice](docs/configuration.md#the-login-page-notice).
+
 ## Roles
 
 Authorization is driven by **Omnissa Access group membership**, mapped to four roles:

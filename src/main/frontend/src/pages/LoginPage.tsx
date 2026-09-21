@@ -7,6 +7,8 @@ const LOGIN_FAILED_MESSAGE =
 interface AuthConfig {
   localLoginDisabled: boolean
   oauthEnabled: boolean
+  /** What the foot of the page shows — resolved by the server (see OMNISSA_UI_DISCLAIMER_DISABLED / OMNISSA_UI_LOGIN_NOTICE). */
+  notice: { kind: 'disclaimer' } | { kind: 'custom'; title: string; text: string } | { kind: 'none' }
 }
 
 export default function LoginPage() {
@@ -14,7 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [authConfig, setAuthConfig] = useState<AuthConfig>({ localLoginDisabled: false, oauthEnabled: true })
+  const [authConfig, setAuthConfig] = useState<AuthConfig>({ localLoginDisabled: false, oauthEnabled: true, notice: { kind: 'disclaimer' } })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -29,6 +31,11 @@ export default function LoginPage() {
         if (cfg) {
           setAuthConfig({
             localLoginDisabled: cfg.localLoginDisabled === true,
+            // Anything malformed falls back to the disclaimer — the safe default.
+            notice: cfg.notice?.kind === 'none' ? { kind: 'none' }
+              : cfg.notice?.kind === 'custom' && typeof cfg.notice.text === 'string'
+                ? { kind: 'custom', title: String(cfg.notice.title ?? 'Notice'), text: cfg.notice.text }
+                : { kind: 'disclaimer' },
             oauthEnabled: cfg.oauthEnabled !== false,
           })
         }
@@ -127,12 +134,20 @@ export default function LoginPage() {
         )}
       </div>
 
-      <p className="w-full max-w-sm text-red-600 text-xs text-center mt-4">
-        LEGAL &amp; NON-PRODUCTION DISCLAIMER: This tool is provided as-is, without warranty of any
-        kind, for testing and demonstration of Omnissa Access application approvals only. It is not
-        an official Omnissa product and is not supported by Omnissa. Do not use in production or
-        with production data.
-      </p>
+      {authConfig.notice.kind === 'disclaimer' && (
+        <p className="w-full max-w-sm text-red-600 text-xs text-center mt-4">
+          LEGAL &amp; NON-PRODUCTION DISCLAIMER: This tool is provided as-is, without warranty of any
+          kind, for testing and demonstration of Omnissa Access application approvals only. It is not
+          an official Omnissa product and is not supported by Omnissa. Do not use in production or
+          with production data.
+        </p>
+      )}
+      {authConfig.notice.kind === 'custom' && (
+        <div className="w-full max-w-sm text-gray-600 text-xs text-center mt-4">
+          <p className="font-medium text-gray-700">{authConfig.notice.title}</p>
+          <p className="mt-1 whitespace-pre-line">{authConfig.notice.text}</p>
+        </div>
+      )}
     </div>
   )
 }
