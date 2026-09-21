@@ -510,8 +510,9 @@ The pin lives on the `image:` line of whichever compose file owns the container
 (after CasaOS adoption, its copy). This repository's compose file interpolates
 it from `OMNISSA_IMAGE_TAG` in the adjacent `.env`; `deploy.sh <version>` sets
 both. The registry carries exactly three kinds of tag: `N.N.N`, published once
-from a `v*` git tag and never moved; `latest` and a commit sha, moved by every
-push to `main`. There is no `N.N` tag to pin to any more.
+from a `v*` git tag and never moved; `latest`, re-pointed by the same tag so
+it always means the newest release; and a commit sha from every push to
+`main`, which nobody installs from. There is no `N.N` tag to pin to any more.
 
 Compare what you are running against the registry with:
 

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **`latest` now means the newest release.** It used to be re-pointed by every merge to `main`, so a first-time install from the README's `:latest` could land on an unreleased build. It now moves only when a `v*` tag is published, alongside the immutable `N.N.N` tag; a push to `main` publishes the commit sha and nothing else. Nothing changes for a pinned install — the Dashboard approval still sets the exact version.
+
 ## [1.23.0] - 2026-09-20
 
 ### Added
