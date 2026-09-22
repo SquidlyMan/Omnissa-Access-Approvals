@@ -63,7 +63,7 @@ docker run -d --name omnissa-approvals \
   ghcr.io/squidlyman/omnissa-access-approvals:latest
 ```
 
-`latest` is always the newest *release* (it moves only when a version is tagged), so a first install lands on something that shipped. Once running, the Dashboard's update banner takes over: approving a version pins the container to that exact release — see [Approved Updates](docs/deployment.md#approved-updates-the-updater).
+`latest` is always the newest *release* (it moves only when a version is tagged), so a first install lands on something that shipped. Images are published for `linux/amd64` and `linux/arm64`, so Apple Silicon and ARM hosts run natively. Once running, the Dashboard's update banner takes over: approving a version pins the container to that exact release — see [Approved Updates](docs/deployment.md#approved-updates-the-updater).
 
 Or build from source:
 

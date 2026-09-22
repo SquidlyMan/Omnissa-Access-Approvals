@@ -514,6 +514,12 @@ from a `v*` git tag and never moved; `latest`, re-pointed by the same tag so
 it always means the newest release; and a commit sha from every push to
 `main`, which nobody installs from. There is no `N.N` tag to pin to any more.
 
+Every tag is a multi-platform image — `linux/amd64` and `linux/arm64`, each
+built natively — so an Apple Silicon Mac, a Raspberry Pi-class box or an ARM
+NAS pulls a native image rather than running the amd64 one under emulation.
+The updater's digest check is unaffected: it compares the manifest-index
+digest the registry reports for a tag, which is the same for both architectures.
+
 Compare what you are running against the registry with:
 
 ```bash
