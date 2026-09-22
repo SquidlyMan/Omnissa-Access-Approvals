@@ -73,7 +73,7 @@ cd Omnissa-Access-Approvals
 docker build -t omnissa-access-approvals .
 ```
 
-Use [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-approvals.env.example) as the env-file template, put a TLS reverse proxy in front (only `POST /api/approvals/new` must be internet-reachable), and configure your tenant — full walkthroughs in the docs:
+Use [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-approvals.env.example) as the env-file template. **No tenant yet? Leave the `OMNISSA_BOOTSTRAP_*` tenant lines commented out** — the container starts without them and you sign in with the bootstrap admin; naming a tenant is what switches on the callout-authentication requirement, so uncomment those lines only together with `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`. Then put a TLS reverse proxy in front (only `POST /api/approvals/new` must be internet-reachable) — full walkthroughs in the docs:
 
 ## Documentation
 

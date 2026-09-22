@@ -22,6 +22,11 @@ Do one of these:
 2. **Set `OMNISSA_API_ALLOW_UNAUTHENTICATED=true`** if the endpoint genuinely
    cannot be reached from anywhere untrusted. The application starts and repeats
    the warning hourly.
+3. **No tenant yet? Comment out `OMNISSA_BOOTSTRAP_URL`.** The check applies
+   only once a tenant is named. The env-file templates ship with the tenant
+   block commented for exactly this reason — an earlier template had it
+   uncommented with a placeholder hostname, and a first run from the README
+   crash-looped on this message.
 
 This is deliberately a refusal rather than a warning. An open ingest path that
 nobody chose is worth interrupting a deployment for, and a warning in a log is
