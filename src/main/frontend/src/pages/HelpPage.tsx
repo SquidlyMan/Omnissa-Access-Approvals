@@ -307,7 +307,12 @@ export default function HelpPage() {
             <li>
               <EnvVar name="OMNISSA_BOOTSTRAP_URL" /> / <EnvVar name="OMNISSA_BOOTSTRAP_CLIENT_ID" /> /{' '}
               <EnvVar name="OMNISSA_BOOTSTRAP_CLIENT_SECRET" /> — the service client used for the
-              approvals API and the connectivity check.
+              approvals API and the connectivity check. <span className="font-medium text-gray-800">Not
+              required to start</span>: leave all three unset until you have a tenant and sign in
+              locally. Naming a tenant is what switches on the callout-authentication requirement, so
+              set them together with <EnvVar name="OMNISSA_API_USERNAME" /> /{' '}
+              <EnvVar name="OMNISSA_API_PASSWORD" /> — a tenant with no credentials is refused at
+              startup, and the message names the way out.
             </li>
             <li>
               <EnvVar name="OMNISSA_BOOTSTRAP_ADMIN_USERNAME" /> / <EnvVar name="OMNISSA_BOOTSTRAP_ADMIN_PASSWORD" /> /{' '}
@@ -1043,7 +1048,9 @@ export default function HelpPage() {
               and deploys it, and reports the result to the Dashboard the same way the updater does.
               The image is pinned to an <span className="font-medium text-gray-800">immutable</span>{' '}
               full version, so a bare <Code>docker compose pull</Code> is no longer an upgrade: it
-              re-pulls the same digest and changes nothing. Name the version.
+              re-pulls the same digest and changes nothing. Name the version. Images are published for{' '}
+              <Code>linux/amd64</Code> and <Code>linux/arm64</Code>, so Apple Silicon and ARM hosts run
+              natively.
             </li>
             <li>
               <span className="font-medium text-gray-800">CasaOS warning</span> — the CasaOS{' '}

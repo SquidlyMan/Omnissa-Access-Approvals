@@ -49,7 +49,10 @@ docker run -d --name omnissa-approvals \
 
 Use [`deploy/zimacube/omnissa-approvals.env.example`](../deploy/zimacube/omnissa-approvals.env.example)
 as the template for the env file (it is a complete, commented reference) and
-`chmod 600` it — it contains client secrets.
+`chmod 600` it — it contains client secrets. **No tenant yet? Leave the
+`OMNISSA_BOOTSTRAP_*` tenant lines commented** — the container starts without
+them; naming a tenant switches on the callout-authentication requirement, so
+uncomment them only together with `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`.
 
 The repository also ships ready-made Docker Compose files:
 

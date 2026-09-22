@@ -683,7 +683,7 @@ whom.*
 | Requirement | Detail |
 |---|---|
 | Omnissa Access tenant | Administrator access to create OAuth clients and enable approvals |
-| Container host | Any Docker/Compose host; ~1 GB RAM is comfortable |
+| Container host | Any Docker/Compose host on `linux/amd64` or `linux/arm64` (each has a native image); ~1 GB RAM is comfortable |
 | Inbound HTTPS | One path — `/api/approvals/new` — must be reachable from the internet with valid public TLS and public DNS, because the Access cloud POSTs callouts to it. The admin UI may remain LAN-only |
 | Reverse proxy | TLS termination with X-Forwarded headers passed through. For live queue updates behind nginx, disable proxy buffering on `/api/approvals/stream`. If your gateway allow-lists paths, see 4.2 — it is the only place valid paths are enumerated |
 | SMTP | **Optional.** Without `SPRING_MAIL_HOST` the tool runs normally and logs a warning when a decision would have e-mailed the requester |
@@ -709,6 +709,13 @@ Copy the environment template from the repository
 (`deploy/zimacube/omnissa-approvals.env.example` is the complete annotated
 reference), fill in the required values (Section 6), and place a TLS reverse
 proxy in front. All persistent state lives under `/app/data`.
+
+**No tenant yet? Leave the `OMNISSA_BOOTSTRAP_URL` / `_CLIENT_ID` /
+`_CLIENT_SECRET` lines commented out** — the container starts without them and
+you sign in with the bootstrap admin. Naming a tenant switches on the
+callout-authentication requirement (§8), so uncomment those lines only together
+with `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`; a tenant with no
+credentials is refused at startup, and the message says so.
 
 ### 4.2 Reverse Proxy Notes
 
