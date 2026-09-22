@@ -121,6 +121,8 @@ OMNISSA_UI_LOGIN_NOTICE_TITLE="Authorised use only"
 OMNISSA_UI_LOGIN_NOTICE="This system is monitored. All access is logged.\nBy signing in you consent to monitoring."
 ```
 
+![The login page with a custom notice under its title, in the disclaimer's place](images/tool-login-notice.png)
+
 ## Roles (RBAC)
 
 Authorization is driven by **Omnissa Access group membership**. See

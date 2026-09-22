@@ -480,6 +480,12 @@ an operator's own text — a logging-and-monitoring notice, say — rendered as
 plain text in a neutral style; `OMNISSA_UI_DISCLAIMER_DISABLED=true` removes it
 and shows nothing, and wins if both are set (§6.1).
 
+![](assets/login-notice.png)
+
+*Figure 25 — the login page with a custom notice under its own title, where the
+legal disclaimer normally sits. Plain text in a neutral grey; red stays
+reserved for the legal warning.*
+
 **Sign-in throttling.** Repeated failed local sign-ins are progressively delayed,
 and an address making sustained attempts is refused with HTTP 429. Counters
 expire on their own and clear on success.
@@ -646,7 +652,7 @@ outage shows as *last check failed* with the previous answer still visible.
 
 ![](assets/update-available.png)
 
-*Figure 25 — the Dashboard with a newer release detected. Check now asks the
+*Figure 26 — the Dashboard with a newer release detected. Check now asks the
 registry immediately; Approve… opens the picker.*
 
 Nothing installs on its own. An administrator approves a version — the newest,
@@ -658,7 +664,7 @@ typed again, and names what the rollback would reopen.
 
 ![](assets/update-rollback-floor.png)
 
-*Figure 26 — a rollback below the security floor: the console names what it
+*Figure 27 — a rollback below the security floor: the console names what it
 reopens and asks for the version to be typed. The floor is a constant, not a
 setting, and the host enforces it too.*
 
@@ -669,13 +675,13 @@ is audited as `update-result-dismissed`.
 
 ![](assets/update-rolled-back.png)
 
-*Figure 27 — the host's verdict after a deploy that did not stick. The container
+*Figure 28 — the host's verdict after a deploy that did not stick. The container
 that came back is the old one; this is the only place that says anything
 happened.*
 
 ![](assets/update-audit.png)
 
-*Figure 28 — the audit trail carries the approval and the dismissal, and by
+*Figure 29 — the audit trail carries the approval and the dismissal, and by
 whom.*
 
 ## 3. Requirements
@@ -796,7 +802,7 @@ The console side is described in §2.19; this is the host side.
 
 ![](assets/access-service-client.png)
 
-*Figure 29 — service client in Omnissa Access (Service Client Token, admin scope).*
+*Figure 30 — service client in Omnissa Access (Service Client Token, admin scope).*
 
 ### 5.2 OIDC Admin Login Client
 
@@ -817,7 +823,7 @@ The console side is described in §2.19; this is the host side.
 
 ![](assets/access-oidc-client.png)
 
-*Figure 30 — OIDC admin login client (authorization code + PKCE). Note: the scope
+*Figure 31 — OIDC admin login client (authorization code + PKCE). Note: the scope
 list must also include `group` for role resolution.*
 
 ### 5.3 Approvals Settings
@@ -830,7 +836,7 @@ DNS, TLS, or reachability problems (Section 9).
 
 ![](assets/access-approvals-settings.png)
 
-*Figure 31 — Settings → Approvals: REST API engine pointed at the callout URI.*
+*Figure 32 — Settings → Approvals: REST API engine pointed at the callout URI.*
 
 ### 5.4 Putting Applications Behind Approval
 
@@ -843,11 +849,11 @@ recorded in the tool.
 
 ![](assets/access-license-approval.png)
 
-*Figure 32 — License Approval Required on an application.*
+*Figure 33 — License Approval Required on an application.*
 
 ![](assets/access-assignment.png)
 
-*Figure 33 — assignment deployment type selection (User-Activated / Automatic).*
+*Figure 34 — assignment deployment type selection (User-Activated / Automatic).*
 
 ---
 
@@ -966,7 +972,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 
 ![](assets/hub-pending.png)
 
-*Figure 34 — the user side: PENDING until somebody, or a rule, says yes.*
+*Figure 35 — the user side: PENDING until somebody, or a rule, says yes.*
 
 ---
 
