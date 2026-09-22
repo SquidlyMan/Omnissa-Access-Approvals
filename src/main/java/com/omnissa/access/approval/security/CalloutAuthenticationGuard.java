@@ -51,6 +51,11 @@ public class CalloutAuthenticationGuard {
             genuinely unreachable from anywhere untrusted — a closed lab, for \
             example. The application will start and repeat this as a warning.
 
+              3. No tenant yet? Remove or comment out OMNISSA_BOOTSTRAP_URL. This \
+            check exists only once a tenant is named; without one there is no \
+            entitlement an injected request could reach, and the container \
+            starts with local sign-in alone.
+
             Startup is refused rather than continuing, because an open ingest \
             path that nobody chose is worth interrupting a deployment for.""";
 

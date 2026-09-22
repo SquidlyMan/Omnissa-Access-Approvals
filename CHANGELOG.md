@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A first run from the README crash-looped.** Both env-file templates shipped the tenant block uncommented with a placeholder hostname, so a new install that followed "use the template" told the application it had a tenant, the callout-authentication guard found no credentials, and startup was refused — on a loop, under `--restart unless-stopped`. Found by installing on a clean Mac exactly as the README says. The templates now ship the tenant block commented and say why; the README's quick start says to leave it so until there is a tenant; and the refusal message itself names the third way out (no tenant yet → remove `OMNISSA_BOOTSTRAP_URL`).
+
 ### Changed
 - **`latest` now means the newest release.** It used to be re-pointed by every merge to `main`, so a first-time install from the README's `:latest` could land on an unreleased build. It now moves only when a `v*` tag is published, alongside the immutable `N.N.N` tag; a push to `main` publishes the commit sha and nothing else. Nothing changes for a pinned install — the Dashboard approval still sets the exact version.
 
