@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The image is published for `linux/arm64` as well as `linux/amd64`.** A new-tester install on an Apple Silicon Mac ran the amd64 image under emulation with a platform-mismatch warning. Each architecture is now built natively on a runner of its own kind and merged into one multi-platform manifest per tag; tags are created only once both builds exist, so a tag never points at half an image. The updater's digest check compares the index digest and is unaffected.
+
 ### Fixed
 - **A first run from the README crash-looped.** Both env-file templates shipped the tenant block uncommented with a placeholder hostname, so a new install that followed "use the template" told the application it had a tenant, the callout-authentication guard found no credentials, and startup was refused — on a loop, under `--restart unless-stopped`. Found by installing on a clean Mac exactly as the README says. The templates now ship the tenant block commented and say why; the README's quick start says to leave it so until there is a tenant; and the refusal message itself names the third way out (no tenant yet → remove `OMNISSA_BOOTSTRAP_URL`).
 
