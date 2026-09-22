@@ -59,6 +59,7 @@ COPY = {
     "update-rolled-back.png":       "tool-update-rolled-back.png",
     "update-deployed.png":          "tool-update-deployed.png",
     "update-audit.png":             "tool-update-audit.png",
+    "login-notice.png":             "tool-login-notice.png",
 }
 digest = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
 
