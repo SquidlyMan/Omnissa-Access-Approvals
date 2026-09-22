@@ -1,0 +1,13 @@
+{
+  "name": "omnissa-approvals-publish",
+  "version": "0.0.0",
+  "description": "docx-js dependency for brief.js, the generated one-page product brief",
+  "scripts": {
+    "brief": "node brief.js"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "docx": "^9.7.1"
+  },
+  "private": true
+}
