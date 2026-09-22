@@ -16,6 +16,9 @@ Changes require a container **recreate** (`docker compose … up -d
 
 A complete, commented env-file template lives at
 [`deploy/zimacube/omnissa-approvals.env.example`](../deploy/zimacube/omnissa-approvals.env.example).
+It ships with the tenant block commented out on purpose: the container starts
+without a tenant, and naming one switches on the
+[callout-authentication requirement](#callout-api-security).
 
 ## Omnissa Access Service Client (required)
 
