@@ -91,6 +91,7 @@ DOCS=("${@:-}")
 [ -z "${DOCS[0]}" ] && DOCS=(blog-post documentation release-notes feature-summary)
 
 for doc in "${DOCS[@]}"; do
+  [ "$doc" = "brief" ] && continue
   [ -f "$doc.md" ] || { echo "no such document: $doc.md"; exit 1; }
   echo "==> $doc"
 
@@ -329,6 +330,25 @@ PY
   printf "    %-28s %s\n" "out/$doc.pdf"  "$(du -h "out/$doc.pdf"  | cut -f1)"
   printf "    %-28s %s\n" "out/$doc.docx" "$(du -h "out/$doc.docx" | cut -f1)"
 done
+
+# The one-page product brief has no markdown source: it is a docx-js layout
+# (brief.js) that reproduces the original Claude Design brief, so that it is
+# regenerated — and version-stamped — with every release like the documents
+# above. The same script writes an HTML twin from the same content, and the
+# PDF comes from WeasyPrint like every other document here; no Office
+# application is involved anywhere in this build.
+if [ -z "${1:-}" ] || [ "${1:-}" = "brief" ]; then
+  echo "==> brief"
+  if [ ! -d node_modules/docx ]; then
+    echo "    docx-js not installed — run: (cd docs/publish && npm install) — skipping the brief"
+  else
+    node brief.js 2>/dev/null
+    weasyprint out/brief.html out/brief.pdf 2>/dev/null
+    printf "    %-28s %s\n" "out/brief.html" "$(du -h out/brief.html | cut -f1)"
+    printf "    %-28s %s\n" "out/brief.pdf"  "$(du -h out/brief.pdf  | cut -f1)"
+    printf "    %-28s %s\n" "out/brief.docx" "$(du -h out/brief.docx | cut -f1)"
+  fi
+fi
 
 # The slide decks carry the same messaging as these documents, so a docs build is
 # the natural moment to notice they have fallen behind. Advisory only, and

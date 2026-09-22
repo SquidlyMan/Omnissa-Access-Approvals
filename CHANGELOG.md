@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Documentation
+- **The product brief is generated now.** The one-page brief was a Claude Design page printed to PDF on 3 August with no source in the repository, so it silently fell three releases behind. `docs/publish/brief.js` (docx-js) reproduces its layout and is built by `build.sh` with the release version stamped, alongside the four markdown documents; its *Monitoring & troubleshooting* card became *Approved updates*, and the Deploy strip names both image architectures.
 - A figure of the login page with a custom notice, in the configuration guide and the published documentation (§2.11, Figure 25; later figures renumbered).
 
 ## [1.23.1] - 2026-09-22

@@ -32,3 +32,5 @@ zimacube-container-deploy/
 
 # Generated publication output — rebuild with docs/publish/build.sh
 docs/publish/out/
+# docx-js for the product brief generator — npm install in docs/publish
+docs/publish/node_modules/
