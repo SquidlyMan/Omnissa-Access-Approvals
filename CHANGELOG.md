@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.23.1] - 2026-09-22
 
 ### Changed
 - **The image is published for `linux/arm64` as well as `linux/amd64`.** A new-tester install on an Apple Silicon Mac ran the amd64 image under emulation with a platform-mismatch warning. Each architecture is now built natively on a runner of its own kind and merged into one multi-platform manifest per tag; tags are created only once both builds exist, so a tag never points at half an image. The updater's digest check compares the index digest and is unaffected.

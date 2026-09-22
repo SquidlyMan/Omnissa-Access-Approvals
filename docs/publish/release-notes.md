@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.23.0 and complete version history"
+subtitle: "Release Notes — v1.23.1 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.23.1** | A first run from the README works; native arm64 images; `latest` means the newest release | `v1.23.1` |
 | **1.23.0** | Configurable login-page notice; the update feature pictured | `v1.23.0` |
 | **1.22.1** | The update feature after an adversarial review: 28 fixes | `v1.22.1` |
 | **1.22.0** | Update detection, approved deployment, and the host-side updater | `v1.22.0` |
@@ -101,6 +102,45 @@ Published images: `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.1
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.23.1
+
+A new-tester install on a clean Apple Silicon Mac, following the README word
+for word, found the two things this release fixes.
+
+### Fixes in this release
+
+- **A first run from the README crash-looped.** Both env-file templates shipped
+  the tenant block uncommented with a placeholder hostname. A new install that
+  followed "use the template" therefore told the application it had a tenant;
+  the callout-authentication guard found no credentials and refused startup —
+  on a loop, under `--restart unless-stopped`. The templates now ship the
+  tenant block commented, with the reason beside it; the README's quick start
+  says to leave it so until there is a tenant; the refusal message itself names
+  the third way out (*no tenant yet? remove `OMNISSA_BOOTSTRAP_URL`*); Help and
+  the guides say the same.
+
+### Changed
+
+- **The image is published for `linux/arm64` as well as `linux/amd64`.** The
+  amd64-only image ran on Apple Silicon under emulation with a platform
+  warning. Each architecture is now built natively on a runner of its own kind
+  and merged into one multi-platform manifest per tag; the updater's digest
+  check compares the index digest and is unaffected.
+- **`latest` means the newest release.** It used to be re-pointed by every
+  merge to `main`, so a first-time install from `:latest` could land on an
+  unreleased build. It now moves only when a `v*` tag is published; a push to
+  `main` publishes the commit sha and nothing else. This is the first release
+  under that rule.
+
+### Known Issues
+
+- The updater needs systemd. A host without it needs its own watcher for the
+  two-file contract in the control directory.
+- Escalation is a single stage. There is no second stage, no email escalation,
+  and no per-stage SLA inside an approval chain.
 
 ---
 
