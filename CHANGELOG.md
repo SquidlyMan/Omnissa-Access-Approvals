@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The env template also shipped the admin OAuth2 block uncommented with placeholder values** — `ApprovalAdmin`, `approvals.example.com`, a `tenant.us1…` issuer — so a fresh install showed a live *Sign in with Omnissa Access* button pointing at a tenant that does not exist. Found by the second new-tester run, in Docker Desktop. The block ships commented now, beside the tenant block fixed in 1.23.1, and the template's header says the bootstrap admin password is the one value to fill in.
+
 ### Documentation
 - **The product brief is generated now.** The one-page brief was a Claude Design page printed to PDF on 3 August with no source in the repository, so it silently fell three releases behind. `docs/publish/brief.js` (docx-js) reproduces its layout and is built by `build.sh` with the release version stamped, alongside the four markdown documents; its *Monitoring & troubleshooting* card became *Approved updates*, and the Deploy strip names both image architectures.
 - A figure of the login page with a custom notice, in the configuration guide and the published documentation (§2.11, Figure 25; later figures renumbered).
