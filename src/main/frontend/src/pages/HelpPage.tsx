@@ -307,7 +307,11 @@ export default function HelpPage() {
             <li>
               <EnvVar name="OMNISSA_BOOTSTRAP_URL" /> / <EnvVar name="OMNISSA_BOOTSTRAP_CLIENT_ID" /> /{' '}
               <EnvVar name="OMNISSA_BOOTSTRAP_CLIENT_SECRET" /> — the service client used for the
-              approvals API and the connectivity check. <span className="font-medium text-gray-800">Not
+              approvals API and the connectivity check: Access type{' '}
+              <span className="font-medium text-gray-800">Service Client Token</span>, grant Client
+              Credentials, scope <span className="font-medium text-gray-800">Admin</span>, admin role{' '}
+              <span className="font-medium text-gray-800">Super Admin</span> (required — a lesser role gets
+              403 and an Unreachable tile). <span className="font-medium text-gray-800">Not
               required to start</span>: leave all three unset until you have a tenant and sign in
               locally. Naming a tenant is what switches on the callout-authentication requirement, so
               set them together with <EnvVar name="OMNISSA_API_USERNAME" /> /{' '}

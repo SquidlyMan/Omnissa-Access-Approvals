@@ -794,15 +794,17 @@ The console side is described in §2.19; this is the host side.
 ### 5.1 Service Client (decision delivery)
 
 1. Access console → **Settings → OAuth 2.0 Management** → create a client: type
-   **Service Client Token**, grant **Client Credentials**, suggested name
-   `ApprovalService`. Grant admin rights if you plan to use consent auto-disable.
+   **Service Client Token**, grant **Client Credentials**, scope **Admin**,
+   admin role **Super Admin** (required — it reads pending approvals, posts
+   decisions and rewrites entitlements; a lesser role gets 403 and an
+   *Unreachable* tile), suggested name `ApprovalService`.
 2. Copy Client ID and Secret into `OMNISSA_BOOTSTRAP_CLIENT_ID` /
    `OMNISSA_BOOTSTRAP_CLIENT_SECRET`, and the tenant hostname (no scheme) into
    `OMNISSA_BOOTSTRAP_URL`.
 
 ![](assets/access-service-client.png)
 
-*Figure 30 — service client in Omnissa Access (Service Client Token, admin scope).*
+*Figure 30 — service client in Omnissa Access (Service Client Token, scope Admin, admin role Super Admin).*
 
 ### 5.2 OIDC Admin Login Client
 

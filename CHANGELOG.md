@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The service client's required role is stated.** The setup guide said the `ApprovalService` client "needs admin rights" only in the consent-auto-disable note; a new tester creating it with scope Admin and no admin role gets 403s and an *Unreachable* tile. Setup guide, published documentation, Help and the deck now say: scope **Admin**, admin role **Super Admin**, required.
 - **The env template also shipped the admin OAuth2 block uncommented with placeholder values** — `ApprovalAdmin`, `approvals.example.com`, a `tenant.us1…` issuer — so a fresh install showed a live *Sign in with Omnissa Access* button pointing at a tenant that does not exist. Found by the second new-tester run, in Docker Desktop. The block ships commented now, beside the tenant block fixed in 1.23.1, and the template's header says the bootstrap admin password is the one value to fill in.
 
 ### Documentation
