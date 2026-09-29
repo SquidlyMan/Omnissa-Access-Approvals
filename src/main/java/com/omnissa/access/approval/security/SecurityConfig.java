@@ -47,7 +47,9 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
@@ -217,9 +219,12 @@ public class SecurityConfig {
                 // redirect-to-login there reads as "Unable to connect to the URI".
                 .requestMatchers(HttpMethod.POST, "/api/approvals/new").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/api/approvals/new").permitAll()
-                // Static assets served by Vite build
+                // Static assets served by Vite build. Both apple-touch-icon names:
+                // Safari asks for the -precomposed one first, on its own, for the
+                // Favorites and Start pages — it must never need a session.
                 .requestMatchers("/assets/**", "/favicon.ico", "/favicon.svg",
-                        "/apple-touch-icon.png", "/vite.svg").permitAll()
+                        "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png",
+                        "/vite.svg").permitAll()
                 // OpenAPI / Swagger UI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // Liveness probe for Docker, deploy.sh, CasaOS and the UAG.
@@ -529,14 +534,42 @@ public class SecurityConfig {
 
 
     /**
-     * Saves only navigational requests, so a deep link survives the login
-     * round-trip while an API call never becomes a post-login destination.
+     * Saves only page navigations as the post-login destination — a GET
+     * outside {@code /api} whose Accept header asks for HTML and whose last
+     * path segment carries no file extension — so a deep link from Slack or
+     * Teams survives the login round-trip while an API call, a script or a
+     * browser's own icon probe never becomes the page a user lands on.
+     *
+     * <p>The extension and Accept rules were added after a real sign-in ended
+     * on a Whitelabel 404: Safari had fetched
+     * {@code /apple-touch-icon-precomposed.png} unauthenticated for its
+     * Favorites page, the probe was saved as the destination, and "Sign in
+     * with Omnissa Access" replayed it with {@code ?continue} onto a file
+     * that did not exist. Excluding {@code /api/**} alone could not see that.
      */
     private static RequestCache navigationRequestCache() {
         HttpSessionRequestCache cache = new HttpSessionRequestCache();
-        cache.setRequestMatcher(new NegatedRequestMatcher(
-                PathPatternRequestMatcher.pathPattern("/api/**")));
+        cache.setRequestMatcher(NAVIGATION);
         return cache;
+    }
+
+    /** What counts as a page navigation for {@link #navigationRequestCache()}. */
+    static final RequestMatcher NAVIGATION = new AndRequestMatcher(
+            new NegatedRequestMatcher(PathPatternRequestMatcher.pathPattern("/api/**")),
+            request -> HttpMethod.GET.matches(request.getMethod()),
+            SecurityConfig::acceptsHtml,
+            request -> !hasFileExtension(request));
+
+    private static boolean acceptsHtml(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        return accept != null
+                && (accept.contains("text/html") || accept.contains("application/xhtml+xml"));
+    }
+
+    private static boolean hasFileExtension(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        int slash = path.lastIndexOf('/');
+        return path.indexOf('.', slash < 0 ? 0 : slash) >= 0;
     }
 
     /** Entry point that answers with a JSON status instead of a login redirect. */

@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.23.2 • MIT License"
+date: "Version 1.23.3 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -1040,6 +1040,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 | Every user is a Viewer | The OIDC client is missing the **`group`** scope, or `OMNISSA_ROLE_MAP` uses group *names* instead of ids |
 | Role change had no effect | Roles come from the token — the user must sign out and back in |
 | OIDC login fails | Issuer must be `https://<tenant>/SAAS/auth` exactly; redirect URI must match exactly |
+| Sign-in ends on a *Whitelabel Error Page* at `/apple-touch-icon-precomposed.png?continue` | Fixed in 1.23.3 — a browser's own icon probe had been saved as the post-login destination. On an older version, sign in again; the replay consumed it |
 | Time-bound access never expires | A scheduled sweep has stalled — check the `scheduler` component at `/api/health/dependencies`; restarting the container clears it and nothing is lost |
 | App returns immediately after a revoke | Deployment Type is *Automatic* — Access re-provisions with no request involved. Use **Revoke and block** |
 | Deleting a request returns 409 | It is still pending and Access is waiting on a decision. Decline it first |
