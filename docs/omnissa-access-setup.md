@@ -30,7 +30,7 @@ powers the dashboard connectivity check.
 3. Set `OMNISSA_BOOTSTRAP_URL` to the tenant hostname (no scheme), e.g.
    `tenant.us1.wss.workspaceone.com`.
 
-![Service client configuration in Omnissa Access](images/access-oauth-service-client.png)
+![Add Client in Omnissa Access: Service Client Token, scope Admin, Admin Roles Super Admin](images/access-oauth-service-client.png)
 
 > `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` (step 5) uses this same client to
 > edit the OIDC client's consent setting — another reason it carries Super Admin.
