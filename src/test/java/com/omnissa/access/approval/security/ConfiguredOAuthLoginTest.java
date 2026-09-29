@@ -123,8 +123,13 @@ class ConfiguredOAuthLoginTest {
         // asked to decide, not the dashboard.
         // Spelled as a real query string rather than .param(...): the saved
         // request is rebuilt from the raw query string, which MockMvc leaves
-        // null when parameters are supplied separately.
-        var session = mockMvc.perform(get("/requests/42?action=approve"))
+        // null when parameters are supplied separately. And sent the way a
+        // browser sends a navigation, asking for HTML: since 1.23.3 only a
+        // page navigation is saved (PostLoginDestinationTest has the other
+        // side — a browser's icon probe, or a request with no Accept at all,
+        // is never a post-login destination).
+        var session = mockMvc.perform(get("/requests/42?action=approve")
+                        .header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"))
                 .andExpect(status().is3xxRedirection())
                 .andReturn()
                 .getRequest()

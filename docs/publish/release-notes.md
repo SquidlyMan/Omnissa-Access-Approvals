@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.23.2 and complete version history"
+subtitle: "Release Notes — v1.23.3 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.23.3** | Sign-in can no longer land on a browser's icon probe | `v1.23.3` |
 | **1.23.2** | The env file spelled out by stage; the callout pair defined once; deploy figures; React 19.3 | `v1.23.2` |
 | **1.23.1** | A first run from the README works; native arm64 images; `latest` means the newest release | `v1.23.1` |
 | **1.23.0** | Configurable login-page notice; the update feature pictured | `v1.23.0` |
@@ -98,11 +99,38 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus the moving `latest` tag, which since 1.23.1 points at the newest release. Moving `major.minor` tags stopped at 1.21.x: the updater pins the immutable full version.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.23.3
+
+One fix, found on the appliance the evening 1.23.2 shipped.
+
+### Fixes in this release
+
+- **Sign in with Omnissa Access could end on a Whitelabel 404.** The browser
+  landed on `/apple-touch-icon-precomposed.png?continue` — Safari fetches that
+  icon on its own for its Favorites and Start pages, the unauthenticated probe
+  was saved as the post-login destination, and the successful sign-in replayed
+  it onto a file that did not exist. The next sign-in worked, because the
+  replay had consumed the saved request. A request is now saved only when it
+  is a page navigation: a GET outside `/api` whose Accept header asks for HTML
+  and whose path has no file extension. A deep link from Slack or Teams still
+  survives the login round-trip; an icon, a script or an API call never
+  becomes where a user lands. Both apple-touch-icon names are served without a
+  session. Six tests pin the behaviour from both sides.
+
+### Known Issues
+
+- The updater needs systemd. A host without it needs its own watcher for the
+  two-file contract in the control directory.
+- Escalation is a single stage. There is no second stage, no email escalation,
+  and no per-stage SLA inside an approval chain.
 
 ---
 

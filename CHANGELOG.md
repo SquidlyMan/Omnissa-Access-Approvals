@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.3] - 2026-09-28
+
+### Fixed
+- **Sign in with Omnissa Access could end on a Whitelabel 404 at `/apple-touch-icon-precomposed.png?continue`.** Safari fetches that icon on its own for its Favorites and Start pages. The unauthenticated probe was saved as the post-login destination — the request cache excluded only `/api/**` — and the login success handler replayed it onto a file that did not exist. A request is now saved only when it is a page navigation: a GET outside `/api` whose Accept header asks for HTML and whose path has no file extension, so a chat deep link still survives the round-trip while an icon, script or API call never becomes where a user lands. Both apple-touch-icon names are served without a session. Six tests pin the line from both sides; the suite is 472 tests.
+
 ## [1.23.2] - 2026-09-28
 
 ### Changed

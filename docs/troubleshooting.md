@@ -109,6 +109,24 @@ tool.
 - Behind a reverse proxy, `X-Forwarded-Proto` must reach the app, or the
   generated redirect URI will be `http://` and Access will reject it.
 
+## Sign-in ends on a Whitelabel Error Page for an icon URL
+
+The browser lands on `/apple-touch-icon-precomposed.png?continue` with Spring's
+*Whitelabel Error Page* (404) right after **Sign in with Omnissa Access**, and
+the next sign-in works.
+
+Safari fetches that icon on its own, for its Favorites and Start pages. When it
+did so with no session, the tool saved the unauthenticated request as the place
+to return to after login, and the successful sign-in replayed it — onto a file
+that does not exist. The `?continue` suffix is how Spring Security marks a
+replayed saved request. The replay consumes the saved request, which is why the
+second attempt lands on the dashboard.
+
+**Fixed in 1.23.3.** Only a page navigation — a GET outside `/api` that asks for
+HTML and has no file extension — can be a post-login destination now, and both
+apple-touch-icon names are served without a session. On an older version, sign
+in again; nothing is lost.
+
 ## Consent screen appears on OAuth2 login
 
 The OIDC client has **User Consent Prompt** enabled. Either disable it in
