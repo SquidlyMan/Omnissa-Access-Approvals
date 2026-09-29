@@ -15,9 +15,15 @@ powers the dashboard connectivity check.
 
 1. In the Omnissa Access console, create a new OAuth client under
    **Settings > OAuth 2.0 Management**:
-   - **Client type:** Service Client / Service Access Token
+   - **Access type:** Service Client Token
    - **Grant type:** Client Credentials
+   - **Scope:** `Admin`
+   - **Admin Roles:** `Super Admin` — required. This client reads pending
+     approvals, posts decisions and rewrites entitlements; with a lesser role
+     the tenant answers 403 and the Dashboard tile reads *Unreachable*
    - Suggested name: `ApprovalService`
+   - Refresh token off; token TTLs at their defaults (the tool caches the token
+     and re-requests it on its own)
 2. Copy the **Client ID** and **Client Secret** into:
    - `OMNISSA_BOOTSTRAP_CLIENT_ID`
    - `OMNISSA_BOOTSTRAP_CLIENT_SECRET`
@@ -26,8 +32,8 @@ powers the dashboard connectivity check.
 
 ![Service client configuration in Omnissa Access](images/access-oauth-service-client.png)
 
-> If you plan to use `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` (step 5),
-> this service client needs admin rights in the tenant.
+> `OMNISSA_ADMIN_OAUTH_DISABLE_CONSENT=true` (step 5) uses this same client to
+> edit the OIDC client's consent setting — another reason it carries Super Admin.
 
 ## 2. Create the OIDC Admin Login Client (optional)
 
