@@ -225,12 +225,33 @@ docker run -d --name omnissa-approvals -p 8081:8081 \
   ghcr.io/squidlyman/omnissa-access-approvals:latest
 ```
 
+![](assets/deploy-terminal-macos.png)
+
+*The whole first move on a Mac: pull, template, run, and the two requests that
+prove it — readiness `UP`, and the version the build itself reports.*
+
+![](assets/deploy-terminal-pwsh.png)
+
+*The same four steps from PowerShell on Windows. Docker Desktop on either
+platform runs the image natively; it is published for amd64 and arm64.*
+
+![](assets/login-fresh.png)
+
+*First contact: the login page of a fresh install, on local sign-in, before any
+tenant is named. The env template ships this way on purpose.*
+
 **2. Create two OAuth clients** in your tenant: a service client (client
 credentials) so the tool can post decisions back, and an OIDC client so admins
 can sign in with their Access identity. Two gotchas worth the price of
 admission: the OIDC issuer is `https://<tenant>/SAAS/auth` — never `/acs` — and
 the client needs the **`group`** scope, or no group claim is emitted and everyone
 silently lands as a Viewer.
+
+![](assets/dashboard-connected.png)
+
+*The Dashboard once the service client is in and the tenant is named: the tenant
+tile reads Connected and is re-checked on a schedule, with the running version
+beside it. Getting here is the proof that the client's scope and role are right.*
 
 **3. Enable approvals** in the Access console: Approval Engine = REST API, URI =
 your public hostname plus `/api/approvals/new`. Saving fires a probe at your

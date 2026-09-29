@@ -60,6 +60,10 @@ COPY = {
     "update-deployed.png":          "tool-update-deployed.png",
     "update-audit.png":             "tool-update-audit.png",
     "login-notice.png":             "tool-login-notice.png",
+    "deploy-terminal-macos.png":    "deploy-terminal-macos.png",
+    "deploy-terminal-pwsh.png":     "deploy-terminal-pwsh.png",
+    "login-fresh.png":              "tool-login-fresh-install.png",
+    "dashboard-connected.png":      "tool-dashboard-connected.png",
 }
 digest = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
 
