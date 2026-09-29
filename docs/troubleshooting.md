@@ -28,6 +28,18 @@ Do one of these:
    uncommented with a placeholder hostname, and a first run from the README
    crash-looped on this message.
 
+**Set both values and still refused?** Check that the env file assigns
+`OMNISSA_API_USERNAME` and `OMNISSA_API_PASSWORD` only once. Docker's
+`--env-file` and Compose both take the *last* assignment of a key, so a second,
+blank `OMNISSA_API_USERNAME=` further down the file silently overrides the pair
+you filled in and the guard sees empty credentials. An earlier template carried
+the pair twice (a commented copy near the password-policy block and a blank copy
+in the callout-security block); it now carries it once.
+
+```bash
+grep -nE '^[# ]*OMNISSA_API_(USERNAME|PASSWORD)=' omnissa-approvals.env
+```
+
 This is deliberately a refusal rather than a warning. An open ingest path that
 nobody chose is worth interrupting a deployment for, and a warning in a log is
 not read at the moment it matters.
