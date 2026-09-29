@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.2] - 2026-09-28
+
+### Changed
+- **Dependencies.** React and react-dom 19.3.0 with matching `@types`, react-router-dom 7.18.4 — no behaviour change. The publish workflow's artifact actions moved to upload-artifact v7 and download-artifact v8; v8 fails the run on a digest mismatch when the build matrix hands its image digests to the merge job, which is the behaviour wanted for the file that decides what gets tagged.
+
 ### Fixed
 - **The ZimaCube env template defined the callout credential pair twice.** `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD` appeared commented in an older *Callout endpoint security* block and again, blank and uncommented, in the later block that explains they are required. A tester who filled in the first pair kept the blank second one, and because an env file's last assignment wins the guard saw empty credentials and refused to start — with the tenant lines set, on a loop. Found on the third new-tester run, connecting to a tenant from Docker Desktop. The template now carries the pair once, with the rate limit and the unauthenticated acknowledgement beside it, and the troubleshooting guide says how to spot a duplicate.
 - **The service client's required role is stated.** The setup guide said the `ApprovalService` client "needs admin rights" only in the consent-auto-disable note; a new tester creating it with scope Admin and no admin role gets 403s and an *Unreachable* tile. Setup guide, published documentation, Help and the deck now say: scope **Admin**, admin role **Super Admin**, required. The figure is now the Add Client form itself, which shows Admin Roles as a required field.
