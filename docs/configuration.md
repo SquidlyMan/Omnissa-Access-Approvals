@@ -18,7 +18,11 @@ A complete, commented env-file template lives at
 [`deploy/zimacube/omnissa-approvals.env.example`](../deploy/zimacube/omnissa-approvals.env.example).
 It ships with the tenant block commented out on purpose: the container starts
 without a tenant, and naming one switches on the
-[callout-authentication requirement](#callout-api-security).
+[callout-authentication requirement](#callout-api-security). Which variables
+you must set depends on what you are setting up — no tenant, a tenant, or a
+tenant with Omnissa Access sign-in; the three-stage list is in
+[What to fill in](deployment.md#what-to-fill-in) and at the head of the
+template.
 
 ## Omnissa Access Service Client (required)
 

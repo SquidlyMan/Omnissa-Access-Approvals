@@ -73,7 +73,13 @@ cd Omnissa-Access-Approvals
 docker build -t omnissa-access-approvals .
 ```
 
-Use [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-approvals.env.example) as the env-file template. **No tenant yet? Leave the `OMNISSA_BOOTSTRAP_*` tenant lines and the `OMNISSA_ADMIN_OAUTH_*` block commented out** — the container starts without them and you sign in with the bootstrap admin (set `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD`; it is the one value the template needs); naming a tenant is what switches on the callout-authentication requirement, so uncomment those lines only together with `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`. Then put a TLS reverse proxy in front (only `POST /api/approvals/new` must be internet-reachable) — full walkthroughs in the docs:
+Use [`deploy/zimacube/omnissa-approvals.env.example`](deploy/zimacube/omnissa-approvals.env.example) as the env-file template. What it needs depends on what you are setting up, and the template's header spells out each stage:
+
+- **No tenant yet** — set `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` and nothing else; leave the `OMNISSA_BOOTSTRAP_*` tenant lines and the `OMNISSA_ADMIN_OAUTH_*` block commented. The container starts and you sign in as the bootstrap admin.
+- **Connect a tenant** — uncomment the three `OMNISSA_BOOTSTRAP_*` tenant lines (hostname only, no `https://`; the service client needs scope Admin and the Super Admin role) **together with** `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`, and enter that same pair in Access under **Settings > Approvals**. Naming a tenant without the pair is refused at startup.
+- **Sign in with Omnissa Access** — add the four `OMNISSA_ADMIN_OAUTH_*` values and `OMNISSA_ROLE_MAP`.
+
+Then put a TLS reverse proxy in front (only `POST /api/approvals/new` must be internet-reachable). The full three-stage table is under [What to fill in](docs/deployment.md#what-to-fill-in); walkthroughs in the docs:
 
 ## Documentation
 

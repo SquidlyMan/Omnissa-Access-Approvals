@@ -49,11 +49,24 @@ docker run -d --name omnissa-approvals \
 
 Use [`deploy/zimacube/omnissa-approvals.env.example`](../deploy/zimacube/omnissa-approvals.env.example)
 as the template for the env file (it is a complete, commented reference) and
-`chmod 600` it — it contains client secrets. **No tenant yet? Leave the
-`OMNISSA_BOOTSTRAP_*` tenant lines and the `OMNISSA_ADMIN_OAUTH_*` block
-commented** — the container starts without them, on the bootstrap admin whose
-password is the one value you must set; naming a tenant switches on the callout-authentication requirement, so
-uncomment them only together with `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`.
+`chmod 600` it — it contains client secrets.
+
+### What to fill in
+
+What the env file needs depends on what you are setting up. Each stage adds to
+the one before it; the template's header carries the same list.
+
+| Stage | Fill in | Notes |
+|---|---|---|
+| **A. No tenant yet** (local sign-in; how the template ships) | `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` | The one value. Leave the `OMNISSA_BOOTSTRAP_*` tenant lines and the `OMNISSA_ADMIN_OAUTH_*` block commented; the container starts and you sign in as the bootstrap admin (`admin` unless you change `OMNISSA_BOOTSTRAP_ADMIN_USERNAME`). Nothing contacts a tenant. |
+| **B. Connect a tenant** (entitlements resolved, decisions posted back, callouts in) | A, plus **all five together**: `OMNISSA_BOOTSTRAP_URL`, `OMNISSA_BOOTSTRAP_CLIENT_ID`, `OMNISSA_BOOTSTRAP_CLIENT_SECRET`, `OMNISSA_API_USERNAME`, `OMNISSA_API_PASSWORD` | The URL is the tenant hostname with no `https://`. The client is the [service client](omnissa-access-setup.md#1-create-the-service-client-approvals-api): *Service Client Token*, Client Credentials, scope **Admin**, Admin Roles **Super Admin**. The API pair is any username and password you choose; enter the same two in Access under **Settings > Approvals**. Naming a tenant without the pair is [refused at startup](troubleshooting.md#container-will-not-start-callout-endpoint-is-reachable-without-authentication). Outside the file: a TLS reverse proxy that exposes `POST /api/approvals/new` — see [Inbound Connectivity](#inbound-connectivity). |
+| **C. Sign in with Omnissa Access** (OIDC) | B, plus the four `OMNISSA_ADMIN_OAUTH_*` values and `OMNISSA_ROLE_MAP` | The [OIDC client](omnissa-access-setup.md#2-create-the-oidc-admin-login-client-optional): *User Access Token*, Authorization Code + PKCE, scopes `openid email profile group`, redirect URI `https://<public host>/login/oauth2/code/omnissa`. Uncomment the four lines together; placeholders left active put a live *Sign in with Omnissa Access* button on the login page that points nowhere. Without the [role map](configuration.md#roles-rbac) every OIDC user is a Viewer, so keep local sign-in on until a mapping is confirmed. |
+
+Everything else in the template is optional and explained in place; the
+[configuration reference](configuration.md) covers every variable. Each key
+appears once in the template on purpose: an env file's last assignment wins,
+so a duplicate lower down — even a blank one — silently overrides the value
+you filled in.
 
 The repository also ships ready-made Docker Compose files:
 

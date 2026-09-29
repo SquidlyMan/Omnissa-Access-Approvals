@@ -713,15 +713,21 @@ docker run -d --name omnissa-approvals --restart unless-stopped \
 
 Copy the environment template from the repository
 (`deploy/zimacube/omnissa-approvals.env.example` is the complete annotated
-reference), fill in the required values (Section 6), and place a TLS reverse
-proxy in front. All persistent state lives under `/app/data`.
+reference) and place a TLS reverse proxy in front. All persistent state lives
+under `/app/data`.
 
-**No tenant yet? Leave the `OMNISSA_BOOTSTRAP_URL` / `_CLIENT_ID` /
-`_CLIENT_SECRET` lines commented out** — the container starts without them and
-you sign in with the bootstrap admin. Naming a tenant switches on the
-callout-authentication requirement (§8), so uncomment those lines only together
-with `OMNISSA_API_USERNAME` / `OMNISSA_API_PASSWORD`; a tenant with no
-credentials is refused at startup, and the message says so.
+What the env file needs depends on what you are setting up. Each stage adds to
+the one before it, and the template's header carries the same list:
+
+| Stage | Fill in | Notes |
+|---|---|---|
+| **A. No tenant yet** (local sign-in; how the template ships) | `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` | The one value. Leave the `OMNISSA_BOOTSTRAP_*` tenant lines and the `OMNISSA_ADMIN_OAUTH_*` block commented; the container starts and you sign in as the bootstrap admin. Nothing contacts a tenant. |
+| **B. Connect a tenant** | A, plus **all five together**: `OMNISSA_BOOTSTRAP_URL`, `OMNISSA_BOOTSTRAP_CLIENT_ID`, `OMNISSA_BOOTSTRAP_CLIENT_SECRET`, `OMNISSA_API_USERNAME`, `OMNISSA_API_PASSWORD` | Hostname only, no `https://`. The service client (§5.1) needs scope **Admin** and Admin Roles **Super Admin**. The API pair is any username and password you choose, entered again in Access under **Settings > Approvals**. Naming a tenant without the pair is refused at startup (§8), and the message says so. |
+| **C. Sign in with Omnissa Access** | B, plus the four `OMNISSA_ADMIN_OAUTH_*` values and `OMNISSA_ROLE_MAP` | The OIDC client (§5.2). Uncomment the four lines together; placeholders left active put a live sign-in button on the login page that points nowhere. Without the role map (§6.2) every OIDC user is a Viewer, so keep local sign-in on until a mapping is confirmed. |
+
+Everything else is optional (Section 6). Each key appears once in the template
+on purpose: an env file's last assignment wins, so a duplicate lower down — even
+a blank one — silently overrides the value you filled in.
 
 ### 4.2 Reverse Proxy Notes
 
