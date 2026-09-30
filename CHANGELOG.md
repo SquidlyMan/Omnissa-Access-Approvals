@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The documentation site's favicon 404'd on every page.** The theme's layout asks for `/favicon.ico` and the site never shipped one — the one request on the site that still failed after a full link check (87 links across the 11 pages; the only other non-200 is the community forum's bot check, which a browser passes). The app's icon is now `docs/favicon.ico`.
 - **NOTICE.md and the other repository files were unreachable from the documentation site.** Every guide linked them with a parent-relative path (`../NOTICE.md`, `../SECURITY.md`, `../README.md#roles`, the ZimaCube scripts and env template), which GitHub renders correctly but which escapes the GitHub Pages site — it serves only `docs/`, so the links resolved to `squidlyman.github.io/NOTICE.md` and 404d. Twenty links across nine guides now point at the files on GitHub. Reported by a reader of the published post.
 
 ### Documentation
