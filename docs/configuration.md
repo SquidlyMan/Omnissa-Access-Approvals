@@ -15,7 +15,7 @@ Changes require a container **recreate** (`docker compose … up -d
 --force-recreate`) — a plain restart does not re-read the env file.
 
 A complete, commented env-file template lives at
-[`deploy/zimacube/omnissa-approvals.env.example`](../deploy/zimacube/omnissa-approvals.env.example).
+[`deploy/zimacube/omnissa-approvals.env.example`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/omnissa-approvals.env.example).
 It ships with the tenant block commented out on purpose: the container starts
 without a tenant, and naming one switches on the
 [callout-authentication requirement](#callout-api-security). Which variables
@@ -130,7 +130,7 @@ OMNISSA_UI_LOGIN_NOTICE="This system is monitored. All access is logged.\nBy sig
 ## Roles (RBAC)
 
 Authorization is driven by **Omnissa Access group membership**. See
-[Roles](../README.md#roles) for the full model.
+[Roles](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles) for the full model.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -539,7 +539,7 @@ so approvers decide from Slack. Full walkthrough:
 
 The buttons are **deep links**, not interaction callbacks: they open the request
 in this tool, so the approver signs in and their
-[role](../README.md#roles) decides what they may do. There is **no inbound
+[role](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles) decides what they may do. There is **no inbound
 endpoint, no signing secret and no separate approver list**.
 
 That last point is the reason for the design. A callback arrives where no

@@ -4,7 +4,7 @@ The tool exposes two separate health signals, because *"the container is down"*
 and *"something it depends on is unhealthy"* call for different responses — the
 first should page someone, the second should not.
 
-> Not an Omnissa product — see [NOTICE.md](../NOTICE.md). Intended for
+> Not an Omnissa product — see [NOTICE.md](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/NOTICE.md). Intended for
 > testing/demo use only.
 
 ## Endpoints

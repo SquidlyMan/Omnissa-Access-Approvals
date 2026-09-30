@@ -1,7 +1,9 @@
 ---
 title: "Approvals for Omnissa Access, Without the Guesswork"
 author: "Dean Flaming"
-date: "August 2026 • Omnissa Access, Workspace ONE, Lab Projects"
+date: "September 2026 • Omnissa Access, Workspace ONE, Lab Projects"
+# Published 2026-09-29 on the Omnissa Community forums:
+# https://community.omnissa.com/forums/topic/73044-approvals-for-omnissa-access-without-the-guesswork/
 # A blog post reads as one continuous piece — no title page, no section
 # breaks. The reference documents paginate; see pagebreaks.lua.
 title-page: false

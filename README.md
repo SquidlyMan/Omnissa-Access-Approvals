@@ -83,6 +83,7 @@ Then put a TLS reverse proxy in front (only `POST /api/approvals/new` must be in
 
 ## Documentation
 
+- [Approvals for Omnissa Access, Without the Guesswork](https://community.omnissa.com/forums/topic/73044-approvals-for-omnissa-access-without-the-guesswork/) — the write-up, on the Omnissa Community forums: what the tool is, the two decisions worth explaining, and how to deploy it
 - [Deployment](docs/deployment.md) — Docker/Compose, reverse-proxy requirements, inbound connectivity, ZimaCube
 - [Configuration reference](docs/configuration.md) — every environment variable
 - [Access lifecycle](docs/access-lifecycle.md) — JIT/time-bound grants, decline modes, revoke, allow re-request

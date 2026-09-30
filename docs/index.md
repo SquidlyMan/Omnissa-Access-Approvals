@@ -18,6 +18,7 @@ A self-hosted approval gateway for Omnissa Access (Workspace ONE) application re
 
 ## Project Links
 
+- [The write-up on the Omnissa Community forums](https://community.omnissa.com/forums/topic/73044-approvals-for-omnissa-access-without-the-guesswork/) — *Approvals for Omnissa Access, Without the Guesswork*
 - [Repository & README](https://github.com/SquidlyMan/Omnissa-Access-Approvals)
 - [Container images (GHCR)](https://github.com/SquidlyMan/Omnissa-Access-Approvals/pkgs/container/omnissa-access-approvals)
 - [Changelog](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/CHANGELOG.md)

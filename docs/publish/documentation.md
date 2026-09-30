@@ -1077,6 +1077,7 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 ## 11. Additional Resources
 
 - **Repository & README:** https://github.com/SquidlyMan/Omnissa-Access-Approvals
+- **The write-up (Omnissa Community):** https://community.omnissa.com/forums/topic/73044-approvals-for-omnissa-access-without-the-guesswork/
 - **Documentation site:** https://squidlyman.github.io/Omnissa-Access-Approvals/
 - **Deployment:** `.../deployment.html` • **Configuration:** `.../configuration.html`
 - **Monitoring:** `.../monitoring.html` • **Troubleshooting:** `.../troubleshooting.html`

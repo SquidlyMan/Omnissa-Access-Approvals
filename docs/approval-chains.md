@@ -4,7 +4,7 @@ A chain requires **sequential approval by different stages** — matched by
 application-name pattern and/or Access group — before a request reaches
 Omnissa Access, instead of any one approver deciding it outright.
 
-> Not an Omnissa product — see [NOTICE.md](../NOTICE.md). Intended for
+> Not an Omnissa product — see [NOTICE.md](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/NOTICE.md). Intended for
 > testing/demo use only.
 
 ## How it works
