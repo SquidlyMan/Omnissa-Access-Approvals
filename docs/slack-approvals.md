@@ -4,7 +4,7 @@ New access requests post a Slack message with **Approve**, **Reject** and
 **Open request** buttons. The buttons open the request in the Access Approval
 Tool with the decision pre-selected — you sign in as usual and confirm there.
 
-> Not an Omnissa product — see [NOTICE.md](../NOTICE.md). Intended for
+> Not an Omnissa product — see [NOTICE.md](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/NOTICE.md). Intended for
 > testing/demo use only.
 
 ## How it works
@@ -32,7 +32,7 @@ buttons working until somebody remembered to edit the env file. It failed
 **open**, silently, with no error and no audit entry.
 
 Deep links remove the divergence rather than manage it. The approver
-authenticates with the tool's own OIDC login, so their [role](../README.md#roles)
+authenticates with the tool's own OIDC login, so their [role](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles)
 is resolved from Omnissa Access group membership exactly as it is everywhere
 else. Someone who no longer holds an approver role can still click the button —
 they simply land on a read-only request page.
@@ -123,7 +123,7 @@ opens the request in the tool and the approver signs in as usual. Every
 authorization rule applies exactly as in the web UI — someone holding only the
 Viewer role who clicks *Approve* authenticates successfully and then finds no
 approve control. The link carries the *intent*; it confers no authority, and it
-submits nothing on its own. See [Roles](../README.md#roles).
+submits nothing on its own. See [Roles](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles).
 
 **Seeing is governed by channel membership, which the tool cannot enforce.** The
 message is posted to a Slack channel, so **every member of that channel can read
@@ -144,5 +144,5 @@ the same audience as the request queue itself.
 | No message appears | `WEBHOOK_URL` unset or wrong, or `WEBHOOK_FORMAT` is not `slack`. Check the app log for a `Webhook notification failed` WARN. |
 | Message appears but has no buttons | `SLACK_ACTIONABLE` is not `true`, or `APP_BASE_URL` is blank — the tool falls back to plain text rather than emitting dead links. |
 | Buttons open a URL that does not resolve | `APP_BASE_URL` does not match how approvers actually reach the tool. It must be the public URL, and it must match the OIDC redirect URI's host or sign-in will fail. |
-| Clicking a button shows the request read-only | Working as intended — that account does not hold an approver role. See [Roles](../README.md#roles). |
+| Clicking a button shows the request read-only | Working as intended — that account does not hold an approver role. See [Roles](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles). |
 | A decided request still shows buttons | The Slack message is a snapshot from when the request arrived. Clicking it is harmless: the request page shows the current state. |

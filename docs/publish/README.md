@@ -1,6 +1,8 @@
 # Published documents
 
 Source for the public-facing blog post and the complete documentation PDF.
+The blog post is published on the Omnissa Community forums (2026-09-29):
+<https://community.omnissa.com/forums/topic/73044-approvals-for-omnissa-access-without-the-guesswork/>.
 
 **Markdown is the single source.** The HTML, PDF and DOCX under `out/` are all
 generated — do not edit them by hand, or the next build silently discards the

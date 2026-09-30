@@ -4,7 +4,7 @@ A request nobody attends to used to have exactly one outcome: the expiry rule
 auto-rejected it after N days, and the requester found out by being denied.
 Nobody was told the queue was being ignored. This is the missing middle.
 
-> Not an Omnissa product — see [NOTICE.md](../NOTICE.md). Intended for
+> Not an Omnissa product — see [NOTICE.md](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/NOTICE.md). Intended for
 > testing/demo use only.
 
 ## Ownership: Claim, Assign, Release

@@ -4,7 +4,7 @@ The Access Approval Tool for Omnissa ships as a single container: Spring Boot
 backend + pre-built React frontend, listening on plain HTTP port **8081**.
 You put your own TLS-terminating reverse proxy in front of it.
 
-> Not an Omnissa product — see [NOTICE.md](../NOTICE.md). Intended for
+> Not an Omnissa product — see [NOTICE.md](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/NOTICE.md). Intended for
 > testing/demo use only.
 
 ## Container Basics
@@ -47,7 +47,7 @@ docker run -d --name omnissa-approvals \
   ghcr.io/squidlyman/omnissa-access-approvals:latest
 ```
 
-Use [`deploy/zimacube/omnissa-approvals.env.example`](../deploy/zimacube/omnissa-approvals.env.example)
+Use [`deploy/zimacube/omnissa-approvals.env.example`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/omnissa-approvals.env.example)
 as the template for the env file (it is a complete, commented reference) and
 `chmod 600` it — it contains client secrets.
 
@@ -200,7 +200,7 @@ The **admin UI can stay LAN-only**. A common pattern: expose only
 `/api/approvals/new` through your firewall/proxy and keep everything else on
 the internal network. The callout endpoint **requires Basic auth** once a tenant is configured — the
 application refuses to start otherwise — and is rate-limited per caller. See
-[SECURITY.md](../SECURITY.md) and
+[SECURITY.md](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/SECURITY.md) and
 [Client addresses behind a proxy](configuration.md#client-addresses-behind-a-proxy),
 which matters here: rate limits and login throttling count `X-Forwarded-For`
 entries from the right, so `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS` needs to match
@@ -232,7 +232,7 @@ reports "is the latest version" for this container regardless of the image tag,
 because it never checks the registry; see
 [CasaOS updates](#casaos-check-and-then-update) below.
 
-See [`deploy/zimacube/deploy.sh`](../deploy/zimacube/deploy.sh) and the
+See [`deploy/zimacube/deploy.sh`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/deploy.sh) and the
 README's ZimaCube section for the Nginx Proxy Manager wiring and the
 Docker-bridge firewall note.
 
@@ -310,7 +310,7 @@ Only two things are not reproducible from GHCR and git:
 - **the env file** (`omnissa-approvals.env`) — tenant URL, OAuth client secrets,
   Slack signing secret, SMTP credentials.
 
-[`deploy/zimacube/backup.sh`](../deploy/zimacube/backup.sh) archives both (plus
+[`deploy/zimacube/backup.sh`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/backup.sh) archives both (plus
 the compose `.env` and a manifest recording the running image digest) to
 `/media/ZIMARAID/Backups/OmnissaApprovals/`.
 
@@ -350,7 +350,7 @@ journalctl -u omnissa-approvals-backup.service -n 20     # check the result
 
 ### Restore
 
-[`deploy/zimacube/restore.sh`](../deploy/zimacube/restore.sh) prints the
+[`deploy/zimacube/restore.sh`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/restore.sh) prints the
 archive's manifest, requires you to type `RESTORE`, **copies the current state
 aside first** (so a bad restore is itself recoverable), stops the app, swaps the
 files in, restarts, and waits for the health check.

@@ -203,7 +203,7 @@ Two distinct failure modes when a decision is submitted:
 
 Download the **Log Bundle** (last hour) from the in-app Help page, or check
 `docker logs`. For suspected security issues, see
-[SECURITY.md](../SECURITY.md).
+[SECURITY.md](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/SECURITY.md).
 
 ## Requests missing from the queue (held pending in Access)
 

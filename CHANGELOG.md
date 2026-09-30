@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **NOTICE.md and the other repository files were unreachable from the documentation site.** Every guide linked them with a parent-relative path (`../NOTICE.md`, `../SECURITY.md`, `../README.md#roles`, the ZimaCube scripts and env template), which GitHub renders correctly but which escapes the GitHub Pages site — it serves only `docs/`, so the links resolved to `squidlyman.github.io/NOTICE.md` and 404d. Twenty links across nine guides now point at the files on GitHub. Reported by a reader of the published post.
+
+### Documentation
+- **The blog post is published** — *Approvals for Omnissa Access, Without the Guesswork*, on the Omnissa Community forums (2026-09-29). Linked from the README's documentation list, the documentation site's project links, the published documentation's resources and the deck's resources slide; the blog source is dated September 2026.
+
 ## [1.23.3] - 2026-09-28
 
 ### Fixed

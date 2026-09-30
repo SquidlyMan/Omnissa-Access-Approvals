@@ -125,7 +125,7 @@ opens the request in the tool and the approver signs in as usual. Every
 authorization rule applies exactly as in the web UI — someone with only the
 Viewer role who clicks *Approve* authenticates successfully and then finds no
 approve control. The link carries the *intent*; it confers no authority, and it
-does not submit anything on its own. See [Roles](../README.md#roles).
+does not submit anything on its own. See [Roles](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles).
 
 **Seeing is governed by channel membership, which the tool cannot enforce.** The
 card is posted to a Teams channel, so **every member of that channel can read
