@@ -4,11 +4,28 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Minor and patch updates arrive as ONE grouped pull request. Grouped pull
+    # requests are also the only place Dependabot honours `@dependabot unignore`
+    # — needed because "ignore this major version" comments from 2026-07-03
+    # (#4, #1, #10, #13) still suppress every Spring Boot 4.x, springdoc 3.x,
+    # Vite 8.x and Tailwind 4.x update even though the project now lives on
+    # those majors, and the originating branches are gone so they cannot be
+    # reopened. Majors stay individual so each can be judged on its own.
+    groups:
+      maven-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "npm"
     directory: "/src/main/frontend"
     schedule:
       interval: "weekly"
+    groups:
+      npm-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "docker"
     directory: "/"
