@@ -64,8 +64,9 @@ credentials.
    operational groups — and map them with `OMNISSA_ROLE_MAP`. Sign in once and
    open `/api/auth/claims` to read the group **ids**; the map matches on id, not
    name. See [Roles](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles).
-4. **Restrict which users may authenticate through this client** — every
-   user who signs in through it receives full admin access to the tool.
+5. **Restrict which users may authenticate through this client** — a user
+   who signs in through it holds Viewer until a mapped group grants more, but
+   the client is still the front door to the tool.
 
 ![OIDC admin login client configuration](images/access-oauth-admin-client.png)
 

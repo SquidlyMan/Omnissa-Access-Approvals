@@ -235,7 +235,7 @@ Notes that matter in practice:
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 17, Spring Boot 3.2.5, Spring Security |
+| Backend | Java 17, Spring Boot 4.1, Spring Security |
 | Database | H2 embedded (file-backed, survives restarts) |
 | Frontend | React, TypeScript, Vite, Tailwind CSS |
 | Live updates | Server-Sent Events (SSE) |
