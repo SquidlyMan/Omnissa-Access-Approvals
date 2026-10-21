@@ -64,9 +64,10 @@ role first if you need to remove one.
 ## Admin OAuth2 Login (optional)
 
 Enables "Sign in with Omnissa Access" (OIDC) for administrators. If omitted,
-only local login is available. **Any user who authenticates successfully
-through this client is granted full admin access** — restrict who can use
-the client in the Access console.
+only local login is available. **A user who signs in through this client
+holds Viewer and nothing more** until a group in `OMNISSA_ROLE_MAP` grants a
+higher role (see [Roles](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/README.md#roles)) —
+and still restrict who can use the client in the Access console.
 
 | Variable | Default | Description |
 |---|---|---|

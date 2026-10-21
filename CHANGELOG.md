@@ -7,12 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.4] - 2026-10-21
+
+### Changed
+- **Dependencies.** Spring Boot 4.1.1 (Spring Security 7.1.1, Spring Framework 7.0.9, Tomcat 11.0.24, Jackson 3.1.5, Hibernate 7.4.5) and springdoc-openapi 3.1.1, the line built for Boot 4.1, which carries the swagger-ui DOMPurify fix for CVE-2026-75838 — relevant here because `/swagger-ui/**` is served without a session. React and react-dom 19.3.1, Vite 8.3.4. No behaviour change; the suite is 472 tests.
+- **Dependabot groups minor and patch updates per ecosystem** (`maven-minor-patch`, `npm-minor-patch`; majors stay individual). The `@dependabot ignore this major version` replies from July, given when the project was on Boot 3, springdoc 2, Vite 5 and Tailwind 3, had left standing ignore conditions covering the majors the project now lives on, so Boot 4.1.1, springdoc 3.1.1 and Vite 8.3 never got a pull request. A grouped pull request is the only place Dependabot honours `unignore`; the npm conditions are cleared.
+
 ### Fixed
 - **The documentation site's favicon 404'd on every page.** The theme's layout asks for `/favicon.ico` and the site never shipped one — the one request on the site that still failed after a full link check (87 links across the 11 pages; the only other non-200 is the community forum's bot check, which a browser passes). The app's icon is now `docs/favicon.ico`.
 - **NOTICE.md and the other repository files were unreachable from the documentation site.** Every guide linked them with a parent-relative path (`../NOTICE.md`, `../SECURITY.md`, `../README.md#roles`, the ZimaCube scripts and env template), which GitHub renders correctly but which escapes the GitHub Pages site — it serves only `docs/`, so the links resolved to `squidlyman.github.io/NOTICE.md` and 404d. Twenty links across nine guides now point at the files on GitHub. Reported by a reader of the published post.
+- **The configuration and setup guides said every user who signs in with Omnissa Access "receives full admin access".** Stale since roles arrived in 1.16.1: a successful sign-in grants Viewer and nothing more until a group in `OMNISSA_ROLE_MAP` matches. Both guides say so now.
 
 ### Documentation
 - **The blog post is published** — *Approvals for Omnissa Access, Without the Guesswork*, on the Omnissa Community forums (2026-09-29). Linked from the README's documentation list, the documentation site's project links, the published documentation's resources and the deck's resources slide; the blog source is dated September 2026.
+- The README's architecture table named Spring Boot 3.2.5; it names Spring Boot 4.1.
 
 ## [1.23.3] - 2026-09-28
 
