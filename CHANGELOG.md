@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies.** Spring Boot 4.1.2 (Spring Security 7.1.2, Spring Framework 7.0.10, Tomcat 11.0.27, Jackson 3.1.7, Hibernate 7.4.13, Micrometer 1.17.2) and springdoc-openapi 3.2.0, the springdoc release built on Boot 4.1.2, which moves swagger-ui to 5.34.0 — relevant because `/swagger-ui/**` is served without a session. Vite 8.3.5. No behaviour change: nothing in Boot 4.1.2's fix list reaches a path the tool uses (its OAuth2 client registration is Boot's auto-configured one, and it runs Boot's default, non-graceful shutdown), and springdoc's newly required `PagedModel` properties do not apply because the paged endpoints return the tool's own `PagedResponse`. The suite is 472 tests. These are the first updates to arrive through the grouped Dependabot pull requests introduced in 1.23.4 (#187, #188); the npm group carried Vite alone because react-router-dom 7.18.5 was still inside Dependabot's cooldown.
+
 ## [1.23.4] - 2026-10-21
 
 ### Changed
