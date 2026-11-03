@@ -38,6 +38,8 @@ The **only intentionally unauthenticated endpoints** are:
   `OPTIONS` probe always remains unauthenticated so the Omnissa Access
   console can validate the URI.
 - `/actuator/health` — liveness probe.
+- `/actuator/info` — the build version, which the host-side updater reads to
+  confirm a deploy; liveness alone cannot show which version is running.
 - `GET /api/health/deps` — dependency status for an external monitor. Returns
   **only** an aggregate word (`{"status":"UP"}` / `DEGRADED` / `DOWN`): no tenant
   hostname, no error strings, and deliberately **no counts** — a pending or
@@ -45,7 +47,13 @@ The **only intentionally unauthenticated endpoints** are:
   detailed per-component view at `/api/health/dependencies` requires a session.
 - `/api/config/auth` — advertises which login methods are enabled (needed to
   render the login page).
-- `/login` and static frontend assets.
+- `/login`, the OAuth2 sign-in flow (`/login/**`, `/oauth2/**`) and static
+  frontend assets.
+- `/swagger-ui/**` and `/v3/api-docs/**` — the API reference (Swagger UI) and
+  the OpenAPI description it renders. They describe the endpoints and return
+  no data, but Swagger UI is third-party code served before sign-in, which is
+  why the changelog tracks its updates. The default-deny reverse-proxy
+  pattern in `docs/deployment.md` leaves both paths out.
 
 **Everything else requires an authenticated session**, and — since roles landed
 — an authenticated session with a sufficient **role**. An unauthenticated

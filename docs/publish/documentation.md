@@ -597,9 +597,10 @@ given. Decline it first; a decided record deletes harmlessly.
   to that header and the leftmost entry is written by the caller — believing it
   let anyone pick their own bucket. The default of `0` believes nothing in the
   header and uses the socket peer.
-- Every other endpoint requires an authenticated session **and a sufficient
-  role**. `/api/**` returns a JSON 401 rather than redirecting, so an expired
-  session is distinguishable from an empty successful response.
+- Apart from the few paths §8 lists, every endpoint requires an authenticated
+  session **and a sufficient role**. `/api/**` returns a JSON 401 rather than
+  redirecting, so an expired session is distinguishable from an empty
+  successful response.
 - **Paged endpoints return a declared shape**, not whatever the persistence
   layer happens to serialize. The queue and the audit trail both answer with
   `content`, `number`, `size`, `totalElements`, `totalPages` and the usual
@@ -1006,9 +1007,13 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
   Plus `GET /api/health/deps`, which returns only a status word: no tenant name,
   no error strings, and deliberately no counts, since a drift number would leak
   request volume.
-- **Everything else requires an authenticated session and a sufficient role.**
-  Rules are enforced centrally rather than scattered across annotations, so the
-  whole policy is reviewable in one place.
+- **Everything else requires an authenticated session and a sufficient role**,
+  apart from the liveness and version probes (`/actuator/health`,
+  `/actuator/info`), the login page with its sign-in options
+  (`/api/config/auth`) and OAuth2 sign-in flow, static assets, and the API
+  reference (`/swagger-ui/**`, `/v3/api-docs/**`), which describes the
+  endpoints and returns no data. Rules are enforced centrally rather than
+  scattered across annotations, so the whole policy is reviewable in one place.
 - **Chat approvals add no inbound endpoint.** Both Slack and Teams use deep
   links.
 - **Callout payloads include user directory attributes** from Access — treat the

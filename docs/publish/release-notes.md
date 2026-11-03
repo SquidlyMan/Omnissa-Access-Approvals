@@ -124,10 +124,10 @@ the blog post shipped.
   the front end. No behaviour change; the suite is 472 tests.
 - **Dependabot could not see these updates.** The *ignore this major version*
   replies given in July, when the project was on Boot 3, springdoc 2, Vite 5
-  and Tailwind 3, left standing ignore conditions that cover the majors the
-  project now lives on. Minor and patch updates are grouped per ecosystem now,
-  which is the one kind of pull request on which Dependabot honours
-  *unignore*; the npm conditions are cleared.
+  and Tailwind 3, left standing ignore conditions covering the majors the
+  project now lives on. *unignore*, posted on the original closed pull
+  requests, cleared all four conditions before the release, and minor and
+  patch updates are now grouped per ecosystem.
 
 ### Fixes in this release
 
