@@ -107,6 +107,9 @@ public class ConfigController {
     @PostMapping("/server")
     public ResponseEntity<?> createServerEntry(@RequestBody @Valid OmnissaServer server) {
         RestPreconditions.checkIfConfigExists();
+        if (server.getClientSecret() == null || server.getClientSecret().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "clientSecret is required"));
+        }
         repository.save(server);
         return ResponseEntity.ok(server);
     }
@@ -119,6 +122,11 @@ public class ConfigController {
         RestPreconditions.checkConfigAvailability();
         OmnissaServer existing = RestPreconditions.omnissaServerConfig();
         server.setId(existing.getId());
+        // The secret is never returned, so a client editing what it read back
+        // has none to send. Blank means "keep the one on file".
+        if (server.getClientSecret() == null || server.getClientSecret().isBlank()) {
+            server.setClientSecret(existing.getClientSecret());
+        }
         repository.save(server);
         return ResponseEntity.ok(server);
     }

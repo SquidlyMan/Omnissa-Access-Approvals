@@ -58,6 +58,8 @@ echo "==> Directories on RAID"
 # approved update is written for the updater. Kept apart from data/, which
 # backup archives, so a restored archive can never carry a pending deploy.
 mkdir -p "$RAID_DIR/data" "$RAID_DIR/control" "$RAID_DIR/docker-config"
+# The H2 file holds the tenant client secret; nobody but root reads the directory.
+chmod 700 "$RAID_DIR/data"
 
 # One deploy at a time — shared with update.sh, so a console approval and a
 # hand-run deploy cannot interleave edits to the same compose file.

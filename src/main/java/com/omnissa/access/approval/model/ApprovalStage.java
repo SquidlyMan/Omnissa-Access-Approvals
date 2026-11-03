@@ -58,7 +58,7 @@ public class ApprovalStage {
     /** 1-based order within the chain. */
     private int stageOrder;
 
-    /** {@code "ROLE"} or {@code "GROUP"}. */
+    /** {@code "ROLE"}, {@code "GROUP"} or {@code "USER"}. */
     private String approverType;
 
     /** A {@code ROLE_*} authority name, or an Access group id, per {@link #approverType}. */

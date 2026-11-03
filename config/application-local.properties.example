@@ -24,13 +24,13 @@ omnissa.bootstrap.admin-email=admin@example.com
 # Required Omnissa Access client config:
 #   Type: User Access Token (Confidential)
 #   Grant: Authorization Code + PKCE
-#   Scopes: openid email profile
+#   Scopes: openid email profile group   (group carries the group_ids claim the role map reads)
 #   Redirect URI: https://approvals.example.com/login/oauth2/code/omnissa
 #
 #omnissa.admin-oauth.client-id=<oidc-client-id>
 #omnissa.admin-oauth.client-secret=<oidc-client-secret>
 #omnissa.admin-oauth.redirect-uri=https://approvals.example.com/login/oauth2/code/omnissa
-#omnissa.admin-oauth.issuer-uri=https://<tenant>.wss.workspaceone.com/acs
+#omnissa.admin-oauth.issuer-uri=https://<tenant>.wss.workspaceone.com/SAAS/auth
 # Set to true to automatically disable the Omnissa Access consent screen on the OIDC client
 # above. Requires the ApprovalService client to have admin rights. Tip: leave this false on
 # first run; the app will log a reminder. Enable it once you have confirmed login works.

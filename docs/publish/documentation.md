@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.23.4 • MIT License"
+date: "Version 1.23.5 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -589,8 +589,10 @@ given. Decline it first; a decided record deletes harmlessly.
 ### 2.15 API Hardening
 
 - **Optional Basic authentication** on the inbound callout endpoint, matching the
-  Username/Password fields in the Access approvals settings. Access's
-  unauthenticated OPTIONS probe is always allowed.
+  Username/Password fields in the Access approvals settings. Access's OPTIONS
+  probe is challenged like the POST once credentials are set (since 1.19.9;
+  `OMNISSA_API_CHALLENGE_OPTIONS=false` restores the exemption). A body over
+  256 KB is refused with 413 before it is read (1.23.5).
 - **Per-caller rate limiting** on the callout endpoint (default 60 requests per
   minute), returning HTTP 429 on excess. The address is taken from the *right*
   of `X-Forwarded-For` under `OMNISSA_SECURITY_TRUSTED_PROXY_HOPS`, because proxies append
@@ -709,8 +711,16 @@ docker run -d --name omnissa-approvals --restart unless-stopped \
   -p 8081:8081 \
   --env-file ./omnissa-approvals.env \
   -v ./data:/app/data \
+  --stop-timeout 15 \
   ghcr.io/squidlyman/omnissa-access-approvals:latest
 ```
+
+`--stop-timeout 15` is margin: since 1.23.5 the application closes its
+live-update streams the moment shutdown begins, so a stop takes about a
+second even with Dashboard tabs open. The compose files carry the same
+`stop_grace_period`, drop every capability (`cap_drop: [ALL]`,
+`no-new-privileges`), and the standalone mode's plain port 80 redirects to
+HTTPS.
 
 Copy the environment template from the repository
 (`deploy/zimacube/omnissa-approvals.env.example` is the complete annotated
@@ -732,8 +742,12 @@ a blank one — silently overrides the value you filled in.
 
 ### 4.2 Reverse Proxy Notes
 
-- Terminate TLS at the proxy and forward `X-Forwarded-Proto/Host/Port`; without
-  them, OAuth redirect URIs generate as `http://` and login fails.
+- Terminate TLS at the proxy and set `X-Forwarded-Proto/Host/Port` from the
+  proxy's own view of the request (overwrite, never pass a client's copy
+  through); without them, OAuth redirect URIs generate as `http://` and login
+  fails. Once the proxy is the only way in, set
+  `SERVER_SERVLET_SESSION_COOKIE_SECURE=true` so the session cookie carries
+  the Secure flag — the container itself sees plain HTTP.
 - Server-Sent Events power the live queue: on nginx, add a location for
   `/api/approvals/stream` with `proxy_buffering off`.
 - **Allow-list the paths that exist.** A gateway that matches a pattern — the
@@ -786,6 +800,12 @@ The console side is described in §2.19; this is the host side.
   digest and changes nothing — name the version.
 - **Never automatic.** The container is never given the Docker socket, and
   nothing upgrades without a named administrator choosing it.
+
+> **Template changes do not reach an adopted app on their own.** Once CasaOS has
+> adopted the app, its own copy of the compose file is in charge and the updater
+> only rewrites the image tag in it. The 1.23.5 additions — `stop_grace_period`,
+> `cap_drop`, `no-new-privileges`, the commented Secure-cookie variable — are
+> added to that copy once, by hand, followed by `docker compose up -d`.
 
 > **The CasaOS "Check and then update" button does not work for this container,
 > and no image tag changes that.** ZimaOS decides whether an update exists by
@@ -1018,13 +1038,25 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
   links.
 - **Callout payloads include user directory attributes** from Access — treat the
   H2 database as containing personal data and keep the volume protected.
-- **Backup archives contain secrets** (OAuth client secret, SMTP credentials).
-  Treat a copy as equivalent to the env file.
+- **Backup archives contain secrets** (OAuth client secrets, the chat webhook
+  URL, SMTP credentials). Treat a copy as equivalent to the env file. No
+  endpoint returns a stored secret: the tenant service-client secret is
+  accepted on `POST`/`PUT /api/config/server` and never written back out
+  (1.23.5).
+- **Sign-out is a `POST /logout` with the CSRF token** (1.23.5); a `GET` does
+  nothing, so a third-party page cannot end a session. The session cookie is
+  `SameSite=Lax`.
+- **What reaches a requester or a spreadsheet is data, not markup.** The mail
+  templates HTML-escape every field (the requester's name and the application's
+  name come from the callout, the note from the approver), and CSV exports
+  neutralise a cell that would start a spreadsheet formula (1.23.5).
 - **Secrets arrive exclusively through environment values;** nothing sensitive is
   written to the repository, the image, or the logs.
 - **Privileged operations** — permanent decline, revoke and block, allow
   re-request — change entitlements in your tenant, are confirmation-gated, and
-  are recorded with the acting identity.
+  are recorded with the acting identity. The bootstrap admin password must meet
+  the password rules (1.23.5): a first run with a weak
+  `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` stops with the reason.
 - **Updates never hand the container the Docker socket.** Approving a
   deployment writes one line to a dedicated control mount; pulling, recreating
   and verifying happen on the host, where that privilege already lives.

@@ -60,6 +60,7 @@ docker run -d --name omnissa-approvals \
   -v ./data:/app/data \
   -p 8081:8081 \
   --restart unless-stopped \
+  --stop-timeout 15 \
   ghcr.io/squidlyman/omnissa-access-approvals:latest
 ```
 
@@ -128,7 +129,7 @@ bash scripts/gen-dev-cert.sh
 docker compose -f docker-compose-standalone.yml up -d
 ```
 
-Set `SSL_KEYSTORE_PASSWORD` in `.env` before starting.
+Set `SSL_KEYSTORE_PASSWORD` in `.env` before starting. Port 80 answers every request with a redirect to HTTPS (since 1.23.5; before that it served the application in the clear).
 
 ### Behind Your Own Reverse Proxy (nginx / NPM / CasaOS)
 
@@ -139,7 +140,7 @@ cp .env.example .env    # APPROVAL_DOMAIN and SSL_KEYSTORE_PASSWORD are unused h
 docker compose -f docker-compose-proxy.yml up -d --build
 ```
 
-The app listens on plain HTTP port `8081`; point your proxy at it. The proxy **must** pass `X-Forwarded-Proto`/`X-Forwarded-Host` (the app uses them for `https://` OAuth2 redirect URIs — `server.forward-headers-strategy=framework` is set by default), and the SSE endpoint `/api/approvals/stream` needs `proxy_buffering off`. A complete nginx server block and Nginx Proxy Manager notes are in [docs/deployment.md](docs/deployment.md).
+The app listens on plain HTTP port `8081`; point your proxy at it. The proxy **must** set `X-Forwarded-Proto`/`X-Forwarded-Host` from its own view of the request — overwriting, never passing a client's copy through — because the app trusts them for `https://` OAuth2 redirect URIs (`server.forward-headers-strategy=framework` is set by default), and the SSE endpoint `/api/approvals/stream` needs `proxy_buffering off`. Once the proxy is the only way in, set `SERVER_SERVLET_SESSION_COOKIE_SECURE=true` so the session cookie carries the Secure flag. A complete nginx server block and Nginx Proxy Manager notes are in [docs/deployment.md](docs/deployment.md).
 
 If nginx runs directly on the host, change the port mapping in `docker-compose-proxy.yml` to `"127.0.0.1:8081:8081"` so the unencrypted port is not reachable from the LAN; keep `"8081:8081"` if your proxy runs in a container.
 

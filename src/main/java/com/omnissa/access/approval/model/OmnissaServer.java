@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotEmpty;
 
 @Entity
@@ -19,7 +20,13 @@ public class OmnissaServer {
     @NotEmpty
     private String clientId;
 
-    @NotEmpty
+    /**
+     * Accepted on POST and PUT, never written back out: the service client is
+     * a Super Admin credential for the tenant, and until 1.23.5 every read of
+     * the configuration returned it in clear. Required on POST; a PUT that
+     * leaves it blank keeps the stored value (see ConfigController).
+     */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String clientSecret;
 
     public OmnissaServer() {}

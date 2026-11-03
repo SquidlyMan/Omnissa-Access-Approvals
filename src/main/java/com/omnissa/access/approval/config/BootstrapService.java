@@ -43,7 +43,8 @@ public class BootstrapService implements ApplicationRunner {
         }
 
         if (bootstrapUrl.isBlank() || bootstrapClientId.isBlank() || bootstrapClientSecret.isBlank()) {
-            logger.info("No bootstrap credentials set. Use the setup wizard at /setup to configure.");
+            logger.info("No tenant configured (OMNISSA_BOOTSTRAP_URL, _CLIENT_ID and _CLIENT_SECRET are blank). "
+                    + "The tool runs without one; set the three to connect a tenant, or POST /api/config/server as an admin.");
             return;
         }
 

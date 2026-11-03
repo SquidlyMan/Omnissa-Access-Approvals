@@ -2,7 +2,7 @@
 #
 # Back up the Access Approval Tool's persistent state: the H2 database (every
 # request, decision, rule, audit entry and local user) and the env file (tenant
-# URL, OAuth client secrets, Slack signing secret, SMTP credentials). Everything
+# URL, OAuth client secrets, the chat webhook URL, SMTP credentials). Everything
 # else — the image, the compose file, the repo — is reproducible from GHCR/git.
 #
 #   sudo sh backup.sh                 # live snapshot (no downtime)
@@ -89,7 +89,7 @@ fi
 
 # --- archive ----------------------------------------------------------------
 tar -czf "$ARCHIVE" -C "$STAGE" .
-chmod 600 "$ARCHIVE"   # contains client secrets and the Slack signing secret
+chmod 600 "$ARCHIVE"   # contains client secrets and the chat webhook URL
 
 # --- verify: an unreadable backup is worse than none ------------------------
 if ! tar -tzf "$ARCHIVE" >/dev/null 2>&1; then

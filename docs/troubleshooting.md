@@ -47,6 +47,24 @@ not read at the moment it matters.
 **Upgrading an existing install?** Set one of the two *before* pulling the new
 image, or the container will not come back up.
 
+## Container will not start: "Refusing to create the bootstrap admin account"
+
+Since 1.23.5 the bootstrap admin password has to meet the same
+[password rules](configuration.md#password-rules) as every other local
+password — at least 12 characters by default, not on the blocklist, not
+containing the username. A first run with `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD`
+set to something like `admin` stops with the rule it failed. Choose a
+passphrase and start again. An existing install is unaffected: the bootstrap
+runs only while the user table is empty.
+
+## Sign-in loops back to the login page behind a proxy
+
+If `SERVER_SERVLET_SESSION_COOKIE_SECURE=true` is set and the app is opened
+over plain `http://` — a CasaOS tile pointing at `http://<nas>:8081`, a LAN
+test — the browser drops the session cookie and every sign-in lands back on
+the login page. Either open the app through the HTTPS proxy only, or unset the
+variable until that is the only way in.
+
 ## "Unable to connect to the URI" when saving Settings > Approvals
 
 When you save the approvals settings, the Omnissa Access cloud service
