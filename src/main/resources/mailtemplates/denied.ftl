@@ -20,7 +20,7 @@
                 <tr>
                     <td style="background:#fff;padding:30px 35px">
                         <h2 style="font-size:28px;line-height:1.25;margin:0;margin-bottom:20px;padding:0">
-                            Hi <#list request.userAttributes.firstName as firstName>${firstName}</#list> <#list request.userAttributes.lastName as lastName>${lastName}</#list>,
+                            Hi <#list (request.userAttributes.firstName)![] as firstName>${firstName}</#list> <#list (request.userAttributes.lastName)![] as lastName>${lastName}</#list>,
                         </h2>
                         <p style="font-size:16px;font-weight:400;line-height:1.65;margin:0;margin-bottom:20px;padding:0">
                             Your request for <strong>${request.resourceName}</strong> has been <b><i>denied</i></b>.

@@ -45,7 +45,7 @@ table is empty**. Ignored on subsequent starts.
 | Variable | Default | Description |
 |---|---|---|
 | `OMNISSA_BOOTSTRAP_ADMIN_USERNAME` | — | Username of the initial local admin |
-| `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` | — | Password of the initial local admin |
+| `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` | — | Password of the initial local admin. It must meet the [password rules](#password-rules) (since 1.23.5): a first run with a value that fails them stops, and the log says why |
 | `OMNISSA_BOOTSTRAP_ADMIN_EMAIL` | — | Email address of the initial local admin (optional) |
 
 > **These variables cannot rotate the password.** The bootstrap runs only when
@@ -215,6 +215,11 @@ break-glass exists for are exactly those where Access sign-in is unavailable.
 | `OMNISSA_PASSWORD_REQUIRE_MIXED_CASE` | `false` | Composition rule — see below |
 | `OMNISSA_PASSWORD_REQUIRE_DIGIT` | `false` | Composition rule |
 | `OMNISSA_PASSWORD_REQUIRE_SYMBOL` | `false` | Composition rule |
+
+The rules apply to every local password, the bootstrap admin's included: since
+1.23.5 a first run whose `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` fails them refuses
+to create the account and stops, naming the variable, rather than creating the
+break-glass account with a password the UI would have refused.
 
 **Composition rules are off by default and are not recommended.** They are
 discouraged (NIST SP 800-63B) because people decorate rather than abandon a weak
@@ -422,6 +427,12 @@ holds) and the next check tries again.
 | Variable | Default | Description |
 |---|---|---|
 | `SERVER_PORT` | `8081` | HTTP listen port of the application |
+| `SERVER_SERVLET_SESSION_COOKIE_SECURE` | unset | Mark the session cookie `Secure`. Behind a TLS proxy the container sees plain HTTP, so Tomcat does not set the flag on its own; set `true` once the proxy is the only way in (the Caddy compose file does). Leave it unset while anything still opens the app over plain `http://…:8081`, or sign-in loops. The cookie is always `SameSite=Lax` |
+
+**The tenant configuration over the API** (`/api/config/server`, Admin only):
+the service-client secret is accepted on `POST` and `PUT` and never returned —
+`GET` and the echo from a save omit it (since 1.23.5). A `PUT` that leaves
+`clientSecret` blank keeps the stored one; `POST` requires it.
 
 ## Email Notifications (SMTP)
 
@@ -443,6 +454,10 @@ notification went out that did not.
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT` | `10000` | Connect timeout, milliseconds |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT` | `10000` | Read timeout, milliseconds |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT` | `10000` | Write timeout, milliseconds |
+
+Everything the templates print — the requester's name, the application's name,
+the approver's note — is HTML-escaped (since 1.23.5), so a note is delivered as
+the text that was typed, never as a link or markup.
 
 Mail is sent synchronously, and Jakarta Mail's own default for all three
 timeouts is **infinite** — so leave them set. A relay that silently drops

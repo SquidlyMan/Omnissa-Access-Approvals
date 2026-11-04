@@ -189,7 +189,9 @@ public class ApiBasicAuthFilter implements Filter {
         if (sep < 0) {
             return "the decoded Basic credentials contained no ':' separator";
         }
-        String presentedUser = decoded.substring(0, sep);
+        // The name is quoted in a WARN line as typed. Control characters are
+        // replaced so a crafted header cannot forge a second log line.
+        String presentedUser = decoded.substring(0, sep).replaceAll("\\p{Cntrl}", "?");
         int presentedPasswordLength = decoded.length() - sep - 1;
 
         boolean userOk = MessageDigest.isEqual(presentedUser.getBytes(StandardCharsets.UTF_8),

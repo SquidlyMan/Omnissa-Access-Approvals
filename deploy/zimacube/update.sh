@@ -148,6 +148,13 @@ PREV_TAG=$(echo "$PREV_LINE" | sed -E "s|.*$IMAGE:([^[:space:]\"']+).*|\1|")
 LKG="$CONTROL/last-known-good"
 if [ -f "$LKG" ]; then
     LKG_TAG=$(awk 'NR==1{print $1}' "$LKG")
+    # The file lives on the control mount the container writes to. The
+    # application only ever writes a full version there; anything else is not
+    # a rollback target, whoever wrote it, and it never reaches the sed below.
+    if [ -n "$LKG_TAG" ] && ! echo "$LKG_TAG" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        log "ignoring last-known-good '$LKG_TAG': not a full version"
+        LKG_TAG=""
+    fi
     [ -n "$LKG_TAG" ] && [ "$LKG_TAG" != "$PREV_TAG" ] && log "compose is pinned to $PREV_TAG but the last proven version is $LKG_TAG; rolling back to the proven one if needed"
     [ -n "$LKG_TAG" ] && PREV_TAG="$LKG_TAG"
 fi

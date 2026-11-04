@@ -9,8 +9,12 @@ RUN ./mvnw package -DskipTests -q
 
 # Stage 2 — minimal runtime image
 FROM eclipse-temurin:25-jre
-# temurin dropped curl after 21-jre; the container healthcheck depends on it
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# temurin dropped curl after 21-jre; the container healthcheck depends on it.
+# The Ubuntu base also ships pebble, Canonical's service manager, as a loose
+# Go binary that nothing here runs; it is removed so a Go advisory can never
+# be reported against a Java image (the 1.23.4 image carried thirteen).
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/bin/pebble
 WORKDIR /app
 COPY --from=build /app/target/omnissa-approval-*.jar app.jar
 

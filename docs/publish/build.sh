@@ -92,7 +92,7 @@ if changed:
 PY
 
 DOCS=("${@:-}")
-[ -z "${DOCS[0]}" ] && DOCS=(blog-post documentation release-notes feature-summary)
+[ -z "${DOCS[0]}" ] && DOCS=(blog-post blog-update blog-update-correction documentation release-notes feature-summary)
 
 for doc in "${DOCS[@]}"; do
   [ "$doc" = "brief" ] && continue

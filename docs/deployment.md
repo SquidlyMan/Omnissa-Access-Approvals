@@ -44,8 +44,18 @@ docker run -d --name omnissa-approvals \
   -v /srv/omnissa-approvals/data:/app/data \
   -p 8081:8081 \
   --restart unless-stopped \
+  --stop-timeout 15 \
+  --cap-drop ALL --security-opt no-new-privileges:true \
   ghcr.io/squidlyman/omnissa-access-approvals:latest
 ```
+
+`--stop-timeout 15` is margin, not a requirement: since 1.23.5 the application
+closes its live-update streams the moment shutdown begins, so a stop finishes
+in about a second even with Dashboard tabs open. (Before that, one open tab
+held Spring Boot's 30-second graceful-shutdown phase, and Docker's default ten
+seconds force-killed the container at every reboot.) The two hardening flags
+drop capabilities the Java process never uses; the compose files carry the
+same settings.
 
 Use [`deploy/zimacube/omnissa-approvals.env.example`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/omnissa-approvals.env.example)
 as the template for the env file (it is a complete, commented reference) and
@@ -73,7 +83,7 @@ The repository also ships ready-made Docker Compose files:
 | File | Mode |
 |---|---|
 | `docker-compose.yml` | App + Caddy sidecar (automatic Let's Encrypt TLS) |
-| `docker-compose-standalone.yml` | App terminates TLS itself with your PKCS12 keystore |
+| `docker-compose-standalone.yml` | App terminates TLS itself with your PKCS12 keystore; plain port 80 redirects to HTTPS (it served the application in the clear before 1.23.5) |
 | `docker-compose-proxy.yml` | App only, plain HTTP 8081 — you bring the reverse proxy |
 
 Verify with `curl http://<host>:8081/actuator/health` — it should return
@@ -83,11 +93,23 @@ Verify with `curl http://<host>:8081/actuator/health` — it should return
 
 - **TLS termination** at the proxy. Omnissa Access will only call out to a
   valid, publicly trusted HTTPS endpoint.
-- **Forwarded headers**: pass `X-Forwarded-Proto`, `X-Forwarded-Host`, and
-  `X-Forwarded-For`. The app already sets
+- **Forwarded headers**: set `X-Forwarded-Proto` and `X-Forwarded-Host` from
+  the proxy's own view of the request — overwrite them, never pass a client's
+  copy through — and append to `X-Forwarded-For`. The app already sets
   `server.forward-headers-strategy=framework`, so it honors them without
   extra configuration — this is how it generates correct `https://` OAuth2
-  redirect URIs behind the proxy.
+  redirect URIs behind the proxy. It trusts those two headers from whoever
+  sends them, which is why the proxy must own them and why port 8081 should
+  not be reachable except through the proxy.
+- **Session cookie**: the container sees plain HTTP behind the proxy, so the
+  session cookie is not marked `Secure` on its own. Once the proxy is the only
+  way in, set `SERVER_SERVLET_SESSION_COOKIE_SECURE=true` (the Caddy compose
+  file does). Leave it unset while anything still opens the app over plain
+  `http://…:8081`, or sign-in loops.
+- **Request bodies**: the only POST from the internet is the callout, a few
+  kilobytes. The app refuses bodies over 256 KB with 413; a limit at the proxy
+  (`client_max_body_size 1m` on nginx, `request_body { max_size 1MB }` on
+  Caddy) stops them a hop earlier.
 - **SSE**: the live queue uses Server-Sent Events on
   `/api/approvals/stream`. On nginx that location needs `proxy_buffering
   off` (plus `proxy_cache off`, HTTP/1.1, and a long `proxy_read_timeout`)
@@ -102,6 +124,8 @@ server {
 
     ssl_certificate     /etc/nginx/certs/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    client_max_body_size 1m;
 
     location / {
         proxy_pass http://127.0.0.1:8081;
@@ -232,6 +256,14 @@ reports "is the latest version" for this container regardless of the image tag,
 because it never checks the registry; see
 [CasaOS updates](#casaos-check-and-then-update) below.
 
+**Template changes do not reach an adopted app on their own.** Once CasaOS has
+adopted the app, its copy of the compose file under `/var/lib/casaos/apps/`
+is the one in charge, and the updater only rewrites the image tag in it. The
+1.23.5 template additions — `stop_grace_period: 15s`, `cap_drop: [ALL]`,
+`no-new-privileges`, and the commented `SERVER_SERVLET_SESSION_COOKIE_SECURE`
+— have to be added to that copy once, by hand or by re-adopting the app, and
+followed by `docker compose up -d` from that directory.
+
 See [`deploy/zimacube/deploy.sh`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/deploy.sh) and the
 README's ZimaCube section for the Nginx Proxy Manager wiring and the
 Docker-bridge firewall note.
@@ -308,7 +340,7 @@ Only two things are not reproducible from GHCR and git:
 - **the H2 database** (`data/omnissa-approval.mv.db`) — every request, decision,
   auto-approval rule, audit entry and local admin account;
 - **the env file** (`omnissa-approvals.env`) — tenant URL, OAuth client secrets,
-  Slack signing secret, SMTP credentials.
+  the chat webhook URL, SMTP credentials.
 
 [`deploy/zimacube/backup.sh`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/backup.sh) archives both (plus
 the compose `.env` and a manifest recording the running image digest) to

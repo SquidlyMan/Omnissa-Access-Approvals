@@ -19,6 +19,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 /**
  * JIT / time-bound access enforcement (#49) via per-user <em>exclusions</em>.
@@ -209,8 +211,20 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
                                               boolean negative, String activationPolicy) {
         String policy = (activationPolicy != null && !activationPolicy.isBlank())
                 ? activationPolicy : "USER_ACTIVATED";
-        return "{\"catalogItemId\":\"" + catalogItemId + "\",\"subjectType\":\"USERS\",\"subjectId\":\""
-                + subjectId + "\",\"activationPolicy\":\"" + policy + "\",\"negative\":" + negative + "}";
+        // Serialised, not concatenated: catalogItemId is the callout's
+        // resourceUuid and the policy is read back from Access, so a quote in
+        // either would otherwise rewrite the document.
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("catalogItemId", catalogItemId);
+        body.put("subjectType", "USERS");
+        body.put("subjectId", subjectId);
+        body.put("activationPolicy", policy);
+        body.put("negative", negative);
+        try {
+            return MAPPER.writeValueAsString(body);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("could not serialise the entitlement body", e);
+        }
     }
 
     /** The activationPolicy recorded on this subject's USERS entry, if present. */
@@ -261,6 +275,17 @@ public class EntitlementsInterfaceImpl implements EntitlementsInterface {
         accept.setAccept(List.of(MediaType.APPLICATION_JSON));
         for (String candidate : new String[]{userName, emailLocal, email}) {
             if (candidate == null || candidate.isBlank()) {
+                continue;
+            }
+            if (candidate.indexOf('"') >= 0 || candidate.indexOf('\\') >= 0) {
+                // The candidate comes from the callout. A quote would end the
+                // filter's string literal and turn the rest of the value into
+                // filter syntax — `x" or userName eq "someone.else` resolves
+                // someone else's SCIM id, and every later entitlement change
+                // for this request would land on them. No directory name
+                // carries either character; skip rather than escape.
+                logger.warn("Skipping SCIM lookup for requestId={}: a userName candidate contains a quote or backslash",
+                        request.getRequestId());
                 continue;
             }
             try {

@@ -23,6 +23,11 @@ services:
       - "8081:8081"
     environment:
       SERVER_PORT: 8081
+      # Uncomment once the proxy is the only way in and it serves HTTPS only:
+      # the app sees plain HTTP behind it, so the session cookie is not marked
+      # Secure on its own. Leave it off while anything still opens the app over
+      # plain http on :8081 (a CasaOS tile, a LAN test), or sign-in loops.
+      # SERVER_SERVLET_SESSION_COOKIE_SECURE: "true"
       OMNISSA_BOOTSTRAP_URL:            ${OMNISSA_BOOTSTRAP_URL}
       OMNISSA_BOOTSTRAP_CLIENT_ID:      ${OMNISSA_BOOTSTRAP_CLIENT_ID}
       OMNISSA_BOOTSTRAP_CLIENT_SECRET:  ${OMNISSA_BOOTSTRAP_CLIENT_SECRET}
@@ -45,6 +50,16 @@ services:
       # archive must never carry a pending deploy.
       - app_control:/app/control
     restart: unless-stopped
+    # Margin only. Since 1.23.5 the app closes its live-update streams the moment
+    # shutdown begins, so a stop finishes in about a second even with Dashboard
+    # tabs open; the default 10 s would do, 15 s leaves room for a slow host.
+    stop_grace_period: 15s
+    # Defence in depth for a process that needs neither: no capability, and no
+    # way to gain one.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 30s

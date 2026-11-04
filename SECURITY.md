@@ -34,10 +34,14 @@ The **only intentionally unauthenticated endpoints** are:
 
 - `POST /api/approvals/new` and `OPTIONS /api/approvals/new` — the Omnissa
   Access callout endpoint. It is per-IP rate-limited (HTTP 429 on excess) and
-  can additionally require HTTP Basic auth (see hardening below). The
-  `OPTIONS` probe always remains unauthenticated so the Omnissa Access
-  console can validate the URI.
+  can additionally require HTTP Basic auth (see hardening below), and a body
+  over 256 KB is refused with 413 before it is read. When Basic auth is on,
+  the `OPTIONS` probe is challenged like the POST (since 1.19.9;
+  `OMNISSA_API_CHALLENGE_OPTIONS=false` restores the exemption); only the rate
+  limiter leaves the probe alone.
 - `/actuator/health` — liveness probe.
+- `/actuator/info` — the build version, which the host-side updater reads to
+  confirm a deploy; liveness alone cannot show which version is running.
 - `GET /api/health/deps` — dependency status for an external monitor. Returns
   **only** an aggregate word (`{"status":"UP"}` / `DEGRADED` / `DOWN`): no tenant
   hostname, no error strings, and deliberately **no counts** — a pending or
@@ -45,7 +49,13 @@ The **only intentionally unauthenticated endpoints** are:
   detailed per-component view at `/api/health/dependencies` requires a session.
 - `/api/config/auth` — advertises which login methods are enabled (needed to
   render the login page).
-- `/login` and static frontend assets.
+- `/login`, the OAuth2 sign-in flow (`/login/**`, `/oauth2/**`) and static
+  frontend assets.
+- `/swagger-ui/**` and `/v3/api-docs/**` — the API reference (Swagger UI) and
+  the OpenAPI description it renders. They describe the endpoints and return
+  no data, but Swagger UI is third-party code served before sign-in, which is
+  why the changelog tracks its updates. The default-deny reverse-proxy
+  pattern in `docs/deployment.md` leaves both paths out.
 
 **Everything else requires an authenticated session**, and — since roles landed
 — an authenticated session with a sufficient **role**. An unauthenticated
@@ -191,12 +201,24 @@ with no rate limiting of any kind.
 Some admin actions change entitlements in your Omnissa Access tenant, not just
 local state — a permanent decline, *Revoke and block*, and *Allow re-request*
 add or remove a per-user exclusion on the app. They require an authenticated
-admin session, are confirmation-gated in the UI, and are recorded in the audit
-trail with the acting identity. See
+session with the Approver or Admin role, are confirmation-gated in the UI, and
+are recorded in the audit trail with the acting identity. See
 [docs/access-lifecycle.md](docs/access-lifecycle.md).
 
-**Backup archives contain secrets** (OAuth client secret, Slack signing secret,
-SMTP credentials). They are written `0600` inside a `0700` directory; treat a
-copy of one as equivalent to the env file.
+**Backup archives contain secrets** (OAuth client secrets, the chat webhook
+URL, SMTP credentials). They are written `0600` inside a `0700` directory;
+treat a copy of one as equivalent to the env file.
+
+**No endpoint returns a stored secret.** The tenant service-client secret is
+accepted on `POST`/`PUT /api/config/server` and never written back out (since
+1.23.5; a `PUT` that leaves it blank keeps the stored one). Backup archives,
+above, are the only copy outside the env file.
+
+**Sign-out is a `POST /logout` with the CSRF token** (since 1.23.5). A `GET`
+does nothing, so a third-party page cannot end a session.
+
+**The bootstrap admin password meets the password rules** (since 1.23.5). A
+first run whose `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` fails them stops with the
+reason, rather than creating a break-glass account the UI would have refused.
 
 Also see the non-production disclaimer in [NOTICE.md](NOTICE.md).

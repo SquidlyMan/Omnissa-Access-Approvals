@@ -1,6 +1,7 @@
 package com.omnissa.access.approval.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.omnissa.access.approval.util.JsonBodies;
 import com.omnissa.access.approval.interfaces.CatalogItemInterface;
 import com.omnissa.access.approval.model.LicenseInfo;
 import com.omnissa.access.approval.model.Mappings;
@@ -33,7 +34,7 @@ public class CatalogItemController {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Content-Type", "application/vnd.vmware.horizon.manager.catalog.search.bulk+json");
 
-        String reqBody = "{\"catalogItemIds\": [\"" + id + "\"]}";
+        String reqBody = JsonBodies.catalogSearch(id);
         HttpEntity<String> httpEntity = new HttpEntity<>(reqBody, headers);
 
         logger.info("Catalog search for id={}", id);

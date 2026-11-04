@@ -4,6 +4,7 @@ import com.omnissa.access.approval.model.security.Authority;
 import com.omnissa.access.approval.model.security.AuthorityName;
 import com.omnissa.access.approval.model.security.UserAccount;
 import com.omnissa.access.approval.repository.UserAccountRepository;
+import com.omnissa.access.approval.service.PasswordPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,9 @@ public class UserBootstrapService implements ApplicationRunner {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private PasswordPolicy passwordPolicy;
+
     @Value("${omnissa.bootstrap.admin-username:}")
     private String adminUsername;
 
@@ -57,6 +61,19 @@ public class UserBootstrapService implements ApplicationRunner {
                         "Configure an Omnissa OIDC client for OAuth2 login, or set these " +
                         "properties to auto-create the first local admin account.");
             return;
+        }
+
+        // The same rules the UI enforces on every other password. This is the
+        // break-glass account: until 1.23.5 it was the one credential the
+        // policy never saw, so OMNISSA_BOOTSTRAP_ADMIN_PASSWORD=admin went
+        // through. Refusing to start is deliberate — a weak admin password
+        // that nobody noticed is worse than a container that says why it
+        // stopped.
+        String problem = passwordPolicy.validate(adminPassword, adminUsername);
+        if (problem != null) {
+            throw new IllegalStateException("Refusing to create the bootstrap admin account '" + adminUsername
+                    + "': " + problem + " Set OMNISSA_BOOTSTRAP_ADMIN_PASSWORD to a value that meets the "
+                    + "password rules (docs/configuration.md, Password rules) and start again.");
         }
 
         Authority adminRole = new Authority();

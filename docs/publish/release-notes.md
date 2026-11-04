@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.23.4 and complete version history"
+subtitle: "Release Notes — v1.23.5 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.23.5** | Stops cleanly with tabs open; the review's fixes — standalone port 80 redirects, secrets never returned, escaped mail, POST sign-out, the throttle live again; swagger-ui 5.34.1 | `v1.23.5` |
 | **1.23.4** | Spring Boot 4.1.1 and springdoc 3.1.1; the documentation site's favicon and links | `v1.23.4` |
 | **1.23.3** | Sign-in can no longer land on a browser's icon probe | `v1.23.3` |
 | **1.23.2** | The env file spelled out by stage; the callout pair defined once; deploy figures; React 19.3 | `v1.23.2` |
@@ -100,11 +101,95 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus the moving `latest` tag, which since 1.23.1 points at the newest release. Moving `major.minor` tags stopped at 1.21.x: the updater pins the immutable full version.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.23.5
+
+A dependency, hardening and shutdown release, shaped by a code review of the
+whole repository. Nothing about the approval workflow changes; what changes is
+how the container stops, what the edges of the application let through, and
+a handful of things that were never quite true.
+
+### Changes in this release
+
+- **A stop no longer waits on open tabs.** Spring Boot's shutdown is graceful:
+  it waits, up to thirty seconds, for in-flight requests to finish — and a
+  Dashboard or Queue tab holds a live-update stream that never finishes on its
+  own. One open tab took the container to 32 seconds, and Docker's default ten
+  killed it at every reboot (the ZimaOS 1.8.0 upgrade did exactly that). The
+  tool now closes every stream the moment shutdown begins, so a stop takes
+  about a second with tabs open, and the browser reopens its stream when the
+  new container answers. The compose files carry a 15-second stop window as
+  margin only.
+- **Spring Boot 4.1.2, springdoc 3.2.0 and swagger-ui 5.34.1.** Boot 4.1.2
+  brings Spring Security 7.1.2, Tomcat 11.0.27 — which closes the thirty
+  Tomcat advisories that affected 1.23.4, nearly all in features the tool does
+  not use — Jackson 3.1.7 and Hibernate 7.4.13. springdoc 3.2.0 pins
+  swagger-ui 5.34.0; the project overrides it to 5.34.1 for the DOMPurify
+  3.4.17 inside, because the API reference is served without a session. Vite
+  8.3.5, react-router-dom 7.18.5 and Tailwind 4.3.4 on the front end. The
+  suite is 513 tests.
+- **Hardened containers.** Every compose file drops all capabilities and
+  forbids gaining new ones; the image no longer ships `pebble`, a Go binary
+  the Ubuntu base includes and nothing here runs — it was the source of every
+  scanner finding against the 1.23.4 image. The session cookie is
+  `SameSite=Lax`, and `Secure` in the Caddy mode (the other modes say when to
+  turn it on). The reverse-proxy guidance now says *set* the forwarded
+  headers, not *pass* them.
+
+### Fixes in this release
+
+- **The local sign-in throttle, shipped in 1.19.2, never ran.** Two stock
+  calls written after the custom handlers replaced them — that is how Spring
+  Security implements them — so no failed or successful local sign-in ever
+  reached the throttle, and the break-glass password form was never slowed
+  down. The handlers are live now, and a test proves it through the real
+  filter chain. The same change puts the custom post-login redirect in
+  effect, which closes the one open CodeQL finding: only a path on this site
+  is honoured, anything else lands on the Dashboard.
+- **The standalone HTTPS mode's plain port served the application in the
+  clear.** Port 80 was documented as a redirect; it was a second copy of the
+  application. It answers every request with a redirect to HTTPS now.
+- **The tenant service-client secret was returned to administrators** by the
+  configuration API. It is write-only now; a save that leaves it blank keeps
+  the stored one.
+- **Requester e-mails rendered the application name and the approver's note
+  as HTML.** Every field is escaped; a note is delivered as the text that was
+  typed.
+- **Sign-out answered a GET**, so any web page could end a session. It is a
+  POST with the CSRF token.
+- **Bulk "approve all" and "reject all" skipped the grant and decline
+  logic**, so a bulk approval of a default-excluded app showed "approved"
+  while the user still could not see it. Each request now goes through the
+  same path as a single decision.
+- **Smaller edges closed:** callout bodies over 256 KB are refused before
+  they are read; CSV exports neutralise cells a spreadsheet would run as a
+  formula; a quote in a callout user name can no longer reach the SCIM
+  filter; request bodies to Access are serialised rather than concatenated;
+  the bootstrap admin password must meet the password rules; the host updater
+  ignores a rollback target that is not a full version.
+- **Documentation that had drifted:** SECURITY.md and the published
+  documentation now list every path served without a session; the OPTIONS
+  probe, the Approver role on privileged operations, the long-gone "Slack
+  signing secret", the OIDC example's scopes and issuer, and the 1.23.4 account
+  of Dependabot's `unignore` are all corrected. The October community update
+  and the reply that corrects it are in `docs/publish`.
+
+### Known Issues
+
+- The updater needs systemd. A host without it needs its own watcher for the
+  two-file contract in the control directory.
+- Escalation is a single stage. There is no second stage, no email escalation,
+  and no per-stage SLA inside an approval chain.
+- A CasaOS-adopted app keeps its own copy of the compose file; the 1.23.5
+  template additions (stop window, dropped capabilities, the Secure-cookie
+  variable) have to be added to that copy once by hand.
 
 ---
 
@@ -124,10 +209,10 @@ the blog post shipped.
   the front end. No behaviour change; the suite is 472 tests.
 - **Dependabot could not see these updates.** The *ignore this major version*
   replies given in July, when the project was on Boot 3, springdoc 2, Vite 5
-  and Tailwind 3, left standing ignore conditions that cover the majors the
-  project now lives on. Minor and patch updates are grouped per ecosystem now,
-  which is the one kind of pull request on which Dependabot honours
-  *unignore*; the npm conditions are cleared.
+  and Tailwind 3, left standing ignore conditions covering the majors the
+  project now lives on. *unignore*, posted on the original closed pull
+  requests, cleared all four conditions before the release, and minor and
+  patch updates are now grouped per ecosystem.
 
 ### Fixes in this release
 

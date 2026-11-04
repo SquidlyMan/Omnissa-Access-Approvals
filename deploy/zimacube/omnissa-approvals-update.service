@@ -7,4 +7,8 @@ Requires=docker.service
 Type=oneshot
 # The host side of the container's /app/control mount. deploy.sh fills this in.
 Environment=OMNISSA_CONTROL_DIR=__CONTROL_DIR__
+# A fork publishing its own images sets the same owner/name here as in the
+# container's OMNISSA_UPDATE_REGISTRY_REPO, or the version is checked against
+# one registry and pulled from another.
+#Environment=OMNISSA_UPDATE_REGISTRY_REPO=squidlyman/omnissa-access-approvals
 ExecStart=/bin/sh __SRC_DIR__/deploy/zimacube/update.sh

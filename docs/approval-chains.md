@@ -102,7 +102,9 @@ skipped, not treated as an error).
   unstaged pending request.
 - **Bulk "decide all pending" skips chained requests.** Deciding a specific
   stage's approver can't be a bulk action by definition; a chained request is
-  logged and left for individual decision.
+  logged and left for individual decision. (Unchained requests in a bulk action
+  go through the same decision path as a single decision since 1.23.5 — the
+  grant or decline is applied in Access, not just posted.)
 
 ## Audit trail
 

@@ -390,18 +390,27 @@ public class SecurityConfig {
                 .successHandler((request, response, authentication) -> {
                     loginThrottle.recordSuccess(ClientIp.of(request, trustedProxyHops), authentication.getName());
                     // Honour a saved destination, matching defaultSuccessUrl("/")
-                    // without alwaysUse — see the OAuth2 handler above.
+                    // without alwaysUse — see the OAuth2 handler above — but
+                    // only as a path on this site. Anything else lands on the
+                    // Dashboard; see PostLoginDestination.
                     var saved = navigationRequestCache().getRequest(request, response);
-                    response.sendRedirect(saved != null ? saved.getRedirectUrl() : "/");
+                    response.sendRedirect(PostLoginDestination.resolve(saved, request.getServerName()));
                 })
-                .defaultSuccessUrl("/")
-                .failureUrl("/login?error=true")
+                // No defaultSuccessUrl / failureUrl here: each of those REPLACES
+                // the handler above with a stock one (that is how the configurer
+                // implements them), which is exactly what happened from the day
+                // the throttle was added until 1.23.5 — neither handler ever ran,
+                // so a success never cleared the throttle's counters and the
+                // post-login redirect was Spring's absolute-URL one. The handlers
+                // carry both URLs themselves.
                 .permitAll()
             );
         }
         http
+            // Sign-out is a POST with the CSRF token, Spring Security's default.
+            // It used to match any method, so a GET to /logout from a third-party
+            // page — an <img src>, say — could end an approver's session mid-decision.
             .logout(logout -> logout
-                .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern("/logout"))
                 .logoutSuccessUrl("/login?logout=true")
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")

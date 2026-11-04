@@ -3,6 +3,7 @@ import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { canAdminister, canViewAudit, canViewQueue, roleLabel } from '../lib/permissions'
 import ChangePasswordDialog from './ChangePasswordDialog'
+import { getCsrfToken } from '../utils/csrf'
 
 const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
   `hidden md:block text-sm px-3 py-1 rounded transition-colors ${isActive ? 'bg-white/20' : 'hover:bg-white/10'}`
@@ -94,12 +95,17 @@ export default function Layout() {
                 Change password
               </button>
             )}
-            <a
-              href="/logout"
-              className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded transition-colors"
-            >
-              Sign out
-            </a>
+            {/* A POST with the CSRF token, not a link: a GET could be triggered
+                from any page on the web and used to end a session mid-decision. */}
+            <form method="post" action="/logout" className="inline">
+              <input type="hidden" name="_csrf" value={getCsrfToken()} />
+              <button
+                type="submit"
+                className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded transition-colors"
+              >
+                Sign out
+              </button>
+            </form>
           </div>
           {/* Mobile hamburger */}
           <button
@@ -165,9 +171,15 @@ export default function Layout() {
                 Change password
               </button>
             )}
-            <a href="/logout" className="block w-full text-sm py-2 px-4 hover:bg-white/10 transition-colors">
-              Sign out
-            </a>
+            <form method="post" action="/logout">
+              <input type="hidden" name="_csrf" value={getCsrfToken()} />
+              <button
+                type="submit"
+                className="block w-full text-left text-sm py-2 px-4 hover:bg-white/10 transition-colors"
+              >
+                Sign out
+              </button>
+            </form>
           </div>
         )}
       </nav>

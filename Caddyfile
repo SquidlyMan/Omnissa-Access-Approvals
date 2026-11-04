@@ -8,6 +8,12 @@
 
 {$APPROVAL_DOMAIN:localhost} {
 
+    # The only POST from the internet is the callout, a few kilobytes. The app
+    # refuses bodies over 256 KB itself; the proxy stops them a hop earlier.
+    request_body {
+        max_size 1MB
+    }
+
     reverse_proxy app:8081
 
     # Security headers

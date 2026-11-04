@@ -5,7 +5,7 @@
 
     <groupId>com.omnissa.access</groupId>
     <artifactId>omnissa-approval</artifactId>
-    <version>1.23.4</version>
+    <version>1.23.5</version>
     <packaging>jar</packaging>
 
     <name>omnissaApproval</name>
@@ -22,6 +22,21 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>17</java.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- springdoc 3.2.0 pins swagger-ui 5.34.0, whose bundled DOMPurify
+                 3.4.16 is affected by GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr and
+                 GHSA-c6gr-qvv4-5v3f. 5.34.1 carries the fixed DOMPurify 3.4.17.
+                 The API reference is served without a session, so the override
+                 is worth its line. Drop it once springdoc manages >= 5.34.1. -->
+            <dependency>
+                <groupId>org.webjars</groupId>
+                <artifactId>swagger-ui</artifactId>
+                <version>5.34.1</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -95,8 +110,8 @@
                 <version>2.0.2</version>
                 <configuration>
                     <workingDirectory>src/main/frontend</workingDirectory>
-                    <nodeVersion>v22.23.1</nodeVersion>
-                    <npmVersion>10.9.8</npmVersion>
+                    <nodeVersion>v22.23.4</nodeVersion>
+                    <npmVersion>10.9.9</npmVersion>
                 </configuration>
                 <executions>
                     <execution>

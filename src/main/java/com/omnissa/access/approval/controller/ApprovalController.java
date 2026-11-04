@@ -32,6 +32,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -236,10 +241,25 @@ public class ApprovalController {
         return ResponseEntity.ok(Map.of("outcome", outcome.name().toLowerCase()));
     }
 
+    /**
+     * Largest callout body accepted. Access's run to a few kilobytes. The
+     * endpoint is public, and until 1.23.5 the whole body was read into a
+     * String before anything looked at it, so the rate limit — which counts
+     * requests, not bytes — was all that stood between a holder of the callout
+     * credentials and the heap.
+     */
+    static final int MAX_CALLOUT_BODY_BYTES = 256 * 1024;
+
     @PostMapping(value = "/new",
             consumes = {CustomContentTypes.APPROVAL_MESSAGE_REQUEST, CustomContentTypes.MESSAGING_MESSAGE})
-    public ResponseEntity<?> saveCalloutRequest(@RequestBody(required = false) String rawBody) {
-        CalloutRequest calloutRequest = parseCalloutBody(rawBody);
+    public ResponseEntity<?> saveCalloutRequest(HttpServletRequest httpRequest) throws IOException {
+        String rawBody = readBounded(httpRequest);
+        if (rawBody == null) {
+            logger.warn("Rejected a callout body larger than {} bytes", MAX_CALLOUT_BODY_BYTES);
+            return ResponseEntity.status(413)
+                    .body(Map.of("error", "Callout body exceeds " + MAX_CALLOUT_BODY_BYTES + " bytes"));
+        }
+        CalloutRequest calloutRequest = parseCalloutBody(rawBody.isBlank() ? null : rawBody);
         // Access sends an empty test POST when the approvals settings are saved —
         // acknowledge it but don't store a junk all-null request (it blanks the UI).
         if (calloutRequest == null || calloutRequest.getRequestId() == null
@@ -338,9 +358,43 @@ public class ApprovalController {
             String payload = (bodyNode != null && bodyNode.isTextual()) ? bodyNode.asText() : rawBody;
             return mapper.readValue(payload, CalloutRequest.class);
         } catch (Exception e) {
-            logger.warn("Could not parse callout body ({}): {}", e.getMessage(), rawBody);
+            // The first few hundred characters say what arrived; the whole body
+            // would let junk posts rotate the log and take the hour's history
+            // with them.
+            logger.warn("Could not parse callout body ({}): {}", e.getMessage(), abbreviate(rawBody));
             return null;
         }
+    }
+
+    /** The request body as text, or {@code null} when it exceeds {@link #MAX_CALLOUT_BODY_BYTES}. */
+    private static String readBounded(HttpServletRequest request) throws IOException {
+        if (request.getContentLengthLong() > MAX_CALLOUT_BODY_BYTES) {
+            return null;
+        }
+        byte[] bytes;
+        try (InputStream in = request.getInputStream()) {
+            bytes = in.readNBytes(MAX_CALLOUT_BODY_BYTES + 1);
+        }
+        if (bytes.length > MAX_CALLOUT_BODY_BYTES) {
+            return null;
+        }
+        Charset charset = StandardCharsets.UTF_8;
+        String declared = request.getCharacterEncoding();
+        if (declared != null) {
+            try {
+                charset = Charset.forName(declared);
+            } catch (IllegalArgumentException unknown) {
+                // keep UTF-8
+            }
+        }
+        return new String(bytes, charset);
+    }
+
+    static String abbreviate(String text) {
+        if (text == null || text.length() <= 500) {
+            return text;
+        }
+        return text.substring(0, 500) + "… [" + text.length() + " chars]";
     }
 
     /**
@@ -519,7 +573,6 @@ public class ApprovalController {
     @PostMapping("/response/all")
     public ResponseEntity<?> respondToAllPending(@RequestParam boolean approved) {
         String admin = auditService.currentAdmin();
-        String message = (approved ? "Approved by " : "Rejected by ") + admin + " (bulk action)";
         for (CalloutRequest request : approvalsRepository.findByState("pending")) {
             // A chained request (#53) requires a SPECIFIC stage's approver, not
             // "any APPROVER" — bulk-deciding it would either bypass that check
@@ -531,22 +584,16 @@ public class ApprovalController {
                 continue;
             }
             try {
-                DecisionOutcome outcome = approvalsInterface.requestResponse(
-                        new CalloutResponse(request.getRequestId(), approved, "bulk action"));
-                switch (outcome) {
-                    case DELIVERED -> {
-                        auditService.recordFor(approved ? "approved" : "rejected", request, message);
-                        webhookNotifier.notifyDecision(request, approved, admin, null);
-                        mailNotification.sendEmailNotification(request.getRequestId(), approved);
-                    }
-                    case EXPIRED -> {
-                        auditService.recordFor("decision-undeliverable", request,
-                                (approved ? "Approval by " : "Rejection by ") + admin
-                                        + " could not be delivered — request no longer exists in Omnissa Access");
-                        webhookNotifier.notifyExpired(request);
-                    }
-                    case UNREACHABLE -> logger.warn(
-                            "Bulk decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
+                // The same path as a single decision. DecisionService applies the
+                // grant or decline in Access — lifting a default exclusion, capturing
+                // the SCIM id, recording the re-request policy — and writes the
+                // audit entry, webhook and mail. Until 1.23.5 the bulk action only
+                // posted the response, so a bulk approval of a default-excluded app
+                // showed "approved" while the user still could not see it.
+                DecisionOutcome outcome = decisionService.decide(request.getRequestId(), approved,
+                        "bulk action", null, null, admin);
+                if (outcome == DecisionOutcome.UNREACHABLE) {
+                    logger.warn("Bulk decision for requestId={} not delivered — Omnissa Access unreachable; request stays pending",
                             request.getRequestId());
                 }
             } catch (Exception e) {
