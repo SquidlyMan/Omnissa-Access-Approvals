@@ -36,7 +36,7 @@ ever touched it.)
 | `blog-update-correction.md` | The reply that corrects two claims in the update and records the 1.23.5 shutdown fix |
 | `documentation.md` | Complete reference: features, deployment, tenant setup, configuration, POC walkthrough |
 | `release-notes.md` | Per-version capabilities, fixes and known issues, plus what is planned. No dates — versions, not calendars |
-| `feature-summary.md` | Everything built between v1.2 and v1.23.5, grouped by capability rather than release. For briefing someone who last saw v1.2 |
+| `feature-summary.md` | Everything built between v1.2 and v1.23.6, grouped by capability rather than release. For briefing someone who last saw v1.2 |
 | `brief.js` | The one-page product brief — the only document without a markdown source. A docx-js layout reproducing the original Claude Design brief; the same script writes an HTML twin from the same content, and its PDF comes from WeasyPrint like the others. `npm install` here once for `docx` |
 | `style.css` | Shared print/screen styling, so both documents look like one product |
 | `reference.docx` | Word styling for the DOCX output — fonts, paragraph styles, page setup, running footer. Derived from a copy styled by hand in Word, with body content and images stripped, since pandoc reads only styling from a reference document |
