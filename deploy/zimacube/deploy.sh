@@ -48,7 +48,13 @@ BRANCH=main
 
 # LAN address handling: auto-detect, allow override via deploy.conf
 [ -f "$RAID_DIR/deploy.conf" ] && . "$RAID_DIR/deploy.conf"
-LAN_IP="${LAN_IP:-$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="src") print $(i+1)}' | head -1)}"
+# On an upgrade, keep the address the running container already publishes on:
+# a host with two LAN addresses can route out of one while publishing on the
+# other, and the health probe below would then be refused (2026-11-07). The
+# default route decides only for a first install, or when deploy.conf is silent
+# and nothing is published yet.
+PUBLISHED_IP=$(docker port "$APP" 8081/tcp 2>/dev/null | sed 's/^.*-> //' | awk -F: '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && $1 != "0.0.0.0" && $1 != "127.0.0.1" {print $1; exit}')
+LAN_IP="${LAN_IP:-${PUBLISHED_IP:-$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="src") print $(i+1)}' | head -1)}}"
 [ -n "$LAN_IP" ] || { echo "Could not detect LAN IP - set LAN_IP in $RAID_DIR/deploy.conf"; exit 1; }
 LAN_SUBNET="${LAN_SUBNET:-${LAN_IP%.*}.0/24}"
 echo "==> LAN: $LAN_IP (subnet $LAN_SUBNET)"

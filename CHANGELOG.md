@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.6] - 2026-11-07
+
+Two fixes for what the 1.23.5 deployment showed: the API reference page was
+missing, and the appliance updater probed the wrong address. The suite is
+515 tests (2 new).
+
+### Fixed
+
+- **The API reference (`/swagger-ui/index.html`) answered 404 since 1.23.5.**
+  springdoc serves the page from the swagger-ui webjar folder named by
+  `springdoc.swagger-ui.version`, and springdoc 3.2.0's own defaults pin that to
+  the version it was built with, 5.34.0, rather than reading the jar on the
+  classpath. 1.23.5 pinned the webjar to 5.34.1 for the DOMPurify fixes, so the
+  page's files sat under a folder springdoc never looked in; `/v3/api-docs`
+  was unaffected. `application.properties` now sets the version to match the
+  pin, and `SwaggerUiServedTest` serves the page and its scripts through the
+  real filter chain and fails if the property and the webjar ever drift apart.
+- **The appliance updater could probe the wrong LAN address.** `update.sh`
+  and `deploy.sh` derived the health-probe address from the host's default
+  route. A host with two LAN addresses — a second NIC came up with ZimaOS
+  1.8.0 — can route out of one while publishing the container on the other,
+  and a probe at the wrong one is refused outright. That looked like two
+  starts in a row that "never became healthy" while the application was up
+  the whole time, and the Dashboard reported `rollback-failed`. Both scripts
+  now prefer the address the container is actually published on
+  (`docker port`), with the route as the fallback for a port published on
+  every address. `OMNISSA_UPDATE_HEALTH_URL` and `deploy.conf`'s `LAN_IP`
+  still override. The scripts run from the host's checkout, so a ZimaCube
+  picks this up on its next `git pull` of `src`, not on the image update.
+
+### Documentation
+
+- `docs/troubleshooting.md` describes the "rollback-failed while the
+  application answers" symptom, how to tell it from a failed start, and the
+  two overrides.
+
 ## [1.23.5] - 2026-11-03
 
 A dependency, hardening and shutdown release, shaped by a code review of the

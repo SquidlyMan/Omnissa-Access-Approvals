@@ -260,6 +260,20 @@ did not stick. The `reason` is the host's own words; the cases:
   outage. On the host: `docker logs omnissa-approvals`, then
   `docker compose -p <project> -f <compose file> up -d` (both named in
   `journalctl -u omnissa-approvals-update`), or `sudo sh deploy.sh <version>`.
+- **rollback-failed, yet the application answers.** If `curl` against the
+  published address (`docker port omnissa-approvals 8081`) returns `UP` while
+  the verdict says neither version became healthy, the updater probed an
+  address the container is not published on: a host with two LAN addresses
+  routes out of one while publishing on the other (seen with the second NIC
+  that ZimaOS 1.8.0 brought up). The rollback itself did its job — the
+  previous version is running, and the compose pin is back on it. Since 1.23.6
+  the scripts prefer the published address; a host whose `src` checkout is
+  older, or that wants the address pinned regardless, adds a drop-in
+  `/etc/systemd/system/omnissa-approvals-update.service.d/health-url.conf`
+  holding `[Service]` and
+  `Environment=OMNISSA_UPDATE_HEALTH_URL=http://<lan-ip>:8081`, runs
+  `systemctl daemon-reload`, and sets `LAN_IP=<lan-ip>` in
+  `/media/ZIMARAID/omnissa-approvals/deploy.conf` for `deploy.sh`.
 - **failed — cannot resolve the compose file.** The container was not running
   when the updater fired, or CasaOS moved the compose file. `sudo sh deploy.sh`
   re-resolves and reinstalls the units.

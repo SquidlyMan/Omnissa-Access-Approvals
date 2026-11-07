@@ -103,7 +103,14 @@ PROJECT=$(docker inspect "$APP" --format '{{index .Config.Labels "com.docker.com
 # Health is checked over the LAN address, the way deploy.sh does: the LAN-only
 # firewall rule in DOCKER-USER can drop a loopback probe that hairpins through
 # the bridge, and a probe that cannot connect would look like a failed deploy.
-LAN_IP="${LAN_IP:-$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="src") print $(i+1)}' | head -1)}"
+# Prefer the address the container is actually published on. A host with more
+# than one LAN address (a second NIC came up with ZimaOS 1.8.0) can route out
+# of one while publishing on the other, and a probe at the wrong one is refused
+# outright — which looked like two starts in a row that "never became healthy"
+# on 2026-11-07, with the application up the whole time. The default route is
+# only the fallback for a port published on every address.
+PUBLISHED_IP=$(docker port "$APP" 8081/tcp 2>/dev/null | sed 's/^.*-> //' | awk -F: '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && $1 != "0.0.0.0" && $1 != "127.0.0.1" {print $1; exit}')
+LAN_IP="${LAN_IP:-${PUBLISHED_IP:-$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="src") print $(i+1)}' | head -1)}}"
 if [ -z "${OMNISSA_UPDATE_HEALTH_URL:-}" ] && [ -z "$LAN_IP" ]; then
     # Falling back to loopback here would turn a network hiccup into a
     # "failed deploy" and a needless rollback. Say so and stop instead.

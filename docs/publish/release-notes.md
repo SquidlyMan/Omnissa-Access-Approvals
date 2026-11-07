@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.23.5 and complete version history"
+subtitle: "Release Notes — v1.23.6 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.23.6** | The API reference page is back (springdoc names the webjar folder by its own pinned version); the appliance updater probes the address the container is published on | `v1.23.6` |
 | **1.23.5** | Stops cleanly with tabs open; the review's fixes — standalone port 80 redirects, secrets never returned, escaped mail, POST sign-out, the throttle live again; swagger-ui 5.34.1 | `v1.23.5` |
 | **1.23.4** | Spring Boot 4.1.1 and springdoc 3.1.1; the documentation site's favicon and links | `v1.23.4` |
 | **1.23.3** | Sign-in can no longer land on a browser's icon probe | `v1.23.3` |
@@ -101,11 +102,44 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus the moving `latest` tag, which since 1.23.1 points at the newest release. Moving `major.minor` tags stopped at 1.21.x: the updater pins the immutable full version.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.23.6
+
+Two fixes for what the 1.23.5 deployment showed. No behaviour changes beyond
+them. The suite is 515 tests (2 new).
+
+## The API reference page is back
+
+`/swagger-ui/index.html` answered 404 in 1.23.5 while `/v3/api-docs` kept
+working. springdoc serves the page from the swagger-ui webjar folder named by
+`springdoc.swagger-ui.version`, and springdoc 3.2.0's own defaults pin that to
+the version it was built with, 5.34.0, rather than reading the jar on the
+classpath. 1.23.5 pinned the webjar to 5.34.1 for the DOMPurify fixes, so the
+page's files sat under a folder springdoc never looked in. The property now
+matches the pin, and a test serves the page through the real filter chain and
+fails if the two ever drift apart.
+
+## The appliance updater probes the right address
+
+`update.sh` and `deploy.sh` took the health-probe address from the host's
+default route. A host with two LAN addresses can route out of one while
+publishing the container on the other, and a probe at the wrong one is
+refused outright, so a perfectly good start — and then the rollback — looked
+like "never became healthy" and the Dashboard reported `rollback-failed`
+with the application up the whole time. Both scripts now prefer the address
+the container is actually published on, with the route as the fallback.
+`OMNISSA_UPDATE_HEALTH_URL` and `deploy.conf`'s `LAN_IP` still override, and
+the troubleshooting guide now names the symptom.
+
+The scripts run from the host's checkout, so a ZimaCube picks the change up
+on its next `git pull` of `src`, not on the image update.
 
 ---
 
