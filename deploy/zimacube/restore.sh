@@ -53,6 +53,10 @@ echo "Stopping $CONTAINER…"
 docker compose -f "$COMPOSE" stop >/dev/null 2>&1 || docker stop "$CONTAINER" >/dev/null 2>&1 || true
 
 cp "$STAGE/data/omnissa-approval.mv.db" "$APP_DIR/data/omnissa-approval.mv.db"
+# This script runs as root, so the restored file is root's. From 1.24.0 the
+# container runs as uid 10001 and could not open it; give it to whoever owns
+# the data directory, which deploy.sh and update.sh keep matched to the image.
+chown "$(stat -c '%u:%g' "$APP_DIR/data")" "$APP_DIR/data/omnissa-approval.mv.db"
 if [ "$DB_ONLY" = "0" ] && [ -f "$STAGE/omnissa-approvals.env" ]; then
   cp "$STAGE/omnissa-approvals.env" "$APP_DIR/omnissa-approvals.env"
   chmod 600 "$APP_DIR/omnissa-approvals.env"
