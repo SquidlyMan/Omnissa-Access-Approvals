@@ -51,17 +51,18 @@ The **only intentionally unauthenticated endpoints** are:
   render the login page).
 - `/login`, the OAuth2 sign-in flow (`/login/**`, `/oauth2/**`) and static
   frontend assets.
-- `/swagger-ui/**` and `/v3/api-docs/**` — the API reference (Swagger UI) and
-  the OpenAPI description it renders. They describe the endpoints and return
-  no data, but Swagger UI is third-party code served before sign-in, which is
-  why the changelog tracks its updates. The default-deny reverse-proxy
-  pattern in `docs/deployment.md` leaves both paths out.
 
 **Everything else requires an authenticated session**, and — since roles landed
 — an authenticated session with a sufficient **role**. An unauthenticated
 request reaching any other `/api/**` endpoint would be a vulnerability, as
 would a request succeeding for a role that should not be permitted it. Please
 report either.
+
+The API reference (`/swagger-ui/**`) and the OpenAPI description it renders
+(`/v3/api-docs/**`) were public until 1.23.6. Since 1.24.0 they require a
+session, of any role: they return no data, but together they are a complete
+map of the API, and automated attack tooling reads such a map before anything
+else. An anonymous request is redirected to `/login`.
 
 ## Roles
 
