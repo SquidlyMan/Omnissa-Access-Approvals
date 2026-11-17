@@ -88,4 +88,36 @@ class CalloutAuthenticationGuardTest {
                         .as("an unconfigured install must still come up unaided")
                         .hasNotFailed());
     }
+
+    @Test
+    @DisplayName("a short callout password is reported as weak but does not stop startup")
+    void weakPasswordWarnsWithoutRefusing() {
+        context.withPropertyValues("omnissa.api.username=access", "omnissa.api.password=Summer2026!")
+                .run(started -> {
+                    assertThat(started)
+                            .as("refusing here would stop a working installation on upgrade")
+                            .hasNotFailed();
+                    assertThat(started.getBean(CalloutAuthenticationGuard.class).hasWeakPassword()).isTrue();
+                });
+    }
+
+    @Test
+    @DisplayName("a long random callout password is not reported")
+    void strongPasswordIsQuiet() {
+        context.withPropertyValues("omnissa.api.username=access",
+                        "omnissa.api.password=pV7kq2ZrX9mB4tLw8sHdJ3nFy6Ga")
+                .run(started -> assertThat(
+                        started.getBean(CalloutAuthenticationGuard.class).hasWeakPassword()).isFalse());
+    }
+
+    @Test
+    @DisplayName("the weakness description names the problem and never the password")
+    void weaknessNeverQuotesThePassword() {
+        assertThat(CalloutAuthenticationGuard.weakness("access", "")).contains("blank");
+        assertThat(CalloutAuthenticationGuard.weakness("access", "ACCESS")).contains("same as the username");
+        assertThat(CalloutAuthenticationGuard.weakness("access", "hunter2hunter2"))
+                .contains("14 characters").doesNotContain("hunter2");
+        assertThat(CalloutAuthenticationGuard.weakness("access", "aaaaaaaaaaaaaaaaaaaa")).contains("repeats");
+        assertThat(CalloutAuthenticationGuard.weakness("access", "pV7kq2ZrX9mB4tLw8sHdJ3nFy6Ga")).isNull();
+    }
 }

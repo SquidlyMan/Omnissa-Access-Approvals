@@ -268,7 +268,7 @@ sign-in; nothing needs resetting by hand.
 | Variable | Default | Description |
 |---|---|---|
 | `OMNISSA_API_USERNAME` | — | HTTP Basic auth on `POST /api/approvals/new`. Configure the same username/password in the Access console under **Settings > Approvals**. **Required once `OMNISSA_BOOTSTRAP_URL` is set** — the application refuses to start without either this or `OMNISSA_API_ALLOW_UNAUTHENTICATED`. `OPTIONS` probes always remain unauthenticated, so saving the Access settings still works |
-| `OMNISSA_API_PASSWORD` | — | Password paired with `OMNISSA_API_USERNAME` |
+| `OMNISSA_API_PASSWORD` | — | Password paired with `OMNISSA_API_USERNAME`. Make it long and random (`openssl rand -base64 32`): nobody types it, and it is all that protects the one endpoint facing the internet. Under 16 characters, blank, or equal to the username is logged as weak at startup and hourly (since 1.24.0); it is reported, not refused |
 | `OMNISSA_API_ALLOW_UNAUTHENTICATED` | `false` | Accept unauthenticated callouts on a tenant-configured install. Only appropriate where the endpoint genuinely cannot be reached from anywhere untrusted; a warning is logged hourly while it is set |
 | `OMNISSA_API_CHALLENGE_OPTIONS` | `true` | Challenge the `OPTIONS` probe Access sends, rather than exempting it. **This is what makes Access authenticate at all** — see [How Access decides to send credentials](#how-access-decides-to-send-credentials). Setting it `false` restores the old exempt behaviour and Access stops sending credentials |
 | `OMNISSA_API_RATE_LIMIT` | `60` | Maximum callout requests per minute per client address on `/api/approvals/new`; excess requests receive HTTP 429. `0` disables rate limiting |
