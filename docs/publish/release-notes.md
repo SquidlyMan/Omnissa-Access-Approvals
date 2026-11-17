@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.23.6 and complete version history"
+subtitle: "Release Notes — v1.24.0 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.24.0** | Hardening against automated attack tooling: the container runs as an unprivileged user; the API reference needs a session; a weak callout password is reported; GitHub Actions pinned to commit hashes | `v1.24.0` |
 | **1.23.6** | The API reference page is back (springdoc names the webjar folder by its own pinned version); the appliance updater probes the address the container is published on | `v1.23.6` |
 | **1.23.5** | Stops cleanly with tabs open; the review's fixes — standalone port 80 redirects, secrets never returned, escaped mail, POST sign-out, the throttle live again; swagger-ui 5.34.1 | `v1.23.5` |
 | **1.23.4** | Spring Boot 4.1.1 and springdoc 3.1.1; the documentation site's favicon and links | `v1.23.4` |
@@ -102,11 +103,63 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.24.0`, `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus the moving `latest` tag, which since 1.23.1 points at the newest release. Moving `major.minor` tags stopped at 1.21.x: the updater pins the immutable full version.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.24.0
+
+A hardening release. The FBI's FLASH-20261113-001 describes automated,
+AI-driven intrusion tooling that maps and attacks small internet-facing
+applications at machine speed. It does not name this project; it describes the
+kind of target this tool is. The suite is 523 tests (8 new).
+
+## Before you upgrade
+
+The container no longer runs as root, and a data directory created by an
+earlier release belongs to root.
+
+- **ZimaCube, or any host with the bundled updater:** update the host's
+  checkout first (`git pull` in the `src` directory, or re-run
+  `deploy/updater/install.sh`), then approve 1.24.0 in the console. The new
+  updater hands the directories to the image's user before starting it, and
+  back again on a rollback. Approving with the old updater is safe but does
+  not upgrade: the container refuses to start and the updater rolls back.
+- **Any other Compose install:** run the `chown` line the container prints,
+  once.
+- **To keep running as root:** add `user: "0:0"` to the service.
+
+## The container runs as an unprivileged user
+
+The image declares uid 10001 and starts through an entrypoint that checks the
+mounts are writable, prints the fix when they are not, and then hands over to
+Java as PID 1. A flaw in the application no longer means root inside the
+container. `deploy.sh`, `update.sh` and `restore.sh` keep the directories
+matched to whichever image is about to start.
+
+## The API reference needs a session
+
+`/swagger-ui/**` and `/v3/api-docs/**` were public. They return no data, but
+the OpenAPI description maps every endpoint, parameter and role, which is what
+automated tooling reads first. Any signed-in role can read it; an anonymous
+request goes to the login page.
+
+## A weak callout password is reported
+
+`OMNISSA_API_PASSWORD` protects the one endpoint that faces the internet and
+had no strength check. Blank, equal to the username, under 16 characters or a
+few repeated characters is logged as weak at startup and hourly, never with
+the password itself. It is reported and not refused.
+
+## The build pipeline
+
+Every GitHub Action is pinned to a commit hash with its version in a comment,
+and Dependabot proposes the updates as one grouped pull request. Secret
+scanning, push protection and Dependabot alerts are enabled on the repository.
 
 ---
 
