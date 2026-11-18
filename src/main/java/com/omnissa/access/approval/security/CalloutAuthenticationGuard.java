@@ -62,6 +62,9 @@ public class CalloutAuthenticationGuard {
     @Value("${omnissa.api.username:}")
     private String username;
 
+    @Value("${omnissa.api.password:}")
+    private String password;
+
     @Value("${omnissa.api.allow-unauthenticated:false}")
     private boolean allowUnauthenticated;
 
@@ -85,10 +88,31 @@ public class CalloutAuthenticationGuard {
 
     private boolean anonymousIngest;
 
+    /**
+     * Shortest callout password that is not reported as weak.
+     *
+     * <p>This password is never typed by a person: it is pasted once into the
+     * Access console and once into the env file, so there is no usability cost
+     * to making it long and random. It is also the only thing between the
+     * internet and the approval queue, on a path that automated tooling can
+     * try at whatever pace the rate limiter allows, indefinitely. Sixteen
+     * random characters put a guessing attack out of reach at that pace; a
+     * word and a year does not.
+     */
+    static final int MIN_PASSWORD_LENGTH = 16;
+
+    /** Why the configured callout password is weak, or null when it is not. Never the password. */
+    private String weakPassword;
+
     @PostConstruct
     void check() {
         boolean tenantConfigured = tenantUrl != null && !tenantUrl.isBlank();
-        anonymousIngest = tenantConfigured && (username == null || username.isBlank());
+        boolean credentialsSet = username != null && !username.isBlank();
+        anonymousIngest = tenantConfigured && !credentialsSet;
+        weakPassword = credentialsSet ? weakness(username, password) : null;
+        if (weakPassword != null) {
+            warnWeak();
+        }
         if (!anonymousIngest) {
             return;
         }
@@ -108,6 +132,47 @@ public class CalloutAuthenticationGuard {
         if (anonymousIngest) {
             warn();
         }
+        if (weakPassword != null) {
+            warnWeak();
+        }
+    }
+
+    /**
+     * Describes what is wrong with a callout password, without quoting it.
+     *
+     * <p>A weak password is reported, not refused. Refusing would stop an
+     * installation that has worked for months the moment it is upgraded, and
+     * the fix needs a change in the Access console as well as here — not
+     * something to force on an operator in the middle of an update.
+     */
+    static String weakness(String username, String password) {
+        if (password == null || password.isBlank()) {
+            return "it is blank, so the username alone opens the endpoint";
+        }
+        if (password.equalsIgnoreCase(username)) {
+            return "it is the same as the username";
+        }
+        if (password.length() < MIN_PASSWORD_LENGTH) {
+            return "it is " + password.length() + " characters; use at least "
+                    + MIN_PASSWORD_LENGTH + ", randomly generated";
+        }
+        if (password.chars().distinct().count() < 6) {
+            return "it repeats the same few characters";
+        }
+        return null;
+    }
+
+    /** Whether the configured callout password was reported as weak at startup. */
+    boolean hasWeakPassword() {
+        return weakPassword != null;
+    }
+
+    private void warnWeak() {
+        logger.warn("OMNISSA_API_PASSWORD is weak: {}. It is the only thing protecting "
+                + "POST /api/approvals/new, which faces the internet. Generate a new one "
+                + "(for example: openssl rand -base64 32), set it here, and enter the same "
+                + "value under Settings -> Approvals in the Omnissa Access console, then "
+                + "SAVE there. This warning repeats hourly until it is changed.", weakPassword);
     }
 
     private void warn() {

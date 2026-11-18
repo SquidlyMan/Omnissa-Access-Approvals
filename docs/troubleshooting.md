@@ -57,6 +57,39 @@ set to something like `admin` stops with the rule it failed. Choose a
 passphrase and start again. An existing install is unaffected: the bootstrap
 runs only while the user table is empty.
 
+## Container will not start: "cannot write to: /app/data"
+
+Since 1.24.0 the container runs as uid 10001, and the directory named in the
+message was created by an earlier, root-running release. The container exits
+with status 78 before Java starts and changes nothing.
+
+- **ZimaCube or a host with the bundled updater.** The updater that ran was the
+  old one: it rolled back, and the previous version is running. Update the
+  host's checkout (`git -C /media/ZIMARAID/omnissa-approvals/src pull`, or
+  re-run `deploy/updater/install.sh` elsewhere), then approve the version
+  again. The new `update.sh` hands the directories over before the start.
+- **Any other Compose install.** Run the `chown` line from the message once;
+  it is also under [The container user](deployment.md#the-container-user).
+- **Standalone TLS.** If the message does not appear but Java cannot read the
+  keystore, give uid 10001 read access to `config/keystore.p12`.
+
+Adding `user: "0:0"` to the service keeps the old behaviour.
+
+## The log says "OMNISSA_API_PASSWORD is weak"
+
+Reported at startup and hourly since 1.24.0 when the callout password is
+blank, equal to the username, shorter than 16 characters, or a few repeated
+characters. Nothing is blocked. Generate a long random value, set it in the
+env file, enter the same value under **Settings → Approvals** in the Access
+console and **Save** there, then recreate the container. Do the two halves
+close together: between them, Access presents the old password and its
+callouts are rejected.
+
+## The API reference redirects to the login page
+
+Intended since 1.24.0: `/swagger-ui/**` and `/v3/api-docs/**` need a session.
+Sign in with any role and open `/swagger-ui.html` again.
+
 ## Sign-in loops back to the login page behind a proxy
 
 If `SERVER_SERVLET_SESSION_COOKIE_SECURE=true` is set and the app is opened

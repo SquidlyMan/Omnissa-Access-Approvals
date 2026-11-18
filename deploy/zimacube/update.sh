@@ -18,7 +18,11 @@
 #      the regex and would otherwise leave a rewritten compose and a stopped
 #      container.
 #   3. Record the current pin, so a rollback is exact.
-#   4. Rewrite the pin, pull, recreate.
+#   4. Rewrite the pin, pull, hand the mounted directories to the user the
+#      target image runs as, recreate. Releases before 1.24.0 ran as root and
+#      later ones run as uid 10001; the directories outlive both, so their
+#      ownership follows whichever image is about to start — on the way up
+#      and again on a rollback.
 #   5. Verify — and NOT with the health endpoint. /actuator/health is UP on
 #      any version, so it cannot tell a successful upgrade from a pull that
 #      silently did nothing. Two checks, both required: the running image's
@@ -174,8 +178,52 @@ cp -p "$COMPOSE" "$COMPOSE.pre-update"
 # not by a line number captured minutes earlier (CasaOS rewrites its copy on
 # its own schedule), and not with sed -i, whose flags differ between GNU and
 # BSD sed.
+# The host side of /app/data, read now while the container still exists.
+DATA_SRC=$(docker inspect "$APP" --format '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || :)
+
+# Ownership follows the image. Up to 1.23.x the application ran as root; from
+# 1.24.0 it runs as uid 10001, and that user cannot open a database root
+# created (nor, with every capability dropped, can root open one that uid
+# 10001 owns). So before a container is started from an image, the data and
+# control directories are handed to the user THAT image declares — which makes
+# an upgrade across the change work, and a rollback across it work too.
+# The container is stopped first, so H2 closes its file before the owner
+# changes underneath it. Nothing happens when the owner is already right,
+# which is every update that does not cross the change.
+align_owner() { # tag
+    if grep -Eq '^[[:space:]]*user:' "$COMPOSE"; then
+        log "the compose file sets user: itself; leaving directory ownership to whoever set it"
+        return 0
+    fi
+    want=$(docker image inspect --format '{{.Config.User}}' "$IMAGE:$1" 2>/dev/null) || return 0
+    case "$want" in
+        "") want=0:0 ;;
+        *:*) ;;
+        *) want="$want:$want" ;;
+    esac
+    echo "$want" | grep -Eq '^[0-9]+:[0-9]+$' || { log "image user '$want' is not numeric; cannot align ownership from the host"; return 0; }
+    stopped=no
+    for d in "$DATA_SRC" "$CONTROL"; do
+        [ -n "$d" ] && [ -d "$d" ] || continue
+        have=$(stat -c '%u:%g' "$d" 2>/dev/null || :)
+        db="$d/omnissa-approval.mv.db"
+        [ -f "$db" ] && [ "$(stat -c '%u:%g' "$db" 2>/dev/null || :)" != "$want" ] && have="${have}+db"
+        [ "$have" = "$want" ] && continue
+        if [ "$stopped" = no ]; then
+            docker compose -p "$PROJECT" -f "$COMPOSE" stop >/dev/null 2>&1 || :
+            stopped=yes
+        fi
+        log "handing $d to $want for $IMAGE:$1 (was ${have:-unknown})"
+        chown -R "$want" "$d" || log "WARNING: chown of $d failed; $IMAGE:$1 may not be able to write there"
+    done
+}
+
 pin() { sed -E "s|^([[:space:]]*image:[[:space:]]*$IMAGE:)[^[:space:]\"']+|\1$1|" "$COMPOSE" > "$COMPOSE.new" && mv -f "$COMPOSE.new" "$COMPOSE"; }
-recreate() { docker compose -p "$PROJECT" -f "$COMPOSE" pull >/dev/null 2>&1 && docker compose -p "$PROJECT" -f "$COMPOSE" up -d >/dev/null 2>&1; }
+recreate() { # tag
+    docker compose -p "$PROJECT" -f "$COMPOSE" pull >/dev/null 2>&1 || return 1
+    align_owner "$1"
+    docker compose -p "$PROJECT" -f "$COMPOSE" up -d >/dev/null 2>&1
+}
 running_digest() { docker image inspect --format '{{index .RepoDigests 0}}' "$(docker inspect --format '{{.Image}}' "$APP" 2>/dev/null)" 2>/dev/null; }
 wait_healthy() { i=0; until curl -fsS "$HEALTH_URL/actuator/health" >/dev/null 2>&1; do i=$((i+1)); [ $i -ge 36 ] && return 1; sleep 5; done; }
 reported_version() { curl -fsS "$HEALTH_URL/actuator/info" 2>/dev/null | sed -n 's/.*"version":"\([^"]*\)".*/\1/p'; }
@@ -187,6 +235,9 @@ rollback() { # reason
     # gone away between the pull and now — a failed re-pull must not leave the
     # container down.
     docker compose -p "$PROJECT" -f "$COMPOSE" pull >/dev/null 2>&1 || log "re-pull of $PREV_TAG failed; recreating from the local image"
+    # Hand the directories back to the user the previous image runs as. This
+    # is what makes a rollback across the 1.24.0 change land on its feet.
+    align_owner "$PREV_TAG"
     back=ok
     docker compose -p "$PROJECT" -f "$COMPOSE" up -d >/dev/null 2>&1 || back="recreate of $PREV_TAG failed"
     [ "$back" = ok ] && { wait_healthy || back="$PREV_TAG never became healthy"; }
@@ -203,7 +254,7 @@ rollback() { # reason
 # ---- 4. pin, pull, recreate ---------------------------------------------------------
 pin "$TARGET"
 grep -q "$IMAGE:$TARGET" "$COMPOSE" || { cp -p "$COMPOSE.pre-update" "$COMPOSE"; result failed "$TARGET" "compose rewrite did not take"; exit 1; }
-recreate || rollback "pull or recreate failed"
+recreate "$TARGET" || rollback "pull or recreate failed"
 
 # ---- 5. prove it -------------------------------------------------------------------------
 wait_healthy || rollback "container never became healthy"

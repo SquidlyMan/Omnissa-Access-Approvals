@@ -45,6 +45,10 @@ services:
     stop_grace_period: 15s
     # Defence in depth for a process that needs neither: no capability, and no
     # way to gain one.
+    # The image runs as uid 10001, not root (since 1.24.0). A volume created by an
+    # earlier release belongs to root: the container prints the one-line fix and
+    # exits. To keep running as root instead, uncomment:
+    # user: "0:0"
     security_opt:
       - no-new-privileges:true
     cap_drop:

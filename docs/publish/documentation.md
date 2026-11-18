@@ -2,7 +2,7 @@
 title: "Access Approval Tool for Omnissa"
 subtitle: "Complete Documentation — Features, Deployment, Configuration, and Proof-of-Concept Walkthrough"
 author: "Dean Flaming (SquidlyMan)"
-date: "Version 1.23.6 • MIT License"
+date: "Version 1.24.0 • MIT License"
 ---
 
 ![](assets/logo.png){.logo width="0.52in"}
@@ -722,6 +722,13 @@ second even with Dashboard tabs open. The compose files carry the same
 `no-new-privileges`), and the standalone mode's plain port 80 redirects to
 HTTPS.
 
+Since 1.24.0 the container runs as an unprivileged user (uid `10001`), not
+root. A new named volume needs nothing. A bind-mounted data directory has to
+belong to that uid (`chown 10001:10001`), which `deploy.sh` and the updater do
+on the ZimaCube. A volume created by an earlier release belongs to root: the
+container says so, prints the one-line fix and exits without changing
+anything. `user: "0:0"` on the service keeps the old behaviour.
+
 Copy the environment template from the repository
 (`deploy/zimacube/omnissa-approvals.env.example` is the complete annotated
 reference) and place a TLS reverse proxy in front. All persistent state lives
@@ -1030,9 +1037,9 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
 - **Everything else requires an authenticated session and a sufficient role**,
   apart from the liveness and version probes (`/actuator/health`,
   `/actuator/info`), the login page with its sign-in options
-  (`/api/config/auth`) and OAuth2 sign-in flow, static assets, and the API
-  reference (`/swagger-ui/**`, `/v3/api-docs/**`), which describes the
-  endpoints and returns no data. Rules are enforced centrally rather than
+  (`/api/config/auth`) and OAuth2 sign-in flow, and static assets. The API
+  reference (`/swagger-ui/**`, `/v3/api-docs/**`) has needed a session, of any
+  role, since 1.24.0: it returns no data, but it maps every endpoint. Rules are enforced centrally rather than
   scattered across annotations, so the whole policy is reviewable in one place.
 - **Chat approvals add no inbound endpoint.** Both Slack and Teams use deep
   links.
@@ -1057,6 +1064,12 @@ A complete demonstration takes roughly thirty minutes on a fresh tenant.
   are recorded with the acting identity. The bootstrap admin password must meet
   the password rules (1.23.5): a first run with a weak
   `OMNISSA_BOOTSTRAP_ADMIN_PASSWORD` stops with the reason.
+- **The container runs as an unprivileged user** (uid 10001, since 1.24.0),
+  with every capability dropped and no way to gain one, so a flaw in the
+  application does not become root inside the container.
+- **The callout password is checked for strength** (1.24.0). One that is
+  blank, equal to the username or shorter than 16 characters is reported in
+  the log at startup and hourly, without the password; it is not refused.
 - **Updates never hand the container the Docker socket.** Approving a
   deployment writes one line to a dedicated control mount; pulling, recreating
   and verifying happen on the host, where that privilege already lives.

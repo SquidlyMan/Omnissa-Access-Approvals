@@ -3,10 +3,13 @@ package com.omnissa.access.approval.security;
 import com.omnissa.access.approval.update.RegistryClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,11 +19,15 @@ import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The API reference is served without a session from the swagger-ui webjar
- * folder that {@code springdoc.swagger-ui.version} names. springdoc pins that
+ * The API reference is served, to a signed-in user only, from the swagger-ui
+ * webjar folder that {@code springdoc.swagger-ui.version} names. Without a
+ * session it answers with a redirect to the login page: the OpenAPI
+ * description maps every endpoint, which is the first thing an automated
+ * attacker fetches. springdoc pins that
  * version in its own {@code springdoc.config.properties}, so a {@code pom.xml}
  * override of the webjar without the matching property leaves the page at
  * 404 while {@code /v3/api-docs} keeps working — which is how 1.23.5 shipped.
@@ -45,11 +52,25 @@ class SwaggerUiServedTest {
     private String configuredVersion;
 
     @Test
-    @DisplayName("the API reference page and its scripts are served without a session")
+    @WithMockUser(roles = "VIEWER")
+    @DisplayName("the API reference page, its scripts and the OpenAPI description are served to a signed-in user")
     void pageAndScriptsAreServed() throws Exception {
         mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
         mockMvc.perform(get("/swagger-ui/swagger-initializer.js")).andExpect(status().isOk());
         mockMvc.perform(get("/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isOk());
+        mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/swagger-ui.html", "/swagger-ui/index.html", "/swagger-ui/swagger-initializer.js",
+            "/v3/api-docs", "/v3/api-docs/swagger-config"
+    })
+    @DisplayName("without a session the API reference redirects to the login page")
+    void anonymousIsSentToLogin(String path) throws Exception {
+        mockMvc.perform(get(path))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test

@@ -64,7 +64,9 @@ echo "==> Directories on RAID"
 # approved update is written for the updater. Kept apart from data/, which
 # backup archives, so a restored archive can never carry a pending deploy.
 mkdir -p "$RAID_DIR/data" "$RAID_DIR/control" "$RAID_DIR/docker-config"
-# The H2 file holds the tenant client secret; nobody but root reads the directory.
+# The H2 file holds the tenant client secret; nobody but its owner reads the
+# directory. The owner is root up to 1.23.x and uid 10001 from 1.24.0 — see
+# "Directory ownership" below.
 chmod 700 "$RAID_DIR/data"
 
 # One deploy at a time — shared with update.sh, so a console approval and a
@@ -138,6 +140,39 @@ fi
 
 echo "==> Pulling image from GHCR"
 docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" pull
+
+echo "==> Directory ownership"
+# The image runs as an unprivileged user from 1.24.0 (uid 10001) and as root
+# before it. The directories outlive both, so they are handed to the user the
+# image about to start declares; update.sh does the same on every update and
+# rollback. Skipped when the compose file sets user: itself.
+RUN_IMAGE=$(docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" config --images 2>/dev/null | grep "^$IMAGE" | head -1)
+if grep -Eq '^[[:space:]]*user:' "$COMPOSE"; then
+    echo "  compose sets user: itself; leaving ownership alone"
+elif [ -n "$RUN_IMAGE" ]; then
+    WANT=$(docker image inspect --format '{{.Config.User}}' "$RUN_IMAGE" 2>/dev/null || :)
+    case "$WANT" in "") WANT=0:0 ;; *:*) ;; *) WANT="$WANT:$WANT" ;; esac
+    if echo "$WANT" | grep -Eq '^[0-9]+:[0-9]+$'; then
+        DATA_SRC=$(docker inspect "$APP" --format '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || :)
+        CONTROL_SRC=$(docker inspect "$APP" --format '{{range .Mounts}}{{if eq .Destination "/app/control"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || :)
+        STOPPED=no
+        for d in "${DATA_SRC:-$RAID_DIR/data}" "${CONTROL_SRC:-$RAID_DIR/control}"; do
+            [ -d "$d" ] || continue
+            HAVE=$(stat -c '%u:%g' "$d" 2>/dev/null || :)
+            DB="$d/omnissa-approval.mv.db"
+            [ -f "$DB" ] && [ "$(stat -c '%u:%g' "$DB" 2>/dev/null || :)" != "$WANT" ] && HAVE="${HAVE}+db"
+            [ "$HAVE" = "$WANT" ] && continue
+            if [ "$STOPPED" = no ]; then
+                # Stop first, so H2 closes its file before the owner changes.
+                docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" stop >/dev/null 2>&1 || :
+                STOPPED=yes
+            fi
+            echo "  $d: $HAVE -> $WANT"
+            chown -R "$WANT" "$d"
+        done
+        echo "  image $RUN_IMAGE runs as $WANT"
+    fi
+fi
 
 echo "==> Starting container"
 docker compose ${PROJECT:+-p "$PROJECT"} -f "$COMPOSE" up -d

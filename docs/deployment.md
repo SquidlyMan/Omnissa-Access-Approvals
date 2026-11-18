@@ -39,6 +39,11 @@ frontend is built with npm inside the image.
 ### Run
 
 ```bash
+# The container runs as uid 10001 (since 1.24.0); a bind-mounted directory has
+# to belong to it. A named volume needs neither line.
+sudo mkdir -p /srv/omnissa-approvals/data
+sudo chown 10001:10001 /srv/omnissa-approvals/data
+
 docker run -d --name omnissa-approvals \
   --env-file omnissa-approvals.env \
   -v /srv/omnissa-approvals/data:/app/data \
@@ -56,6 +61,34 @@ held Spring Boot's 30-second graceful-shutdown phase, and Docker's default ten
 seconds force-killed the container at every reboot.) The two hardening flags
 drop capabilities the Java process never uses; the compose files carry the
 same settings.
+
+### The container user
+
+Since 1.24.0 the image runs as an unprivileged user, uid and gid `10001`, not
+root, so a flaw in the application does not hand over root inside the
+container. Three things follow from that:
+
+- **New named volumes just work.** Docker creates them with the ownership the
+  image has at `/app/data` and `/app/control`.
+- **Bind mounts must belong to uid 10001.** On the ZimaCube, `deploy.sh` and
+  the updater do this before each start, and hand the directories back to root
+  if they roll back to a release older than 1.24.0. `restore.sh` gives a
+  restored database to whoever owns the data directory.
+- **A volume from an earlier release belongs to root.** The container checks
+  before it starts Java, prints the fix and exits with status 78 without
+  changing anything. On a Compose install, run this once from the directory
+  with the compose file (replace `app` with the service name):
+
+  ```bash
+  docker compose run --rm --user 0:0 --cap-add CHOWN --cap-add DAC_OVERRIDE \
+    --cap-add FOWNER --entrypoint chown app -R 10001:10001 /app/data /app/control
+  ```
+
+In standalone TLS mode the keystore in `./config` must also be readable by
+uid 10001 (`chown 10001 config/keystore.p12`, or mode `0644`).
+
+To keep running as root, add `user: "0:0"` to the service. The updater leaves
+ownership alone when the compose file sets `user:` itself.
 
 Use [`deploy/zimacube/omnissa-approvals.env.example`](https://github.com/SquidlyMan/Omnissa-Access-Approvals/blob/main/deploy/zimacube/omnissa-approvals.env.example)
 as the template for the env file (it is a complete, commented reference) and

@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.0] - 2026-11-17
+
+A hardening release, prompted by the FBI's FLASH-20261113-001 on automated,
+AI-driven intrusion tooling that maps and attacks small internet-facing
+applications at machine speed. Nothing in that advisory names this project; it
+describes the kind of target this tool is. Five changes, one of which needs a
+step on hosts that are upgrading. The suite is 523 tests (8 new).
+
+### Upgrading — read this first
+
+**The container no longer runs as root.** A data directory created by an
+earlier release belongs to root, and the new user (uid 10001) cannot write to
+it. What to do depends on how the tool is run:
+
+- **ZimaCube, or any host with the bundled updater:** update the host's
+  checkout first (`git pull` in the `src` directory, or re-run
+  `deploy/updater/install.sh`), then approve 1.24.0 in the console as usual.
+  The new `update.sh` hands the directories to the image's user before it
+  starts the container, and hands them back if it has to roll back. Approving
+  1.24.0 with the OLD `update.sh` is safe but does not upgrade: the container
+  refuses to start, and the updater rolls back to the version that was running.
+- **Any other Compose install:** run the one-line `chown` printed by the
+  container (also in `docs/deployment.md`) once, then start it.
+- **To keep running as root:** add `user: "0:0"` to the service. Nothing else
+  changes.
+
+### Security
+
+- **The container runs as an unprivileged user.** The image declares
+  `USER 10001:10001` and starts through a small entrypoint that checks the
+  mounted directories are writable, prints the fix when they are not, and then
+  `exec`s Java, which is still PID 1 and still receives `SIGTERM` directly. A
+  flaw in the application no longer hands over root inside the container. New
+  named volumes are created with the right owner; `deploy.sh`, `update.sh` and
+  `restore.sh` keep bind-mounted directories matched to whichever image is
+  about to start, including across a rollback to a root-running release.
+- **The API reference needs a session.** `/swagger-ui/**` and `/v3/api-docs/**`
+  were public. They return no data, but the OpenAPI description is a complete
+  map of every endpoint, parameter and role, and it is the first thing
+  automated tooling fetches. Any signed-in role can still read it; an
+  anonymous request is redirected to `/login`.
+- **A weak callout password is reported.** `OMNISSA_API_PASSWORD` is all that
+  protects `POST /api/approvals/new`, the one endpoint that faces the internet,
+  and it had no strength check. One that is blank, equal to the username,
+  shorter than 16 characters or made of a few repeated characters is now logged
+  as weak at startup and hourly, without the password itself. It is reported
+  and not refused, so an upgrade never stops a working installation. (The
+  bootstrap admin password has gone through the password policy since 1.23.5.)
+- **Every GitHub Action is pinned to a commit hash**, with the exact version in
+  a trailing comment. A tag can be moved to different code by whoever controls
+  or compromises an action's repository; a hash cannot, and the publish
+  workflow holds a token that can push the image. Dependabot now proposes
+  minor and patch action updates as one grouped pull request, since a pinned
+  hash no longer picks them up by itself.
+- **Secret scanning, push protection and Dependabot alerts are enabled on the
+  repository.** A setting, not a code change, recorded here because it changes
+  what a contributor sees: a push containing a recognised credential is
+  refused. The first scan raised one alert, the all-zeros Slack webhook
+  placeholder in the documentation, which was closed as a false positive.
+
+### Changed
+
+- `docker run` with a bind-mounted data directory needs that directory owned
+  by uid 10001 before the first start; `docs/deployment.md` shows the two
+  commands.
+
 ## [1.23.6] - 2026-11-07
 
 Two fixes for what the 1.23.5 deployment showed: the API reference page was

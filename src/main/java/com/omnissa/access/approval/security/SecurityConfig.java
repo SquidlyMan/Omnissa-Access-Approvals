@@ -225,8 +225,13 @@ public class SecurityConfig {
                 .requestMatchers("/assets/**", "/favicon.ico", "/favicon.svg",
                         "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png",
                         "/vite.svg").permitAll()
-                // OpenAPI / Swagger UI
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                // OpenAPI / Swagger UI. Behind a session since 1.24.0: the
+                // pages return no data, but the OpenAPI description is a
+                // complete map of every endpoint, parameter and role, and an
+                // automated attacker reads it before anything else. Any signed-in
+                // role may read it; an anonymous request is sent to /login.
+                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs",
+                        "/v3/api-docs/**").authenticated()
                 // Liveness probe for Docker, deploy.sh, CasaOS and the UAG.
                 .requestMatchers("/actuator/health").permitAll()
                 // Build version for the host-side updater to confirm a deploy.

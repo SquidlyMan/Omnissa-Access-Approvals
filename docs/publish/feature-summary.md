@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "What was built between v1.2 and v1.23.6"
+subtitle: "What was built between v1.2 and v1.24.0"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 # One graded list — a page break between groups would separate items
@@ -21,7 +21,7 @@ Omnissa Access, showed them in a list, and posted approve or reject back. Every
 administrator who could sign in could do everything. Every approval was
 permanent.
 
-The list below is what was added between then and v1.23.6, grouped by what it
+The list below is what was added between then and v1.24.0, grouped by what it
 does rather than by the release it arrived in. The version each item shipped in
 is given in brackets.
 
@@ -224,6 +224,16 @@ is given in brackets.
 - **A rejected callout says what the caller actually sent** — header names, query
   keys, content type, and the length of anything credential-shaped, with no value
   ever logged. A 401 nobody can diagnose is its own defect [1.19.7]
+
+- **A weak callout password is reported.** Blank, equal to the username, under
+  16 characters or a few repeated characters is logged as weak at startup and
+  hourly, without the password; reported, not refused [1.24.0]
+- **The API reference needs a session.** Swagger UI and the OpenAPI description
+  map every endpoint, so they sit behind sign-in for any role [1.24.0]
+- **The container runs as an unprivileged user** (uid 10001), with an
+  entrypoint that explains an unwritable volume, and deploy scripts that keep
+  directory ownership matched to the image across upgrades and rollbacks
+  [1.24.0]
 
 ## The shape of it
 
