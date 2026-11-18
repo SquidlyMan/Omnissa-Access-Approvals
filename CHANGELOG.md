@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.1] - 2026-11-18
+
+A maintenance release: build and API-reference dependencies only. No change in
+behaviour and nothing to do on upgrade. The suite is 523 tests (none new).
+
+### Changed
+
+- **swagger-ui 5.35.0** (was 5.34.1). The webjar pin in `pom.xml` and
+  `springdoc.swagger-ui.version` in `application.properties` moved together;
+  `SwaggerUiServedTest` failed the Dependabot pull request until they did,
+  which is what it is for.
+- **Frontend build tools:** Vite 8.3.8, `@vitejs/plugin-react` 6.3.0,
+  Tailwind CSS and `@tailwindcss/vite` 4.3.5.
+- **Maven wrapper 3.10.1.**
+
+### Not in this release
+
+- **The Java runtime is unchanged.** Oracle's November 2026 advisory lists
+  CVE-2026-114938 (JIT compiler), CVE-2026-114940 (TLS) and CVE-2026-114941
+  against the Java 25.0.5 line, which is what the image's Temurin base
+  provides. No patched Temurin 25 had been published when this release was
+  built; a rebuild will follow when it is.
+
 ## [1.24.0] - 2026-11-17
 
 A hardening release, prompted by the FBI's FLASH-20261113-001 on automated,

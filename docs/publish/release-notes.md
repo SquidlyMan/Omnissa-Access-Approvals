@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.24.0 and complete version history"
+subtitle: "Release Notes — v1.24.1 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.24.1** | Maintenance: swagger-ui 5.35.0, Vite 8.3.8, Tailwind CSS 4.3.5, Maven wrapper 3.10.1; no change in behaviour | `v1.24.1` |
 | **1.24.0** | Hardening against automated attack tooling: the container runs as an unprivileged user; the API reference needs a session; a weak callout password is reported; GitHub Actions pinned to commit hashes | `v1.24.0` |
 | **1.23.6** | The API reference page is back (springdoc names the webjar folder by its own pinned version); the appliance updater probes the address the container is published on | `v1.23.6` |
 | **1.23.5** | Stops cleanly with tabs open; the review's fixes — standalone port 80 redirects, secrets never returned, escaped mail, POST sign-out, the throttle live again; swagger-ui 5.34.1 | `v1.23.5` |
@@ -103,11 +104,25 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.24.0`, `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.24.1`, `v1.24.0`, `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus the moving `latest` tag, which since 1.23.1 points at the newest release. Moving `major.minor` tags stopped at 1.21.x: the updater pins the immutable full version.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.24.1
+
+A maintenance release. It updates the API reference page's swagger-ui to
+5.35.0, the frontend build tools (Vite 8.3.8, `@vitejs/plugin-react` 6.3.0,
+Tailwind CSS 4.3.5) and the Maven wrapper (3.10.1). Nothing changes in
+behaviour and there is nothing to do on upgrade. The suite is 523 tests.
+
+The Java runtime is unchanged. Oracle's November 2026 advisory lists
+CVE-2026-114938, CVE-2026-114940 and CVE-2026-114941 against the Java 25.0.5
+line the image is built on; no patched Temurin 25 had been published when this
+release was built, and a rebuild will follow when it is.
 
 ---
 
