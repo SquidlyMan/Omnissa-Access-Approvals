@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.2] - 2026-11-19
+
+A security release. It mitigates CVE-2026-114938 in the image and moves the
+web stack forward. Nothing to do on upgrade. The suite is 523 tests (none new).
+
+### Security
+
+- **CVE-2026-114938 ("Java4Shell") is mitigated in the image.** The flaw is a
+  memory corruption in the JVM's hardware-accelerated Base64 decoder. It is
+  reachable before sign-in, and it affects OpenJDK 17.0.6 and later on x86-64
+  processors that have AVX-512 VBMI: recent Intel Xeon, and AMD Zen 4 or
+  newer. The container now starts Java with `-XX:-UseBASE64Intrinsics`, which
+  turns that code off. This is the mitigation documented by the finders and by
+  Omnissa for Horizon (KB 6001932). The cost is slightly slower Base64.
+  - To check a Linux host: `grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' |
+    grep -E '^(avx512f|avx512bw|avx512vbmi|bmi2)$'`. A host is exposed only if
+    all four are listed. arm64 hosts are not affected.
+  - **If you run the jar outside the image**, add the flag to your own `java`
+    command, or use a Java runtime that carries the fix (25.0.5.1 or later).
+- **Spring Boot 4.1.3**, which brings Spring Security 7.1.3 and Spring
+  Framework 7.0.11. Spring Security 7.1.3 fixes CVE-2026-59333; its details
+  had not been published when this release was built.
+- **Tomcat 11.0.29** (was 11.0.27), set explicitly because Boot 4.1.3 still
+  manages 11.0.27. It closes the ten issues Apache published on 2026-11-19.
+  Most are in features this application does not use (HTTP/2, RewriteValve,
+  ExpiresFilter, the CGI servlet, clustering). CVE-2026-133325, which Apache
+  lists against 11.0.29 itself, needs Tomcat clustering and does not apply.
+
+### Not in this release
+
+- **The Java runtime itself is unchanged**, still Temurin 25.0.5. The
+  mitigation above covers CVE-2026-114938 only. CVE-2026-114940 (TLS) and
+  CVE-2026-114941 (compiler) from the same Oracle advisory have no published
+  workaround; they are fixed in Java 25.0.5.1. Temurin 25.0.5.1 was released
+  on 2026-11-18 but its container image had not been published when this
+  release was built. A rebuild will follow, and will drop the flag.
+
 ## [1.24.1] - 2026-11-18
 
 A maintenance release: build and API-reference dependencies only. No change in
