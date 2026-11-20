@@ -50,11 +50,8 @@ MSG
     exit 78
 fi
 
-# -XX:-UseBASE64Intrinsics turns off the hardware-accelerated Base64 code in
-# the JVM. That code is where CVE-2026-114938 ("Java4Shell") lives: a memory
-# corruption reachable before sign-in, on x86-64 hosts with AVX-512 VBMI. The
-# flag is the mitigation the finders and Omnissa (KB 6001932) both document,
-# it is accepted on arm64 too, and the cost is slightly slower Base64. It
-# stays until the image is built on a Java runtime that carries the fix.
-exec java -XX:-UseBASE64Intrinsics -Djava.security.egd=file:/dev/./urandom -jar /app/app.jar \
+# 1.24.2 passed -XX:-UseBASE64Intrinsics here to mitigate CVE-2026-114938. The
+# image has been built on Java 25.0.5.1 since 1.24.3, which carries the fix, so
+# the flag is gone.
+exec java -Djava.security.egd=file:/dev/./urandom -jar /app/app.jar \
     --spring.config.additional-location=file:./config/ "$@"
