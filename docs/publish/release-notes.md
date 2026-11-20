@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.24.1 and complete version history"
+subtitle: "Release Notes — v1.24.2 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.24.2** | Security: CVE-2026-114938 ("Java4Shell") mitigated in the image; Spring Boot 4.1.3 with Spring Security 7.1.3; Tomcat 11.0.29 | `v1.24.2` |
 | **1.24.1** | Maintenance: swagger-ui 5.35.0, Vite 8.3.8, Tailwind CSS 4.3.5, Maven wrapper 3.10.1; no change in behaviour | `v1.24.1` |
 | **1.24.0** | Hardening against automated attack tooling: the container runs as an unprivileged user; the API reference needs a session; a weak callout password is reported; GitHub Actions pinned to commit hashes | `v1.24.0` |
 | **1.23.6** | The API reference page is back (springdoc names the webjar folder by its own pinned version); the appliance updater probes the address the container is published on | `v1.23.6` |
@@ -104,11 +105,33 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.24.1`, `v1.24.0`, `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.24.2`, `v1.24.1`, `v1.24.0`, `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus the moving `latest` tag, which since 1.23.1 points at the newest release. Moving `major.minor` tags stopped at 1.21.x: the updater pins the immutable full version.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.24.2
+
+A security release. There is nothing to do on upgrade. The suite is 523 tests.
+
+- **CVE-2026-114938 ("Java4Shell") is mitigated in the image.** The flaw is in
+  the JVM's hardware-accelerated Base64 decoder, is reachable before sign-in,
+  and affects x86-64 hosts with AVX-512 VBMI (recent Intel Xeon, AMD Zen 4 or
+  newer). The container now starts Java with `-XX:-UseBASE64Intrinsics`, the
+  mitigation documented by the finders and by Omnissa KB 6001932. If you run
+  the jar outside the image, add the flag to your own `java` command.
+- **Spring Boot 4.1.3**, with Spring Security 7.1.3 (fixes CVE-2026-59333) and
+  Spring Framework 7.0.11.
+- **Tomcat 11.0.29**, closing the issues Apache published on 2026-11-19
+  against 11.0.27. CVE-2026-133325 needs Tomcat clustering and does not apply.
+
+The Java runtime itself is still Temurin 25.0.5. CVE-2026-114940 and
+CVE-2026-114941 from the same advisory are fixed in Java 25.0.5.1; a rebuild
+will follow when the Temurin 25.0.5.1 container image is published, and will
+drop the flag.
 
 ---
 
