@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.3] - 2026-11-20
+
+A rebuild on the patched Java runtime. No application code changed and there
+is nothing to do on upgrade. The suite is 523 tests (none new).
+
+### Security
+
+- **The image is now built on Temurin 25.0.5.1** (was 25.0.5). This is the
+  Java release that fixes the three issues in Oracle's November 2026 advisory:
+  CVE-2026-114938 ("Java4Shell"), CVE-2026-114940 (TLS) and CVE-2026-114941
+  (compiler). The image for each architecture reports `25.0.5.1`.
+
+### Changed
+
+- **The `-XX:-UseBASE64Intrinsics` flag added in 1.24.2 is removed.** It was a
+  stopgap for CVE-2026-114938 until a fixed runtime was available.
+- **If you run the jar outside the image**, move to a Java runtime at 25.0.5.1,
+  21.0.13.1 or 17.0.21.1 or later, then drop the flag from your own command.
+
+### Unchanged
+
+- Tomcat stays at 11.0.29 through the explicit `tomcat.version` setting. Spring
+  Boot 4.1.3 still manages 11.0.27, and Tomcat 11.0.30 had not been released
+  when this release was built.
+
 ## [1.24.2] - 2026-11-19
 
 A security release. It mitigates CVE-2026-114938 in the image and moves the
