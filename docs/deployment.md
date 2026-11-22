@@ -129,7 +129,7 @@ Verify with `curl http://<host>:8081/actuator/health` — it should return
 - **Forwarded headers**: set `X-Forwarded-Proto` and `X-Forwarded-Host` from
   the proxy's own view of the request — overwrite them, never pass a client's
   copy through — and append to `X-Forwarded-For`. The app already sets
-  `server.forward-headers-strategy=framework`, so it honors them without
+  `server.request.header.forwarded.strategy=framework`, so it honors them without
   extra configuration — this is how it generates correct `https://` OAuth2
   redirect URIs behind the proxy. It trusts those two headers from whoever
   sends them, which is why the proxy must own them and why port 8081 should

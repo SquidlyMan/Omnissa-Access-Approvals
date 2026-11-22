@@ -104,7 +104,7 @@ class ClientIpTest {
     @DisplayName("getRemoteAddr is NOT a safe fallback: the framework rewrites it from the header")
     void remoteAddrIsItselfForged() throws Exception {
         // The reason ClientAddressFilter has to capture the peer early, kept as a
-        // test so that a future change to server.forward-headers-strategy shows
+        // test so that a future change to server.request.header.forwarded.strategy shows
         // up here rather than silently restoring the vulnerability.
         ForwardedHeaderFilter framework = new ForwardedHeaderFilter();
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/approvals/new");

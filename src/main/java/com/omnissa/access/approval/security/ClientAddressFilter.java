@@ -9,7 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * Records the true socket peer and the raw {@code X-Forwarded-For} header before
  * anything else can rewrite them.
  *
- * <p>This exists because {@code server.forward-headers-strategy=framework} is
+ * <p>This exists because {@code server.request.header.forwarded.strategy=framework} is
  * set, which puts Spring's {@code ForwardedHeaderFilter} in the chain. That
  * filter is doing its job — it makes redirect URLs and the OIDC redirect URI
  * correct behind a reverse proxy — but two of its effects are fatal to using a
