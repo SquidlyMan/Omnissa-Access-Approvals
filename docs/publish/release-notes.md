@@ -1,6 +1,6 @@
 ---
 title: "Access Approval Tool for Omnissa"
-subtitle: "Release Notes — v1.24.3 and complete version history"
+subtitle: "Release Notes — v1.25.0 and complete version history"
 author: "Dean Flaming (SquidlyMan)"
 date: "MIT License"
 ---
@@ -57,6 +57,7 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 
 | Version | Theme | First shipped in |
 |---|---|---|
+| **1.25.0** | Platform: Spring Boot 4.2.0 (Spring Framework 7.1.0, Spring Security 7.2.0), springdoc 3.2.1, swagger-ui 5.35.1, React Router 7.18.6, Tailwind CSS 4.3.5; no change in behaviour | `v1.25.0` |
 | **1.24.3** | Security: image rebuilt on Temurin 25.0.5.1, which fixes CVE-2026-114938, CVE-2026-114940 and CVE-2026-114941; the 1.24.2 stopgap flag removed | `v1.24.3` |
 | **1.24.2** | Security: CVE-2026-114938 ("Java4Shell") mitigated in the image; Spring Boot 4.1.3 with Spring Security 7.1.3; Tomcat 11.0.29 | `v1.24.2` |
 | **1.24.1** | Maintenance: swagger-ui 5.35.0, Vite 8.3.8, Tailwind CSS 4.3.5, Maven wrapper 3.10.1; no change in behaviour | `v1.24.1` |
@@ -106,11 +107,37 @@ was backfilled, so versions 1.5.0 through 1.9.1 were written up only after
 | **1.1.0** | Decision webhooks, named attribution | `v1.5.6` |
 | **1.0.0** | Initial public release | `v1.0.0` |
 
-Published images: `v1.24.3`, `v1.24.2`, `v1.24.1`, `v1.24.0`, `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
+Published images: `v1.25.0`, `v1.24.3`, `v1.24.2`, `v1.24.1`, `v1.24.0`, `v1.23.6`, `v1.23.5`, `v1.23.4`, `v1.23.3`, `v1.23.2`, `v1.23.1`, `v1.23.0`, `v1.22.1`, `v1.22.0`, `v1.21.1`, `v1.21.0`, `v1.20.0`, `v1.19.12`, `v1.19.11`, `v1.19.10`, `v1.19.9`, `v1.19.8`, `v1.19.7`, `v1.19.6`, `v1.19.5`, `v1.19.4`, `v1.19.3`, `v1.19.2`, `v1.19.1`, `v1.18.0`, `v1.16.1`, `v1.9.5`, `v1.9.1`,
 `v1.5.6`, `v1.0.0` — plus the moving `latest` tag, which since 1.23.1 points at the newest release. Moving `major.minor` tags stopped at 1.21.x: the updater pins the immutable full version.
 
 For everything added since v1.2 grouped by capability rather than by release,
 see the companion **Feature Summary** document.
+
+---
+
+# What's New in Access Approval Tool v1.25.0
+
+A platform release. Every dependency moves to its newest version. The
+application behaves as before and there is nothing to do on upgrade unless you
+override the forwarded-header setting yourself. The suite is 523 tests.
+
+- **Spring Boot 4.2.0** (was 4.1.3), which brings Spring Framework 7.1.0 and
+  Spring Security 7.2.0.
+- **springdoc 3.2.1** (was 3.2.0), built for the Spring Boot 4.2 line, with
+  swagger-ui 5.35.1.
+- **React Router 7.18.6 and Tailwind CSS 4.3.5** in the frontend.
+- **The forwarded-header setting has a new name.** Spring Boot 4.2 renamed
+  `server.forward-headers-strategy` to
+  `server.request.header.forwarded.strategy`. The application sets the new name
+  itself. If you set the old one in your own configuration it still works, and
+  Spring Boot plans to remove it in 4.4.
+- **Redirects are unchanged.** Spring Boot 4.2 made Tomcat's redirects
+  relative by default; the application sets
+  `server.tomcat.servlet.use-relative-redirects=false` so that a proxy still
+  sees `302` with the full public address.
+- **`X-Forwarded-Prefix` is ignored**, which is Spring Boot 4.2's default. The
+  application is served at the root of its hostname and never used it.
+- Tomcat stays at 11.0.29 and Java at Temurin 25.0.5.1.
 
 ---
 

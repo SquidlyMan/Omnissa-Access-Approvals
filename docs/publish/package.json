@@ -7,7 +7,7 @@
   },
   "type": "commonjs",
   "dependencies": {
-    "docx": "^9.15.1"
+    "docx": "^9.16.0"
   },
   "private": true
 }

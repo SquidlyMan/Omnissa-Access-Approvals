@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.25.0] - 2026-11-21
+
+A platform release: every dependency moves to its newest version. The
+application behaves as before. There is nothing to do on upgrade unless you set
+the forwarded-header strategy in your own configuration. The suite is 523 tests
+(none new).
+
+### Changed
+
+- **Spring Boot 4.2.0** (was 4.1.3). It manages Spring Framework 7.1.0 (was
+  7.0.11) and Spring Security 7.2.0 (was 7.1.3).
+- **springdoc 3.2.1** (was 3.2.0). This is its Spring Boot 4.2 line and moves to
+  swagger-core 3.0 on Jackson 3.
+- **swagger-ui 5.35.1** (was 5.35.0), with `springdoc.swagger-ui.version` moved
+  to match.
+- **React Router 7.18.6** (was 7.18.5) and **Tailwind CSS 4.3.5** (was 4.3.4).
+- **`server.forward-headers-strategy` is now
+  `server.request.header.forwarded.strategy`**, following the rename in Spring
+  Boot 4.2. The value is still `framework`. The old name keeps working if you
+  set it yourself; Spring Boot plans to remove it in 4.4.
+- **`X-Forwarded-Prefix` is no longer honoured**, the Spring Boot 4.2 default.
+  The application is served at the root of its hostname and never relied on it.
+  `X-Forwarded-Proto`, `X-Forwarded-Host` and `X-Forwarded-For` are handled as
+  before.
+- **Redirects stay absolute.** Spring Boot 4.2 switched Tomcat to relative
+  redirects by default, which would have changed the sign-in redirect behind a
+  proxy from `302 Location: https://<host>/login` to `303 Location: /login`.
+  `server.tomcat.servlet.use-relative-redirects=false` keeps the earlier form.
+- **Jackson 2 is declared as a direct dependency.** The application's own JSON
+  handling has always used it, but the jar arrived only through swagger-core
+  2.x, which springdoc 3.2.1 no longer brings. Spring Boot manages the version
+  (2.21.8, unchanged).
+- The document generator under `docs/publish` uses docx 9.16.0 (was 9.15.1).
+
+### Unchanged
+
+- Tomcat stays at 11.0.29 through the explicit `tomcat.version` setting. Spring
+  Boot 4.2.0 still manages 11.0.27, and Tomcat 11.0.30 has not been released.
+- The image is still built on Temurin 25.0.5.1.
+
 ## [1.24.3] - 2026-11-20
 
 A rebuild on the patched Java runtime. No application code changed and there

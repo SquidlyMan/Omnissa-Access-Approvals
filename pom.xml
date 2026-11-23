@@ -5,7 +5,7 @@
 
     <groupId>com.omnissa.access</groupId>
     <artifactId>omnissa-approval</artifactId>
-    <version>1.24.3</version>
+    <version>1.25.0</version>
     <packaging>jar</packaging>
 
     <name>omnissaApproval</name>
@@ -14,14 +14,14 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.3</version>
+        <version>4.2.0</version>
         <relativePath/>
     </parent>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>17</java.version>
-        <!-- Spring Boot 4.1.3 still manages Tomcat 11.0.27. 11.0.29 closes the
+        <!-- Spring Boot 4.2.0 still manages Tomcat 11.0.27. 11.0.29 closes the
              ten issues Apache published on 2026-11-19 against 11.0.27. Its own
              CVE-2026-133325 needs Tomcat clustering, which this application
              does not use. Remove this line once Boot manages 11.0.30 or later. -->
@@ -30,10 +30,11 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- springdoc 3.2.0 pins swagger-ui 5.34.0, whose bundled DOMPurify
+            <!-- springdoc 3.2.0 pinned swagger-ui 5.34.0, whose bundled DOMPurify
                  3.4.16 is affected by GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr and
                  GHSA-c6gr-qvv4-5v3f. 5.34.1 and later carry the fixed DOMPurify
-                 3.4.17; Dependabot keeps this pin current (5.35.0 in 1.24.1).
+                 3.4.17; Dependabot keeps this pin current. springdoc 3.2.1
+                 manages 5.35.1 itself, so in 1.25.0 the pin equals its default.
                  springdoc looks for the page under the
                  folder named by springdoc.swagger-ui.version (its own default
                  is the version it was built with), so application.properties
@@ -42,7 +43,7 @@
             <dependency>
                 <groupId>org.webjars</groupId>
                 <artifactId>swagger-ui</artifactId>
-                <version>5.35.0</version>
+                <version>5.35.1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -76,7 +77,16 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.2.0</version>
+            <version>3.2.1</version>
+        </dependency>
+        <!-- The application's own JSON handling (JsonBodies, the Access and
+             registry clients) uses Jackson 2. Until springdoc 3.2.1 this jar
+             arrived only as a transitive dependency of swagger-core 2.x;
+             swagger-core 3.0 moved to Jackson 3, so it is declared here. Spring
+             Boot manages the version. Spring MVC itself serialises with Jackson 3. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
